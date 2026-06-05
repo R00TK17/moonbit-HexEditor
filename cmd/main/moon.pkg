@@ -6,4 +6,9 @@ import {
 
 options(
   "is-main": true,
+  "native-stub": [ "tui_stub.c" ],
+  targets: {
+    "main.mbt": [ "native" ],
+    "tui.mbt": [ "native" ],
+  },
 )
