@@ -10,5 +10,6 @@ options(
   targets: {
     "main.mbt": [ "native" ],
     "tui.mbt": [ "native" ],
+    "main_wasm.mbt": [ "wasm", "wasm-gc", "js" ],
   },
 )
