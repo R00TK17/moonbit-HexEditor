@@ -68,31 +68,30 @@ int tui_get_key(void) {
     int c = getchar();
 
     if (c == 27) {
-        // Check for escape sequence with short timeout
+        // Check for escape sequence
         fd_set fds;
-        FD_ZERO(&fds);
-        FD_SET(STDIN_FILENO, &fds);
         struct timeval tv;
-        tv.tv_sec = 0; tv.tv_usec = 50000;
+        FD_ZERO(&fds); FD_SET(STDIN_FILENO, &fds);
+        tv.tv_sec = 0; tv.tv_usec = 150000; // 150ms for first byte after ESC
         if (select(1, &fds, NULL, NULL, &tv) > 0) {
             int c2 = getchar();
             if (c2 == '[') {
                 FD_ZERO(&fds); FD_SET(STDIN_FILENO, &fds);
-                tv.tv_sec = 0; tv.tv_usec = 50000;
+                tv.tv_sec = 0; tv.tv_usec = 100000; // 100ms
                 if (select(1, &fds, NULL, NULL, &tv) > 0) {
                     int c3 = getchar();
                     if (c3 >= '0' && c3 <= '9') {
                         int num = c3 - '0';
                         FD_ZERO(&fds); FD_SET(STDIN_FILENO, &fds);
-                        tv.tv_sec = 0; tv.tv_usec = 50000;
+                        tv.tv_sec = 0; tv.tv_usec = 80000;
                         if (select(1, &fds, NULL, NULL, &tv) > 0) {
                             int c4 = getchar();
                             if (c4 >= '0' && c4 <= '9') {
                                 num = num * 10 + (c4 - '0');
                                 FD_ZERO(&fds); FD_SET(STDIN_FILENO, &fds);
-                                tv.tv_sec = 0; tv.tv_usec = 50000;
+                                tv.tv_sec = 0; tv.tv_usec = 80000;
                                 if (select(1, &fds, NULL, NULL, &tv) > 0) {
-                                    getchar(); // consume final byte
+                                    getchar();
                                 }
                             }
                         }
@@ -116,7 +115,7 @@ int tui_get_key(void) {
                 }
             } else if (c2 == 'O') {
                 FD_ZERO(&fds); FD_SET(STDIN_FILENO, &fds);
-                tv.tv_sec = 0; tv.tv_usec = 50000;
+                tv.tv_sec = 0; tv.tv_usec = 100000;
                 if (select(1, &fds, NULL, NULL, &tv) > 0) {
                     int c3 = getchar();
                     tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
