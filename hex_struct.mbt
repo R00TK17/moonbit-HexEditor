@@ -30,6 +30,10 @@ pub fn parse_structure(bytes : Bytes) -> Array[StructField] {
   else if magic_be == 0x8950 { parse_png(bytes) }
   else if magic_be == 0x4D5A || magic_be == 0x5A4D { parse_pe(bytes) }
   else if magic_le == 0x04034B50 { parse_zip(bytes) }
+  else if len >= 6 && (read_str(bytes, 0, 6) == "GIF87a" || read_str(bytes, 0, 6) == "GIF89a") { parse_gif(bytes) }
+  else if magic_be == 0x424D { parse_bmp(bytes) }
+  else if len >= 7 && read_str(bytes, 0, 4) == "Rar!" { parse_rar(bytes) }
+  else if len >= 512 && read_str(bytes, 257, 5) == "ustar" { parse_tar(bytes) }
   else if len >= 4 && bytes[0] == b'\x7F' && bytes[1] == b'E' && bytes[2] == b'L' && bytes[3] == b'F' {
     parse_elf(bytes)
   }
@@ -344,6 +348,238 @@ fn parse_zip(bytes : Bytes) -> Array[StructField] {
     fields.push(field(0, len, "Unknown ZIP", "\{len} bytes", "ZIP signature not found"))
   }
   fields
+}
+
+// ============== GIF ==============
+
+fn parse_gif(bytes : Bytes) -> Array[StructField] {
+  let len = bytes.length()
+  let fields = []
+  let ver = read_str(bytes, 0, 6)
+  fields.push(field(0, 6, "Signature", ver, "GIF signature"))
+
+  let w = read_u16_le(bytes, 6)
+  let h = read_u16_le(bytes, 8)
+  let packed = bytes[10].to_int()
+  let bg = bytes[11].to_int()
+  let gct_size = 1 << ((packed & 7) + 1)
+  let has_gct = (packed >> 7) & 1
+
+  fields.push(group(6, 7, "Screen Descriptor", "\{w}x\{h} (0x\{hex(w, 4)} x 0x\{hex(h, 4)}), GCT=\{gct_size} colors", [
+    field(6, 2, "Width", "\{w} (0x\{hex(w, 4)})", ""),
+    field(8, 2, "Height", "\{h} (0x\{hex(h, 4)})", ""),
+    field(10, 1, "Packed", "0x\{hex(packed, 2)}", "GCT=\{has_gct}, Size=\{gct_size}"),
+    field(11, 1, "Background", "\{bg}", "Background color index"),
+    field(12, 1, "Aspect", "\{bytes[12].to_int()}", "Pixel aspect ratio"),
+  ]))
+
+  let mut pos = 13
+  if has_gct != 0 {
+    let gct_bytes = gct_size * 3
+    fields.push(field(pos, gct_bytes, "Global Color Table", "\{gct_size} colors x 3 bytes", ""))
+    pos = pos + gct_bytes
+  }
+
+  let mut img_count = 0
+  for iter = 0; pos < len && iter < 50; iter = iter + 1 {
+    let b = bytes[pos].to_int()
+    if b == 0x2C {
+      img_count = img_count + 1
+      let iw = read_u16_le(bytes, pos + 5)
+      let ih = read_u16_le(bytes, pos + 7)
+      fields.push(group(pos, 10, "Image #\{img_count}", "\{iw}x\{ih} at (\{read_u16_le(bytes, pos + 1)}, \{read_u16_le(bytes, pos + 3)})", [
+        field(pos, 1, "Separator", "0x2C", "Image descriptor"),
+        field(pos + 1, 2, "Left", "\{read_u16_le(bytes, pos + 1)}", ""),
+        field(pos + 3, 2, "Top", "\{read_u16_le(bytes, pos + 3)}", ""),
+        field(pos + 5, 2, "Width", "\{iw}", ""),
+        field(pos + 7, 2, "Height", "\{ih}", ""),
+        field(pos + 9, 1, "Packed", "0x\{hex(bytes[pos + 9].to_int(), 2)}", ""),
+      ]))
+      pos = pos + 10
+      // Skip LZW code size and image data
+      if pos < len {
+        let lzw_size = bytes[pos].to_int()
+        fields.push(field(pos, 1, "LZWMinCode", "\{lzw_size}", "LZW minimum code size"))
+        pos = pos + 1
+        while pos < len {
+          let block_size = bytes[pos].to_int()
+          if block_size == 0 { pos = pos + 1; break }
+          if pos + 1 + block_size <= len {
+            fields.push(field(pos, 1 + block_size, "DataBlock", "\{block_size} bytes", ""))
+            pos = pos + 1 + block_size
+          } else { break }
+        }
+      }
+    } else if b == 0x21 {
+      if pos + 1 < len {
+        let ext_type = bytes[pos + 1].to_int()
+        let ext_name = match ext_type { 0xF9 => "GCE"; 0xFE => "Comment"; 0xFF => "App"; 0x01 => "Text"; _ => "Ext" }
+        let mut ext_pos = pos + 2
+        while ext_pos < len {
+          let bs = bytes[ext_pos].to_int()
+          if bs == 0 { ext_pos = ext_pos + 1; break }
+          if ext_pos + 1 + bs <= len {
+            fields.push(field(ext_pos, 1 + bs, "\{ext_name}Data", "\{bs} bytes", ""))
+            ext_pos = ext_pos + 1 + bs
+          } else { break }
+        }
+        pos = ext_pos
+      } else { break }
+    } else if b == 0x3B {
+      fields.push(field(pos, 1, "Trailer", "0x3B", "End of GIF"))
+      break
+    } else { break }
+  }
+  fields
+}
+
+// ============== BMP ==============
+
+fn parse_bmp(bytes : Bytes) -> Array[StructField] {
+  let len = bytes.length()
+  let fields = []
+  guard len >= 14 else { return [field(0, len, "TRUNCATED", "", "Too small for BMP")] }
+
+  let file_size = read_u32_le(bytes, 2)
+  let data_off = read_u32_le(bytes, 10)
+  let hdr_size = read_u32_le(bytes, 14)
+  let w = read_u32_le(bytes, 18)
+  let h = read_u32_le(bytes, 22)
+  let planes = read_u16_le(bytes, 26)
+  let bpp = read_u16_le(bytes, 28)
+  let comp = read_u32_le(bytes, 30)
+  let comp_str = match comp { 0 => "RGB"; 1 => "RLE8"; 2 => "RLE4"; 3 => "Bitfields"; _ => "?" }
+
+  fields.push(group(0, 14, "BMP Header", "\{file_size} bytes, data at 0x\{hex(data_off, 8)}", [
+    field(0, 2, "Signature", "BM", ""),
+    field(2, 4, "FileSize", "\{file_size}", ""),
+    field(10, 4, "DataOffset", "0x\{hex(data_off, 8)}", ""),
+  ]))
+
+  fields.push(group(14, hdr_size, "DIB Header", "\{w}x\{h} (0x\{hex(w, 8)} x 0x\{hex(h, 8)}), \{bpp}bpp, \{comp_str}", [
+    field(14, 4, "HeaderSize", "\{hdr_size}", ""),
+    field(18, 4, "Width", "\{w} (0x\{hex(w, 8)})", ""),
+    field(22, 4, "Height", "\{h} (0x\{hex(h, 8)})", ""),
+    field(26, 2, "Planes", "\{planes}", ""),
+    field(28, 2, "BitsPerPixel", "\{bpp}", ""),
+    field(30, 4, "Compression", comp_str, ""),
+  ]))
+
+  let pixel_start = 14 + hdr_size
+  if data_off > pixel_start {
+    fields.push(field(pixel_start, data_off - pixel_start, "Palette/Gap", "\{data_off - pixel_start} bytes", "Color table or gap"))
+  }
+  if data_off < len {
+    fields.push(field(data_off, len - data_off, "PixelData", "\{len - data_off} bytes", "Bitmap pixels"))
+  }
+  fields
+}
+
+// ============== RAR ==============
+
+fn parse_rar(bytes : Bytes) -> Array[StructField] {
+  let len = bytes.length()
+  let fields = []
+  let ver = read_str(bytes, 0, 4)
+  fields.push(field(0, 7, "Signature", "\{ver}!\\x1A\\x07", "RAR archive"))
+  let is_rar5 = len >= 8 && bytes[7].to_int() == 1
+  fields.push(field(7, 1, "Version", if is_rar5 { "RAR5" } else { "RAR4" }, ""))
+
+  let mut pos = 8
+  let mut block_count = 0
+  for iter = 0; pos + 7 <= len && iter < 100; iter = iter + 1 {
+    let head_crc = read_u16_le(bytes, pos)
+    let head_type = bytes[pos + 2].to_int()
+    let head_flags = read_u16_le(bytes, pos + 3)
+    let head_size = read_u16_le(bytes, pos + 5)
+    if head_size == 0 || pos + head_size > len { break }
+
+    let type_str = match head_type {
+      0x72 => "Marker"; 0x73 => "Archive"; 0x74 => "File"
+      0x75 => "Comment"; 0x76 => "Extra"; 0x77 => "OldRecovery"
+      0x78 => "SubBlock"; 0x79 => "Recovery"; 0x7A => "Authenticity"
+      _ => "Type_\{head_type}"
+    }
+    let desc = if head_type == 0x74 {
+      let name_len = if pos + 32 <= len { read_u16_le(bytes, pos + 7) } else { 0 }
+      if name_len > 0 && pos + 32 + name_len <= len { read_str(bytes, pos + 32, name_len) } else { "" }
+    } else { "" }
+    let desc_text = if desc != "" { ": \{desc}" } else { "" }
+
+    fields.push(group(pos, head_size, "\{type_str} Block #\{block_count + 1}", "\{head_size} bytes\{desc_text}", [
+      field(pos, 2, "CRC16", "0x\{hex(head_crc, 4)}", ""),
+      field(pos + 2, 1, "Type", type_str, ""),
+      field(pos + 3, 2, "Flags", "0x\{hex(head_flags, 4)}", ""),
+      field(pos + 5, 2, "Size", "\{head_size}", ""),
+    ]))
+    block_count = block_count + 1
+    pos = pos + head_size
+  }
+  if pos < len {
+    fields.push(field(pos, len - pos, "Trailing", "\{len - pos} bytes", ""))
+  }
+  fields
+}
+
+// ============== TAR ==============
+
+fn parse_tar(bytes : Bytes) -> Array[StructField] {
+  let len = bytes.length()
+  let fields = []
+  fields.push(field(257, 5, "USTAR", "ustar", "POSIX tar format"))
+
+  let mut pos = 0
+  let mut file_count = 0
+  for iter = 0; pos + 512 <= len && iter < 200; iter = iter + 1 {
+    // Check for end: two zero blocks
+    let mut empty = true
+    for i = pos; i < pos + 512 && i < len; i = i + 1 {
+      if bytes[i] != b'\x00' { empty = false; break }
+    }
+    if empty { break }
+
+    let name = read_str(bytes, pos, 100)
+    let sz_str = read_str(bytes, pos + 124, 12)
+    let size = parse_octal(sz_str)
+    let typeflag = bytes[pos + 156].to_int()
+    let tf = if typeflag == 0 || typeflag == '0'.to_int() { "File" }
+    else if typeflag == '5'.to_int() { "Dir" }
+    else if typeflag == '2'.to_int() { "Symlink" }
+    else if typeflag == '1'.to_int() { "Hardlink" }
+    else { "?" }
+
+    let blocks = (size + 511) / 512
+    let total = if size > 0 { (blocks + 1) * 512 } else { 512 }
+
+    if name != "" || size > 0 {
+      file_count = file_count + 1
+      fields.push(group(pos, total, "\{tf} #\{file_count}", "\{name} (\{size} bytes)", [
+        field(pos, 100, "Name", name, ""),
+        field(pos + 100, 8, "Mode", read_str(bytes, pos + 100, 8), ""),
+        field(pos + 124, 12, "Size", "\{size}", "\{blocks} data blocks"),
+        field(pos + 136, 12, "MTime", read_str(bytes, pos + 136, 12), "Unix timestamp"),
+        field(pos + 156, 1, "Type", tf, ""),
+      ]))
+    }
+    pos = pos + total
+  }
+  if pos < len {
+    fields.push(field(pos, len - pos, "Trailing", "\{len - pos} bytes", ""))
+  }
+  fields
+}
+
+///|
+/// Parse octal string to integer (used by TAR).
+fn parse_octal(s : String) -> Int {
+  let mut result = 0
+  for i = 0; i < s.length(); i = i + 1 {
+    let c = s.get_char(i).unwrap().to_int()
+    if c >= '0'.to_int() && c <= '7'.to_int() {
+      result = result * 8 + (c - '0'.to_int())
+    }
+  }
+  result
 }
 
 // ============== ELF ==============
