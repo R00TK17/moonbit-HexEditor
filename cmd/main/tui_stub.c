@@ -1,9 +1,14 @@
 // Terminal UI stubs for the hex editor TUI
 #include <stdio.h>
+#include <stdlib.h>
 
 #ifdef _WIN32
 #include <conio.h>
 #include <windows.h>
+#else
+#include <termios.h>
+#include <unistd.h>
+#include <sys/time.h>
 #endif
 
 // Enable ANSI escape codes on Windows 10+
@@ -48,8 +53,86 @@ int tui_get_key(void) {
     }
     return c;
 #else
-    // Unix fallback: return getchar
-    return getchar();
+    // Unix: use termios for non-canonical, no-echo mode
+    struct termios oldt, newt;
+    if (tcgetattr(STDIN_FILENO, &oldt) != 0) return getchar();
+    newt = oldt;
+    newt.c_lflag &= ~(ICANON | ECHO);
+    newt.c_cc[VMIN] = 1;
+    newt.c_cc[VTIME] = 0;
+    if (tcsetattr(STDIN_FILENO, TCSANOW, &newt) != 0) {
+        // Fallback if can't set terminal mode
+        return getchar();
+    }
+
+    int c = getchar();
+
+    if (c == 27) {
+        // Check for escape sequence with short timeout
+        fd_set fds;
+        FD_ZERO(&fds);
+        FD_SET(STDIN_FILENO, &fds);
+        struct timeval tv;
+        tv.tv_sec = 0; tv.tv_usec = 50000;
+        if (select(1, &fds, NULL, NULL, &tv) > 0) {
+            int c2 = getchar();
+            if (c2 == '[') {
+                FD_ZERO(&fds); FD_SET(STDIN_FILENO, &fds);
+                tv.tv_sec = 0; tv.tv_usec = 50000;
+                if (select(1, &fds, NULL, NULL, &tv) > 0) {
+                    int c3 = getchar();
+                    if (c3 >= '0' && c3 <= '9') {
+                        int num = c3 - '0';
+                        FD_ZERO(&fds); FD_SET(STDIN_FILENO, &fds);
+                        tv.tv_sec = 0; tv.tv_usec = 50000;
+                        if (select(1, &fds, NULL, NULL, &tv) > 0) {
+                            int c4 = getchar();
+                            if (c4 >= '0' && c4 <= '9') {
+                                num = num * 10 + (c4 - '0');
+                                FD_ZERO(&fds); FD_SET(STDIN_FILENO, &fds);
+                                tv.tv_sec = 0; tv.tv_usec = 50000;
+                                if (select(1, &fds, NULL, NULL, &tv) > 0) {
+                                    getchar(); // consume final byte
+                                }
+                            }
+                        }
+                        tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+                        switch (num) {
+                            case 5: return -5; case 6: return -6;
+                            case 2: case 3: return -9;
+                            case 1: case 7: return -7;
+                            case 4: case 8: return -8;
+                            default: break;
+                        }
+                    } else {
+                        tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+                        switch (c3) {
+                            case 'A': return -1; case 'B': return -2;
+                            case 'C': return -4; case 'D': return -3;
+                            case 'H': return -7; case 'F': return -8;
+                            default: break;
+                        }
+                    }
+                }
+            } else if (c2 == 'O') {
+                FD_ZERO(&fds); FD_SET(STDIN_FILENO, &fds);
+                tv.tv_sec = 0; tv.tv_usec = 50000;
+                if (select(1, &fds, NULL, NULL, &tv) > 0) {
+                    int c3 = getchar();
+                    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+                    switch (c3) {
+                        case 'A': return -1; case 'B': return -2;
+                        case 'C': return -4; case 'D': return -3;
+                        case 'H': return -7; case 'F': return -8;
+                        default: break;
+                    }
+                }
+            }
+        }
+    }
+
+    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+    return c;
 #endif
 }
 
@@ -58,11 +141,6 @@ void tui_clear_screen(void) {
     enable_ansi();
 #endif
     printf("\033[2J\033[H");
-    fflush(stdout);
-}
-
-void tui_goto(int row, int col) {
-    printf("\033[%d;%dH", row, col);
     fflush(stdout);
 }
 
