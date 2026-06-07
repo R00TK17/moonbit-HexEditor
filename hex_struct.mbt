@@ -35,6 +35,15 @@ pub fn parse_structure(bytes : Bytes) -> Array[StructField] {
   if len >= 7 && read_str(bytes, 0, 4) == "Rar!" { return parse_rar(bytes) }
   if len >= 512 && read_str(bytes, 257, 5) == "ustar" { return parse_tar(bytes) }
   if len >= 2 && is_zlib(bytes) { return parse_zlib(bytes) }
+  // Audio/Video
+  if len >= 12 && read_str(bytes, 0, 4) == "RIFF" && read_str(bytes, 8, 4) == "WAVE" { return parse_wav(bytes) }
+  if len >= 12 && read_str(bytes, 0, 4) == "RIFF" && read_str(bytes, 8, 4) == "AVI " { return parse_avi(bytes) }
+  if magic_be == 0x664C { return parse_flac(bytes) }  // "fL"
+  if len >= 4 && read_str(bytes, 0, 4) == "OggS" { return parse_ogg(bytes) }
+  if len >= 8 && read_str(bytes, 0, 4) == "ID3 " { return parse_mp3(bytes) }
+  if len >= 8 && (read_u32_be(bytes, 4) == 0x66747970) { return parse_mp4(bytes) }  // "ftyp"
+  if read_u32_be(bytes, 0) == 0x1A45DFA3 { return parse_webm(bytes) }
+  // ELF
   if len >= 4 && bytes[0] == b'\x7F' && bytes[1] == b'E' && bytes[2] == b'L' && bytes[3] == b'F' {
     return parse_elf(bytes)
   }
@@ -636,6 +645,314 @@ fn parse_zlib(bytes : Bytes) -> Array[StructField] {
   }
 
   fields
+}
+
+// ============== WAV ==============
+
+fn parse_wav(bytes : Bytes) -> Array[StructField] {
+  let len = bytes.length()
+  let fields = []
+  fields.push(field(0, 4, "RIFF", "RIFF", "Resource Interchange File Format"))
+  let file_size = read_u32_le(bytes, 4)
+  fields.push(field(4, 4, "FileSize", "\{file_size} (0x\{hex(file_size, 8)})", "File size - 8"))
+  fields.push(field(8, 4, "WAVE", "WAVE", "WAVE format"))
+
+  let mut pos = 12
+  for iter = 0; pos + 8 <= len && iter < 30; iter = iter + 1 {
+    let ck_id = read_str(bytes, pos, 4)
+    let ck_size = read_u32_le(bytes, pos + 4)
+    if ck_size == 0 || pos + 8 + ck_size > len { break }
+
+    if ck_id == "fmt " {
+let audio_fmt = read_u16_le(bytes, pos + 8)
+      let channels = read_u16_le(bytes, pos + 10)
+      let sample_rate = read_u32_le(bytes, pos + 12)
+      let bps = read_u16_le(bytes, pos + 22)
+      let fmt_str = match audio_fmt { 1 => "PCM"; 3 => "IEEE Float"; 6 => "ALaw"; 7 => "MuLaw"; _ => "0x\{hex(audio_fmt, 4)}" }
+      fields.push(group(pos, 8 + ck_size, "fmt ", "\{fmt_str}, \{channels}ch, \{sample_rate}Hz, \{bps}bit", [
+        field(pos, 4, "ChunkID", "fmt ", ""),
+        field(pos + 4, 4, "ChunkSize", "\{ck_size}", ""),
+        field(pos + 8, 2, "AudioFormat", fmt_str, ""),
+        field(pos + 10, 2, "Channels", "\{channels}", ""),
+        field(pos + 12, 4, "SampleRate", "\{sample_rate} Hz", ""),
+        field(pos + 16, 4, "ByteRate", "\{read_u32_le(bytes, pos + 16)}", "Bytes/sec"),
+        field(pos + 20, 2, "BlockAlign", "\{read_u16_le(bytes, pos + 20)}", ""),
+        field(pos + 22, 2, "BitsPerSample", "\{bps}", ""),
+      ]))
+    } else if ck_id == "data" {
+fields.push(field(pos, 8 + ck_size, "data", "\{ck_size} bytes", "Audio samples"))
+    } else {
+      fields.push(field(pos, 8 + ck_size, ck_id, "\{ck_size} bytes", "RIFF chunk"))
+    }
+    pos = pos + 8 + ck_size
+    if ck_size % 2 != 0 { pos = pos + 1 }
+  }
+  if pos < len { fields.push(field(pos, len - pos, "Trailing", "\{len - pos} bytes", "")) }
+  fields
+}
+
+// ============== FLAC ==============
+
+fn parse_flac(bytes : Bytes) -> Array[StructField] {
+  let len = bytes.length()
+  let fields = []
+  fields.push(field(0, 4, "Signature", "fLaC", "FLAC magic"))
+
+  let mut pos = 4
+  let mut last_block = false
+  for iter = 0; pos + 4 <= len && iter < 50 && !last_block; iter = iter + 1 {
+    let header = bytes[pos].to_int()
+    last_block = (header >> 7) != 0
+    let block_type = header & 0x7F
+    let block_size = read_u24_be(bytes, pos + 1)
+    if block_size == 0 || pos + 4 + block_size > len { break }
+
+    let type_str = match block_type {
+      0 => "STREAMINFO"; 1 => "PADDING"; 2 => "APPLICATION"
+      3 => "SEEKTABLE"; 4 => "VORBIS_COMMENT"; 5 => "CUESHEET"
+      6 => "PICTURE"; _ => "UNKNOWN"
+    }
+    let desc = if block_type == 0 && pos + 4 + 18 <= len {
+      let _min_block = read_u16_be(bytes, pos + 4)
+      let _max_block = read_u16_be(bytes, pos + 6)
+      let sample_rate = (bytes[pos + 10].to_int() << 12) | (bytes[pos + 11].to_int() << 4) | (bytes[pos + 12].to_int() >> 4)
+      let bps = ((bytes[pos + 12].to_int() & 1) << 4) | ((bytes[pos + 13].to_int() >> 4) & 0xF)
+      let bps = bps + 1
+      let mut total_samples = bytes[pos + 13].to_int() & 0xF
+      for j = 14; j < 18; j = j + 1 { total_samples = total_samples * 256 + bytes[pos + j].to_int() }
+      "\{sample_rate}Hz, \{bps}bit, \{if bps > 1 { bps } else { 0 }}ch, \{total_samples} samples"
+    } else { "\{block_size} bytes" }
+
+    fields.push(group(pos, 4 + block_size, type_str, desc, [
+      field(pos, 1, "Header", "0x\{hex(header, 2)}", "Last=\{last_block}, Type=\{block_type}"),
+      field(pos + 1, 3, "BlockSize", "\{block_size}", ""),
+    ]))
+    pos = pos + 4 + block_size
+  }
+  if pos < len { fields.push(field(pos, len - pos, "Trailing", "\{len - pos} bytes", "")) }
+  fields
+}
+
+///|
+/// Read big-endian uint24 from bytes.
+fn read_u24_be(bytes : Bytes, off : Int) -> Int {
+  guard off + 3 <= bytes.length() else { 0 }
+  bytes[off].to_int() * 65536 + bytes[off + 1].to_int() * 256 + bytes[off + 2].to_int()
+}
+
+// ============== OGG ==============
+
+fn parse_ogg(bytes : Bytes) -> Array[StructField] {
+  let len = bytes.length()
+  let fields = []
+  let mut pos = 0
+  let mut page = 0
+  for iter = 0; pos + 27 <= len && iter < 100; iter = iter + 1 {
+    let sig = read_str(bytes, pos, 4)
+    if sig != "OggS" { break }
+    page = page + 1
+    let version = bytes[pos + 4].to_int()
+    let hdr_type = bytes[pos + 5].to_int()
+    // granule position (unused for display, just skip)
+    let serial = read_u32_le(bytes, pos + 14)
+    let page_seq = read_u32_le(bytes, pos + 18)
+    let segments = bytes[pos + 26].to_int()
+    let mut total_seg_size = 0
+    for i = 0; i < segments; i = i + 1 {
+      if pos + 27 + i < len { total_seg_size = total_seg_size + bytes[pos + 27 + i].to_int() }
+    }
+    let page_size = 27 + segments + total_seg_size
+
+    fields.push(group(pos, page_size, "Page #\{page}", "Seq=\{page_seq}, \{segments} segments, \{total_seg_size}B data", [
+      field(pos, 4, "Signature", "OggS", ""),
+      field(pos + 4, 1, "Version", "\{version}", ""),
+      field(pos + 5, 1, "Flags", "0x\{hex(hdr_type, 2)}", ""),
+      field(pos + 14, 4, "Serial", "0x\{hex(serial, 8)}", ""),
+      field(pos + 18, 4, "PageNo", "\{page_seq}", ""),
+      field(pos + 26, 1, "Segments", "\{segments}", ""),
+    ]))
+    pos = pos + page_size
+  }
+  if pos < len { fields.push(field(pos, len - pos, "Trailing", "\{len - pos} bytes", "")) }
+  fields
+}
+
+// ============== MP4 ==============
+
+fn parse_mp4(bytes : Bytes) -> Array[StructField] {
+  let len = bytes.length()
+  let fields = []
+  let mut pos = 0
+  let mut box_count = 0
+  for iter = 0; pos + 8 <= len && iter < 60; iter = iter + 1 {
+    let box_size = read_u32_be(bytes, pos)
+    let box_type = read_str(bytes, pos + 4, 4)
+    if box_size < 8 || pos + box_size > len { break }
+    box_count = box_count + 1
+
+    let desc = if box_type == "ftyp" && box_size >= 12 {
+      let brand = read_str(bytes, pos + 8, 4)
+      "Brand: \{brand}"
+    } else if box_type == "moov" { "Movie metadata" }
+    else if box_type == "moof" { "Movie fragment" }
+    else if box_type == "mdat" { "Media data" }
+    else if box_type == "trak" { "Track" }
+    else if box_type == "mdia" { "Media" }
+    else { "\{box_size} bytes" }
+
+    fields.push(field(pos, box_size, box_type, "\{box_size} bytes", desc))
+    pos = pos + box_size
+  }
+  if pos < len { fields.push(field(pos, len - pos, "Trailing", "\{len - pos} bytes", "")) }
+  fields
+}
+
+// ============== WebM/MKV ==============
+
+fn parse_webm(bytes : Bytes) -> Array[StructField] {
+  let len = bytes.length()
+  let fields = []
+  let ebml_id = read_u32_be(bytes, 0)
+  fields.push(field(0, 4, "EBML", "0x\{hex(ebml_id, 8)}", "EBML header"))
+
+  let mut pos = 4
+  let mut el_count = 0
+  for iter = 0; pos + 2 <= len && iter < 80; iter = iter + 1 {
+    let (el_id, id_len) = read_ebml_id(bytes, pos, len)
+    let (el_size, size_len) = read_ebml_size(bytes, pos + id_len, len)
+    if el_size == 0 || pos + id_len + size_len + el_size > len { break }
+    el_count = el_count + 1
+
+    let el_name = ebml_name(el_id)
+    let total = id_len + size_len + el_size
+    fields.push(group(pos, total, el_name, "\{el_size} bytes", [
+      field(pos, id_len, "ElementID", "0x\{el_id}", ""),
+      field(pos + id_len, size_len, "ElementSize", "\{el_size}", ""),
+    ]))
+    pos = pos + total
+  }
+  if pos < len { fields.push(field(pos, len - pos, "Trailing", "\{len - pos} bytes", "")) }
+  fields
+}
+
+fn read_ebml_id(bytes : Bytes, off : Int, len : Int) -> (Int, Int) {
+  guard off < len else { (0, 0) }
+  let first = bytes[off].to_int()
+  let mut id_len = 1
+  if (first & 0x80) != 0 { id_len = 1 }
+  else if (first & 0x40) != 0 { id_len = 2 }
+  else if (first & 0x20) != 0 { id_len = 3 }
+  else { id_len = 4 }
+  if off + id_len > len { return (0, id_len) }
+  let mut id = 0
+  for i = 0; i < id_len; i = i + 1 { id = (id << 8) | bytes[off + i].to_int() }
+  (id, id_len)
+}
+
+fn read_ebml_size(bytes : Bytes, off : Int, len : Int) -> (Int, Int) {
+  guard off < len else { (0, 0) }
+  let first = bytes[off].to_int()
+  let mut size_len = 1
+  let mut mask = 0x80
+  for i = 0; i < 8; i = i + 1 {
+    if (first & mask) != 0 { size_len = i + 1; break }
+    mask = mask >> 1
+  }
+  if off + size_len > len { return (0, size_len) }
+  // Clear the marker bit
+  let mut size = first & (mask - 1)
+  for i = 1; i < size_len; i = i + 1 { size = (size << 8) | bytes[off + i].to_int() }
+  (size, size_len)
+}
+
+fn ebml_name(id : Int) -> String {
+  if id == 0x1A45DFA3 { "EBML" }
+  else if id == 0x4286 { "EBMLVersion" }
+  else if id == 0x42F7 { "EBMLReadVersion" }
+  else if id == 0x42F2 { "EBMLMaxIDLength" }
+  else if id == 0x42F3 { "EBMLMaxSizeLength" }
+  else if id == 0x4282 { "DocType" }
+  else if id == 0x4287 { "DocTypeVersion" }
+  else if id == 0x4285 { "DocTypeReadVersion" }
+  else if id == 0x18538067 { "Segment" }
+  else if id == 0x114D9B74 { "SeekHead" }
+  else if id == 0x1549A966 { "Info" }
+  else if id == 0x1654AE6B { "Tracks" }
+  else if id == 0x1F43B675 { "Cluster" }
+  else if id == 0x1254C367 { "Tags" }
+  else if id == 0x1C53BB6B { "Cues" }
+  else if id == 0xE7 { "Void" }
+  else if id == 0xEC { "CRC32" }
+  else { "EBML_0x\{hex(id, 8)}" }
+}
+
+// ============== AVI ==============
+
+fn parse_avi(bytes : Bytes) -> Array[StructField] {
+  let len = bytes.length()
+  let fields = []
+  fields.push(field(0, 4, "RIFF", "RIFF", ""))
+  fields.push(field(4, 4, "FileSize", "\{read_u32_le(bytes, 4)}", ""))
+  fields.push(field(8, 4, "AVI ", "AVI ", "AVI container"))
+  fields.push(field(12, len - 12, "AVI Data", "\{len - 12} bytes", "AVI chunks"))
+  fields
+}
+
+// ============== MP3 ==============
+
+fn parse_mp3(bytes : Bytes) -> Array[StructField] {
+  let len = bytes.length()
+  let fields = []
+  let ver = read_str(bytes, 0, 3)
+  let major = bytes[3].to_int()
+  let rev = bytes[4].to_int()
+  let flags = bytes[5].to_int()
+  let tag_size = read_u32_syncsafe(bytes, 6)
+
+  fields.push(group(0, 10, "ID3v2 Header", "ID3v2.\{major}.\{rev}, \{tag_size} bytes", [
+    field(0, 3, "Signature", ver, ""),
+    field(3, 1, "Version", "2.\{major}.\{rev}", ""),
+    field(5, 1, "Flags", "0x\{hex(flags, 2)}", ""),
+    field(6, 4, "Size", "\{tag_size}", "Syncsafe integer"),
+  ]))
+
+  let total_header = 10 + tag_size
+  if total_header < len {
+    fields.push(field(10, tag_size, "ID3v2 Frames", "\{tag_size} bytes", "ID3 tag data"))
+    // Try to detect first MPEG frame after ID3 tag
+    let data_start = total_header
+    if data_start + 2 <= len {
+      let sync = read_u16_be(bytes, data_start)
+      if (sync >> 5) == 0x7FF {
+        let mpeg_ver = (sync >> 3) & 3
+        let layer = (sync >> 1) & 3
+        let _bitrate_idx = bytes[data_start + 2].to_int() >> 4
+        let sample_rate_idx = (bytes[data_start + 2].to_int() >> 2) & 3
+        let mpeg_ver_str = match mpeg_ver { 3 => "MPEG1"; 2 => "MPEG2"; _ => "?" }
+        let layer_str = match layer { 3 => "LayerI"; 2 => "LayerII"; 1 => "LayerIII"; _ => "?" }
+        let sr = match (mpeg_ver, sample_rate_idx) {
+          (3, 0) => "44100"; (3, 1) => "48000"; (3, 2) => "32000"
+          (2, 0) => "22050"; (2, 1) => "24000"; (2, 2) => "16000"
+          _ => "?"
+        }
+        fields.push(group(data_start, len - data_start, "MPEG Frames", "\{mpeg_ver_str} \{layer_str}, \{sr}Hz", [
+          field(data_start, 2, "Sync", "0x\{hex(sync, 4)}", "Frame sync"),
+          field(data_start + 2, 1, "Bitrate/SR", "0x\{hex(bytes[data_start + 2].to_int(), 2)}", ""),
+        ]))
+      } else {
+        fields.push(field(data_start, len - data_start, "AudioData", "\{len - data_start} bytes", "MPEG audio"))
+      }
+    }
+  }
+  fields
+}
+
+///|
+/// Read syncsafe integer (ID3v2 uses this — each byte has MSB=0).
+fn read_u32_syncsafe(bytes : Bytes, off : Int) -> Int {
+  guard off + 4 <= bytes.length() else { 0 }
+  ((bytes[off].to_int() & 0x7F) << 21) | ((bytes[off + 1].to_int() & 0x7F) << 14) |
+  ((bytes[off + 2].to_int() & 0x7F) << 7) | (bytes[off + 3].to_int() & 0x7F)
 }
 
 // ============== ELF ==============
