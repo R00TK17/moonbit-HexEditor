@@ -5,7 +5,6 @@
 /// FFI declarations
 extern "C" fn tui_get_key() -> Int = "tui_get_key"
 extern "C" fn tui_clear_screen() -> Unit = "tui_clear_screen"
-extern "C" fn tui_goto(row : Int, col : Int) -> Unit = "tui_goto"
 extern "C" fn tui_hide_cursor() -> Unit = "tui_hide_cursor"
 extern "C" fn tui_show_cursor() -> Unit = "tui_show_cursor"
 #borrow(_s)
@@ -41,7 +40,7 @@ fn tui_read_line(prompt : String) -> String {
     } else if key == 8 || key == 127 {
       let s = sb.to_string()
       if s.length() > 0 {
-        let new_s = s[:s.length() - 1].to_string()
+        let new_s = s[:s.length() - 1].to_owned()
         sb = StringBuilder()
         sb.write_string(new_s)
         raw_print(b"\b \b")
