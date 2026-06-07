@@ -24,10 +24,12 @@ fn group(off : Int, sz : Int, name : String, desc : String, kids : Array[StructF
 pub fn parse_structure(bytes : Bytes) -> Array[StructField] {
   let len = bytes.length()
   guard len >= 4 else { return [] }
-  let magic = read_u16_be(bytes, 0)
-  if magic == 0xFFD8 { parse_jpeg(bytes) }
-  else if magic == 0x8950 { parse_png(bytes) }
-  else if magic == 0x4D5A || magic == 0x5A4D { parse_pe(bytes) }
+  let magic_le = read_u32_le(bytes, 0)
+  let magic_be = read_u16_be(bytes, 0)
+  if magic_be == 0xFFD8 { parse_jpeg(bytes) }
+  else if magic_be == 0x8950 { parse_png(bytes) }
+  else if magic_be == 0x4D5A || magic_be == 0x5A4D { parse_pe(bytes) }
+  else if magic_le == 0x04034B50 { parse_zip(bytes) }
   else if len >= 4 && bytes[0] == b'\x7F' && bytes[1] == b'E' && bytes[2] == b'L' && bytes[3] == b'F' {
     parse_elf(bytes)
   }
@@ -257,6 +259,93 @@ fn parse_pe(bytes : Bytes) -> Array[StructField] {
   fields
 }
 
+// ============== ZIP ==============
+
+fn parse_zip(bytes : Bytes) -> Array[StructField] {
+  let len = bytes.length()
+  let fields = []
+
+  // Scan local file headers
+  let mut pos = 0
+  let mut file_count = 0
+  for iter = 0; pos + 30 <= len && iter < 200; iter = iter + 1 {
+    let sig = read_u32_le(bytes, pos)
+    if sig == 0x04034B50 {
+      file_count = file_count + 1
+      let ver = read_u16_le(bytes, pos + 4)
+      let flags = read_u16_le(bytes, pos + 6)
+      let cmethod = read_u16_le(bytes, pos + 8)
+      let crc = read_u32_le(bytes, pos + 14)
+      let comp_size = read_u32_le(bytes, pos + 18)
+      let uncomp_size = read_u32_le(bytes, pos + 22)
+      let name_len = read_u16_le(bytes, pos + 26)
+      let extra_len = read_u16_le(bytes, pos + 28)
+
+      let cmethod_str = match cmethod {
+        0 => "Stored"; 8 => "Deflated"; 12 => "BZip2"; 14 => "LZMA"
+        _ => "Unknown(\{cmethod})"
+      }
+      let name = if name_len > 0 && pos + 30 + name_len <= len {
+        read_str(bytes, pos + 30, name_len)
+      } else { "" }
+      let total = 30 + name_len + extra_len
+
+      let mut desc = cmethod_str
+      if comp_size > 0 && uncomp_size > 0 {
+        desc = "\{desc}, \{comp_size} -> \{uncomp_size} bytes"
+      }
+      if name != "" { desc = "\{desc}: \{name}" }
+
+      fields.push(group(pos, total, "LocalFile #\{file_count}", desc, [
+        field(pos, 4, "Signature", "PK\\03\\04", ""),
+        field(pos + 4, 2, "Version", "\{ver}", ""),
+        field(pos + 6, 2, "Flags", "0x\{hex(flags, 4)}", ""),
+        field(pos + 8, 2, "Method", cmethod_str, ""),
+        field(pos + 14, 4, "CRC32", "0x\{hex(crc, 8)}", ""),
+        field(pos + 18, 4, "CompressedSize", "\{comp_size}", ""),
+        field(pos + 22, 4, "UncompressedSize", "\{uncomp_size}", ""),
+        field(pos + 26, 2, "FileNameLen", "\{name_len}", ""),
+        field(pos + 28, 2, "ExtraLen", "\{extra_len}", ""),
+      ]))
+
+      // File data follows
+      let data_start = pos + total
+      if comp_size > 0 && data_start + comp_size <= len {
+        fields.push(field(data_start, comp_size, "FileData #\{file_count}", "\{comp_size} bytes", "Compressed data"))
+        pos = data_start + comp_size
+      } else {
+        pos = pos + total
+      }
+    } else if sig == 0x02014B50 {
+      // Central directory entry - stop scanning local files
+      break
+    } else if sig == 0x06054B50 {
+      // EOCD
+      let disk = read_u16_le(bytes, pos + 4)
+      let cd_entries = read_u16_le(bytes, pos + 10)
+      let cd_size = read_u32_le(bytes, pos + 12)
+      let cd_offset = read_u32_le(bytes, pos + 16)
+      let comment_len = read_u16_le(bytes, pos + 20)
+      fields.push(group(pos, 22 + comment_len, "EOCD", "\{cd_entries} entries in central dir", [
+        field(pos, 4, "Signature", "PK\\05\\06", ""),
+        field(pos + 4, 2, "DiskNumber", "\{disk}", ""),
+        field(pos + 10, 2, "CentralDirEntries", "\{cd_entries}", ""),
+        field(pos + 12, 4, "CentralDirSize", "\{cd_size} bytes", ""),
+        field(pos + 16, 4, "CentralDirOffset", "0x\{hex(cd_offset, 8)}", ""),
+        field(pos + 20, 2, "CommentLen", "\{comment_len}", ""),
+      ]))
+      break
+    } else {
+      break
+    }
+  }
+
+  if fields.length() == 0 {
+    fields.push(field(0, len, "Unknown ZIP", "\{len} bytes", "ZIP signature not found"))
+  }
+  fields
+}
+
 // ============== ELF ==============
 
 fn parse_elf(bytes : Bytes) -> Array[StructField] {
@@ -314,8 +403,8 @@ fn format_fields(fields : Array[StructField], indent : Int) -> String {
     let f = fields[i]
     if f.children.length() > 0 {
       sb.write_string("\{pad}0x\{hex(f.offset, 8)}  \{f.name}\n")
-      if f.description != "" { sb.write_string("\{pad}         \{f.description}\n") }
-      sb.write_string(format_fields(f.children, indent + 1))
+      if f.description != "" { sb.write_string("\{pad}  \{f.description}\n") }
+      sb.write_string(format_fields(f.children, indent))
     } else {
       sb.write_string("\{pad}0x\{hex(f.offset, 8)}  \{f.name} = \{f.value}")
       if f.description != "" { sb.write_string("  -- \{f.description}") }
