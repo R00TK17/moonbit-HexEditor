@@ -319,11 +319,18 @@ fn parse_zip(bytes : Bytes) -> Array[StructField] {
         desc = "\{desc}, \{comp_size} -> \{uncomp_size} bytes"
       }
       if name != "" { desc = "\{desc}: \{name}" }
+      // Check encryption flag
+      let encrypted = (flags & 1) != 0
+      if encrypted {
+        let pseudo = (crc == 0 && comp_size == 0 && uncomp_size == 0)
+        desc = if pseudo { "\{desc} [Encrypted? - CRC/size in data descriptor]" }
+               else { "\{desc} [Encrypted]" }
+      }
 
       fields.push(group(pos, total, "LocalFile #\{file_count}", desc, [
         field(pos, 4, "Signature", "PK\\03\\04", ""),
         field(pos + 4, 2, "Version", "\{ver}", ""),
-        field(pos + 6, 2, "Flags", "0x\{hex(flags, 4)}", ""),
+        field(pos + 6, 2, "Flags", "0x\{hex(flags, 4)}", if (flags & 1) != 0 { "Encrypted" } else if (flags & 8) != 0 { "DataDescriptor" } else { "" }),
         field(pos + 8, 2, "Method", cmethod_str, ""),
         field(pos + 14, 4, "CRC32", "0x\{hex(crc, 8)}", ""),
         field(pos + 18, 4, "CompressedSize", "\{comp_size}", ""),
@@ -524,12 +531,14 @@ fn parse_rar(bytes : Bytes) -> Array[StructField] {
       let name_len = if pos + 32 <= len { read_u16_le(bytes, pos + 7) } else { 0 }
       if name_len > 0 && pos + 32 + name_len <= len { read_str(bytes, pos + 32, name_len) } else { "" }
     } else { "" }
-    let desc_text = if desc != "" { ": \{desc}" } else { "" }
+    let encrypted = if is_rar5 { (head_flags & 0x80) != 0 } else { (head_flags & 0x01) != 0 }
+    let mut desc_text = if desc != "" { ": \{desc}" } else { "" }
+    if encrypted { desc_text = "\{desc_text} [Encrypted]" }
 
     fields.push(group(pos, head_size, "\{type_str} Block #\{block_count + 1}", "\{head_size} bytes\{desc_text}", [
       field(pos, 2, "CRC16", "0x\{hex(head_crc, 4)}", ""),
       field(pos + 2, 1, "Type", type_str, ""),
-      field(pos + 3, 2, "Flags", "0x\{hex(head_flags, 4)}", ""),
+      field(pos + 3, 2, "Flags", "0x\{hex(head_flags, 4)}", if encrypted { "Encrypted" } else { "" }),
       field(pos + 5, 2, "Size", "\{head_size}", ""),
     ]))
     block_count = block_count + 1
