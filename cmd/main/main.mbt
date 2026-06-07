@@ -1,15 +1,10 @@
 ///|
 /// Hex Editor — CLI + TUI Entry Point (Native Target)
-///
-/// Usage:
-///   moon run --target native cmd/main -- [command] [options]
-///
-/// If no command is given, starts interactive TUI mode.
+/// Shared helpers in helpers.mbt, TUI in tui.mbt + tui_draw.mbt + tui_edit.mbt
 
 fn main {
   let argv = get_argv()
   if argv.length() == 0 {
-    // No arguments: start TUI mode
     run_tui(None)
     return
   }
@@ -20,16 +15,11 @@ fn main {
     "info" => cmd_info(argv)
     "search" => cmd_search(argv)
     "help" => cmd_help()
-    "interactive" | "tui" => {
-      let file_path = find_file_arg(argv, cmd)
-      run_tui(file_path)
-    }
+    "interactive" | "tui" => run_tui(find_file_arg(argv, cmd))
     _ => {
-      // If first arg is a file path, open in TUI
       if cmd.contains(".") || cmd.contains("/") || cmd.contains("\\") {
         run_tui(Some(cmd))
       } else {
-        // Default: TUI
         run_tui(None)
       }
     }
@@ -37,86 +27,11 @@ fn main {
 }
 
 ///|
-/// Get command-line args (skip program name).
-fn get_argv() -> Array[String] {
-  let raw = @sys.get_cli_args()
-  if raw.length() <= 1 {
-    return []
-  }
-  let result = []
-  for i = 1; i < raw.length(); i = i + 1 {
-    result.push(raw[i])
-  }
-  result
-}
-
-///|
-/// Find file path in argv, skipping the command and options.
-fn find_file_arg(argv : Array[String], command : String) -> String? {
-  for i = 0; i < argv.length(); i = i + 1 {
-    if i == 0 && argv[i] == command {
-      continue i + 1
-    }
-    if is_option(argv[i]) {
-      if needs_value(argv[i]) && i + 1 < argv.length() {
-        continue i + 2
-      }
-      continue i + 1
-    }
-    return Some(argv[i])
-  }
-  None
-}
-
-fn is_option(arg : String) -> Bool {
-  string_starts_with(arg, "-")
-}
-
-fn needs_value(arg : String) -> Bool {
-  arg == "-o" || arg == "--offset" ||
-  arg == "-n" || arg == "--length" ||
-  arg == "-b" || arg == "--bytes-per-row"
-}
-
-fn get_flag(argv : Array[String], flag : String) -> Bool {
-  for i = 0; i < argv.length(); i = i + 1 {
-    if argv[i] == flag { return true }
-  }
-  false
-}
-
-fn get_option(argv : Array[String], short : String, long : String, default : String) -> String? {
-  for i = 0; i < argv.length(); i = i + 1 {
-    if (argv[i] == short || argv[i] == long) && i + 1 < argv.length() {
-      return Some(argv[i + 1])
-    }
-  }
-  if default != "" { Some(default) } else { None }
-}
-
-fn get_int_option(argv : Array[String], short : String, long : String, default : Int) -> Int {
-  match get_option(argv, short, long, "") {
-    Some(s) => match parse_int(s) { Some(v) => v; None => default }
-    None => default
-  }
-}
-
-fn string_starts_with(s : String, prefix : String) -> Bool {
-  let sl = s.length()
-  let pl = prefix.length()
-  guard sl >= pl else { false }
-  for i = 0; i < pl; i = i + 1 {
-    if s.get_char(i).unwrap() != prefix.get_char(i).unwrap() { return false }
-  }
-  true
-}
-
-///|
 /// View command.
 fn cmd_view(argv : Array[String]) -> Unit {
   let file_path = match find_file_arg(argv, "view") {
     Some(p) => p
-    None => { println("Usage: view <file> [-o N] [-n N] [-b N]"); return }
+    None => { println("Usage: view <file> [-n N] [-o N]"); return }
   }
   let result = load_file(file_path)
   match result {
@@ -125,24 +40,15 @@ fn cmd_view(argv : Array[String]) -> Unit {
       let offset = get_int_option(argv, "-o", "--offset", 0)
       let length = get_int_option(argv, "-n", "--length", -1)
       let bpr = get_int_option(argv, "-b", "--bytes-per-row", 16)
-      let ascii = !get_flag(argv, "--no-ascii")
-      let upper = !get_flag(argv, "--lowercase")
-
+      let ascii = !has_flag(argv, "--no-ascii")
+      let upper = !has_flag(argv, "--lowercase")
       let len = buf.length()
       let display_len = if length < 0 || offset + length > len { len - offset } else { length }
-
       guard display_len > 0 else { return }
-
       println(@lib.format_buffer_info(buf))
       println("")
-
-      let config = @lib.HexViewConfig::default()
-        .with_bytes_per_row(bpr)
-        .with_ascii(ascii)
-        .with_uppercase(upper)
-
+      let config = build_view_config(bpr, ascii, upper)
       println(@lib.format_hex_dump(buf, start_offset=offset, length=display_len, config=config))
-
       let remaining = len - offset - display_len
       if remaining > 0 { println("... (\{remaining} more bytes)") }
     }
@@ -176,23 +82,6 @@ fn cmd_info(argv : Array[String]) -> Unit {
   }
 }
 
-fn detect_type(magic : Int, size : Int) -> String? {
-  match magic {
-    0xFFD8 => Some("JPEG image")
-    0x8950 => Some("PNG image")
-    0x4749 => Some("GIF image")
-    0x424D => Some("BMP image")
-    0x4D5A | 0x5A4D => Some("PE executable")
-    0x504B => Some("ZIP / Office doc")
-    0x2550 => Some("PDF document")
-    0x1F8B => Some("GZip compressed")
-    0xCAFE => Some("Java class")
-    0xFEFF => Some("UTF-16 BE BOM")
-    0xFFFE => Some("UTF-16 LE BOM")
-    _ => if magic >> 8 == 0x7F && size >= 4 { Some("ELF executable") } else { None }
-  }
-}
-
 ///|
 /// Search command.
 fn cmd_search(argv : Array[String]) -> Unit {
@@ -200,12 +89,10 @@ fn cmd_search(argv : Array[String]) -> Unit {
     Some(p) => p
     None => { println("Usage: search <file> <pattern>"); return }
   }
-  // Find pattern (second positional arg)
   let pattern_str = match find_second_arg(argv, "search") {
     Some(p) => p
     None => { println("Usage: search <file> <pattern>"); return }
   }
-
   let result = load_file(file_path)
   match result {
     Err(m) => { println("Error: \{m}"); return }
@@ -223,13 +110,9 @@ fn cmd_search(argv : Array[String]) -> Unit {
           })
         }
       }
-
       let results = @lib.find_all_bytes(data, search_bytes)
       let count = results.length()
-      if count == 0 {
-        println("Not found.")
-        return
-      }
+      if count == 0 { println("Not found."); return }
       println("Found \{count} match(es):")
       let show = if count < 10 { count } else { 10 }
       let config = @lib.HexViewConfig::default()
@@ -245,24 +128,10 @@ fn cmd_search(argv : Array[String]) -> Unit {
   }
 }
 
-fn find_second_arg(argv : Array[String], cmd : String) -> String? {
-  let mut found_first = false
-  for i = 0; i < argv.length(); i = i + 1 {
-    if argv[i] == cmd { continue i + 1 }
-    if is_option(argv[i]) {
-      if needs_value(argv[i]) { continue i + 2 }
-      continue i + 1
-    }
-    if !found_first { found_first = true; continue i + 1 }
-    return Some(argv[i])
-  }
-  None
-}
-
 ///|
 /// Help.
 fn cmd_help() -> Unit {
-  println("Hex Editor - TUI & CLI")
+  println("Hex Editor — TUI & CLI")
   println("")
   println("  moon run --target native cmd/main              Start TUI mode")
   println("  moon run --target native cmd/main -- <file>    Open file in TUI")
@@ -271,59 +140,9 @@ fn cmd_help() -> Unit {
   println("  moon run --target native cmd/main -- search <f> <p>  Search")
   println("")
   println("TUI Keys:")
-  println("  ↑↓/PgUp/PgDn  Scroll       g     Goto offset")
-  println("  /              Search       n/N   Next/prev match")
-  println("  e              Edit mode    s     Save")
-  println("  o              Open file    :     Command mode")
-  println("  q              Quit")
-}
-
-///|
-/// Load file.
-fn load_file(path : String) -> Result[@lib.HexBuffer, String] {
-  if !@fs.path_exists(path) { return Err("Not found: \{path}") }
-  try {
-    Ok(@lib.HexBuffer::from_file(path))
-  } catch {
-    @fs.IOError::IOError(m) => Err("IO: \{m}")
-    _ => Err("Unknown error")
-  }
-}
-
-///|
-/// Parse integer (supports hex via 0x prefix).
-fn parse_int(s : String) -> Int? {
-  let len = s.length()
-  guard len > 0 else { None }
-  let mut i = 0
-  let mut sign = 1
-  let ch0 = s.get_char(0).unwrap()
-  if ch0 == '-' { sign = -1; i = 1 }
-  else if ch0 == '+' { i = 1 }
-
-  if i + 1 < len && s.get_char(i).unwrap() == '0' {
-    let next = s.get_char(i + 1).unwrap()
-    if next == 'x' || next == 'X' { return parse_hex(s, i + 2, sign) }
-  }
-
-  let mut result = 0
-  for j = i; j < len; j = j + 1 {
-    let d = s.get_char(j).unwrap().to_int() - '0'.to_int()
-    if d < 0 || d > 9 { return None }
-    result = result * 10 + d
-  }
-  Some(result * sign)
-}
-
-fn parse_hex(s : String, start : Int, sign : Int) -> Int? {
-  let mut result = 0
-  for i = start; i < s.length(); i = i + 1 {
-    let c = s.get_char(i).unwrap().to_int()
-    let d = if c >= '0'.to_int() && c <= '9'.to_int() { c - '0'.to_int() }
-    else if c >= 'A'.to_int() && c <= 'F'.to_int() { c - 'A'.to_int() + 10 }
-    else if c >= 'a'.to_int() && c <= 'f'.to_int() { c - 'a'.to_int() + 10 }
-    else { return None }
-    result = result * 16 + d
-  }
-  Some(result * sign)
+  println("  UD/arrows   Scroll       g     Goto offset")
+  println("  LR          Page U/D     /     Hex search")
+  println("  f           Text search  n/N   Next/prev match")
+  println("  e           Edit mode    Esc   Exit edit")
+  println("  q           Quit")
 }
