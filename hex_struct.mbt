@@ -26,18 +26,29 @@ pub fn parse_structure(bytes : Bytes) -> Array[StructField] {
   guard len >= 4 else { return [] }
   let magic_le = read_u32_le(bytes, 0)
   let magic_be = read_u16_be(bytes, 0)
-  if magic_be == 0xFFD8 { parse_jpeg(bytes) }
-  else if magic_be == 0x8950 { parse_png(bytes) }
-  else if magic_be == 0x4D5A || magic_be == 0x5A4D { parse_pe(bytes) }
-  else if magic_le == 0x04034B50 { parse_zip(bytes) }
-  else if len >= 6 && (read_str(bytes, 0, 6) == "GIF87a" || read_str(bytes, 0, 6) == "GIF89a") { parse_gif(bytes) }
-  else if magic_be == 0x424D { parse_bmp(bytes) }
-  else if len >= 7 && read_str(bytes, 0, 4) == "Rar!" { parse_rar(bytes) }
-  else if len >= 512 && read_str(bytes, 257, 5) == "ustar" { parse_tar(bytes) }
-  else if len >= 4 && bytes[0] == b'\x7F' && bytes[1] == b'E' && bytes[2] == b'L' && bytes[3] == b'F' {
-    parse_elf(bytes)
+  if magic_be == 0xFFD8 { return parse_jpeg(bytes) }
+  if magic_be == 0x8950 { return parse_png(bytes) }
+  if magic_be == 0x4D5A || magic_be == 0x5A4D { return parse_pe(bytes) }
+  if magic_le == 0x04034B50 { return parse_zip(bytes) }
+  if len >= 6 && (read_str(bytes, 0, 6) == "GIF87a" || read_str(bytes, 0, 6) == "GIF89a") { return parse_gif(bytes) }
+  if magic_be == 0x424D { return parse_bmp(bytes) }
+  if len >= 7 && read_str(bytes, 0, 4) == "Rar!" { return parse_rar(bytes) }
+  if len >= 512 && read_str(bytes, 257, 5) == "ustar" { return parse_tar(bytes) }
+  if len >= 2 && is_zlib(bytes) { return parse_zlib(bytes) }
+  if len >= 4 && bytes[0] == b'\x7F' && bytes[1] == b'E' && bytes[2] == b'L' && bytes[3] == b'F' {
+    return parse_elf(bytes)
   }
-  else { [] }
+  return []
+}
+
+///|
+/// Check if data starts with a valid ZLIB header.
+fn is_zlib(bytes : Bytes) -> Bool {
+  guard bytes.length() >= 2 else { return false }
+  let cmf = bytes[0].to_int()
+  let flg = bytes[1].to_int()
+  let cm = cmf & 0x0F
+  (cm == 8) && ((cmf * 256 + flg) % 31 == 0)
 }
 
 fn read_u16_be(bytes : Bytes, off : Int) -> Int {
@@ -580,6 +591,51 @@ fn parse_octal(s : String) -> Int {
     }
   }
   result
+}
+
+// ============== ZLIB ==============
+
+fn parse_zlib(bytes : Bytes) -> Array[StructField] {
+  let len = bytes.length()
+  let fields = []
+  let cmf = bytes[0].to_int()
+  let flg = bytes[1].to_int()
+  let cm = cmf & 0x0F
+  let cinfo = (cmf >> 4) & 0x0F
+  let fdict = (flg >> 5) & 1
+  let flevel = (flg >> 6) & 3
+
+  let level_str = match flevel {
+    0 => "Fastest"; 1 => "Fast"; 2 => "Default"; 3 => "Slowest/Best"
+    _ => "?"
+  }
+  let window = 1 << (cinfo + 8)
+
+  fields.push(group(0, 2, "ZLIB Header", "Deflate, window=\{window}B, \{level_str}", [
+    field(0, 1, "CMF", "0x\{hex(cmf, 2)}", "Method=\{cm}, WinSize=\{window}"),
+    field(1, 1, "FLG", "0x\{hex(flg, 2)}", "Level=\{level_str}, FDICT=\{fdict}"),
+  ]))
+
+  let mut pos = 2
+  if fdict != 0 && pos + 4 <= len {
+    let dict_id = read_u32_be(bytes, pos)
+    fields.push(field(pos, 4, "DictID", "0x\{hex(dict_id, 8)}", "Preset dictionary ID"))
+    pos = pos + 4
+  }
+
+  // Compressed data - until 4 bytes before end (Adler-32)
+  let data_end = len - 4
+  if data_end > pos {
+    fields.push(field(pos, data_end - pos, "CompressedData", "\{data_end - pos} bytes", "Deflate stream"))
+  }
+
+  // Adler-32 checksum at end
+  if len >= 4 {
+    let adler = read_u32_be(bytes, len - 4)
+    fields.push(field(len - 4, 4, "Adler32", "0x\{hex(adler, 8)}", "Checksum"))
+  }
+
+  fields
 }
 
 // ============== ELF ==============
