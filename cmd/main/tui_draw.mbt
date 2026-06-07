@@ -66,6 +66,7 @@ fn draw_screen(
   edit_ascii : Bool,
   struct_view : Bool,
   struct_offset : Int,
+  screen_rows : Int,
 ) -> Unit {
   raw_print(str_to_bytes("[H"))
 
@@ -89,22 +90,22 @@ fn draw_screen(
       let total = lines.length()
       let off = if struct_offset < 0 { 0 } else { struct_offset }
       let off = if off >= total { total - 1 } else { off }
-      let end = if off + 18 < total { off + 18 } else { total }
+      let off = if off < 0 { 0 } else { off }
+      let end = if off + screen_rows < total { off + screen_rows } else { total }
       for i = off; i < end; i = i + 1 {
         raw_print(str_to_bytes("  \{lines[i]}[K\r\n"))
       }
-      for i = end; i < off + 18; i = i + 1 {
+      for i = end; i < off + screen_rows; i = i + 1 {
         raw_print(str_to_bytes("  [K\r\n"))
       }
     } else {
       raw_print(str_to_bytes("  No structure detected.[K\r\n"))
-      for i = 0; i < 17; i = i + 1 { raw_print(str_to_bytes("  [K\r\n")) }
+      for i = 0; i < screen_rows - 1; i = i + 1 { raw_print(str_to_bytes("  [K\r\n")) }
     }
   } else if buffer.is_empty() {
     raw_print(str_to_bytes("\r\n  [Empty]  o:open  q:quit[K\r\n"))
   } else {
     let len = buffer.length()
-    let screen_rows = 18
     let max_row = (len + 15) / 16
     let display_rows = if screen_rows < max_row { screen_rows } else { max_row }
 
@@ -162,7 +163,13 @@ fn draw_screen(
           raw_print(str_to_bytes(" "))
         }
       }
-      raw_print(str_to_bytes("|\r\n"))
+      raw_print(str_to_bytes("[K|\r\n"))
+    }
+
+    // Fill remaining rows if hex data is shorter than screen
+    let remaining = screen_rows - display_rows
+    for i = 0; i < remaining; i = i + 1 {
+      raw_print(str_to_bytes("[K\r\n"))
     }
   }
 

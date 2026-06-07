@@ -9,6 +9,7 @@
 #include <termios.h>
 #include <unistd.h>
 #include <sys/time.h>
+#include <sys/ioctl.h>
 #include <signal.h>
 
 // Saved terminal state for signal-safe restoration
@@ -186,6 +187,30 @@ int tui_get_key(void) {
 
     tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
     return c;
+#endif
+}
+
+// Get terminal height in rows. Returns 0 on failure.
+int tui_get_terminal_rows(void) {
+#ifdef _WIN32
+    CONSOLE_SCREEN_BUFFER_INFO csbi;
+    if (GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi)) {
+        return csbi.srWindow.Bottom - csbi.srWindow.Top + 1;
+    }
+    return 0;
+#else
+    // ioctl gives the actual current terminal size — try stdin first
+    struct winsize ws = {0};
+    if (ioctl(STDIN_FILENO, TIOCGWINSZ, &ws) != -1 && ws.ws_row > 0) {
+        return ws.ws_row;
+    }
+    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) != -1 && ws.ws_row > 0) {
+        return ws.ws_row;
+    }
+    // Fallback: $LINES environment variable
+    char *env = getenv("LINES");
+    if (env) { int n = atoi(env); if (n > 0 && n <= 100) return n; }
+    return 0;
 #endif
 }
 

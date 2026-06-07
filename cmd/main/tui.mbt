@@ -90,7 +90,8 @@ pub fn run_tui(file_path : String?) -> Unit {
   tui_hide_cursor()
 
   for _i = 0; running; _i = _i + 1 {
-    draw_screen(buffer, offset, msg, results, result_idx, match_len, edit_mode, edit_off, edit_ascii, struct_view, struct_offset)
+    let screen_rows = 32
+    draw_screen(buffer, offset, msg, results, result_idx, match_len, edit_mode, edit_off, edit_ascii, struct_view, struct_offset, screen_rows)
     msg = ""
 
     let key = tui_get_key()
@@ -101,10 +102,9 @@ pub fn run_tui(file_path : String?) -> Unit {
     } else if struct_view && key == -2 {
       struct_offset = struct_offset + 1
     } else if struct_view && key == -3 {
-      let page = 18
-      if struct_offset >= page { struct_offset = struct_offset - page } else { struct_offset = 0 }
+      if struct_offset >= screen_rows { struct_offset = struct_offset - screen_rows } else { struct_offset = 0 }
     } else if struct_view && key == -4 {
-      struct_offset = struct_offset + 18
+      struct_offset = struct_offset + screen_rows
     } else if struct_view && key == -7 {
       struct_offset = 0
     } else if struct_view && key == 't'.to_int() {
@@ -137,8 +137,8 @@ pub fn run_tui(file_path : String?) -> Unit {
 
     } else if edit_mode && key == -2 {
       if edit_off + 16 < buffer.length() { edit_off = edit_off + 16 }
-      let visible_end = offset + 18 * 16
-      if edit_off >= visible_end { offset = ((edit_off - 17 * 16) / 16) * 16 }
+      let visible_end = offset + screen_rows * 16
+      if edit_off >= visible_end { offset = ((edit_off - (screen_rows - 1) * 16) / 16) * 16 }
       if offset < 0 { offset = 0 }
 
     } else if edit_mode && key == -3 {
@@ -148,8 +148,8 @@ pub fn run_tui(file_path : String?) -> Unit {
 
     } else if edit_mode && key == -4 {
       if edit_off + 1 < buffer.length() { edit_off = edit_off + 1 }
-      let visible_end = offset + 18 * 16
-      if edit_off >= visible_end { offset = ((edit_off - 17 * 16) / 16) * 16 }
+      let visible_end = offset + screen_rows * 16
+      if edit_off >= visible_end { offset = ((edit_off - (screen_rows - 1) * 16) / 16) * 16 }
       if offset < 0 { offset = 0 }
 
     } else if edit_mode && key == 9 {
@@ -300,7 +300,7 @@ pub fn run_tui(file_path : String?) -> Unit {
       if total > 0 {
         result_idx = result_idx + 1
         if result_idx >= total { result_idx = 0 }
-        offset = scroll_to_show(results[result_idx], offset, buffer.length())
+        offset = scroll_to_show(results[result_idx], offset, buffer.length(), screen_rows)
         msg = "Match \{result_idx + 1}/\{total}"
       }
 
@@ -309,7 +309,7 @@ pub fn run_tui(file_path : String?) -> Unit {
       if total > 0 {
         result_idx = result_idx - 1
         if result_idx < 0 { result_idx = total - 1 }
-        offset = scroll_to_show(results[result_idx], offset, buffer.length())
+        offset = scroll_to_show(results[result_idx], offset, buffer.length(), screen_rows)
         msg = "Match \{result_idx + 1}/\{total}"
       }
 
@@ -347,12 +347,11 @@ pub fn run_tui(file_path : String?) -> Unit {
 
 ///|
 /// Calculate offset to show target. Only scrolls if target is off-screen.
-fn scroll_to_show(target : Int, current_offset : Int, total_len : Int) -> Int {
-  let visible_rows = 18
-  let visible_bytes = visible_rows * 16
+fn scroll_to_show(target : Int, current_offset : Int, total_len : Int, screen_rows : Int) -> Int {
+  let visible_bytes = screen_rows * 16
   let view_end = current_offset + visible_bytes
   if target >= current_offset && target < view_end { return current_offset }
-  let middle = visible_rows / 2
+  let middle = screen_rows / 2
   let ideal = target - middle * 16
   if ideal < 0 { 0 }
   else if ideal + visible_bytes > total_len {
