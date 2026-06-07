@@ -83,19 +83,41 @@ pub fn run_tui(file_path : String?) -> Unit {
   let mut edit_ascii = false
   let mut edit_modified = false
   let mut esc_pending = false
+  let mut struct_view = false
+  let mut struct_offset = 0
   let mut undo_stack : Array[UndoOp] = []
 
   tui_clear_screen()
   tui_hide_cursor()
 
   for _i = 0; running; _i = _i + 1 {
-    draw_screen(buffer, offset, msg, results, result_idx, match_len, edit_mode, edit_off, edit_ascii)
+    draw_screen(buffer, offset, msg, results, result_idx, match_len, edit_mode, edit_off, edit_ascii, struct_view, struct_offset)
     msg = ""
 
     let key = tui_get_key()
 
+    // ====== Struct view mode ======
+    if struct_view && key == -1 {
+      if struct_offset >= 1 { struct_offset = struct_offset - 1 }
+    } else if struct_view && key == -2 {
+      struct_offset = struct_offset + 1
+    } else if struct_view && key == -3 {
+      let page = 18
+      if struct_offset >= page { struct_offset = struct_offset - page } else { struct_offset = 0 }
+    } else if struct_view && key == -4 {
+      struct_offset = struct_offset + 18
+    } else if struct_view && key == -7 {
+      struct_offset = 0
+    } else if struct_view && key == 't'.to_int() {
+      struct_view = false
+      msg = "Hex view"
+    } else if struct_view && (key == 'q'.to_int() || key == 'Q'.to_int()) {
+      running = false
+    } else if struct_view {
+      ()
+
     // ====== Edit mode keys ======
-    if edit_mode && key == 27 {
+    } else if edit_mode && key == 27 {
       if edit_modified && !esc_pending {
         esc_pending = true
         msg = "Unsaved edits! Press Esc again to discard, Ctrl+S to save"
@@ -311,8 +333,12 @@ pub fn run_tui(file_path : String?) -> Unit {
         msg = "Entered edit mode"
       } else { msg = "Nothing to edit" }
 
+    } else if key == 't'.to_int() {
+      struct_view = !struct_view
+      msg = if struct_view { "Structure view" } else { "Hex view" }
+
     } else if key == '?'.to_int() || key == 'h'.to_int() {
-      msg = "q:quit UD:line LR:page g:goto /:hex f:text n/N:match e:edit Home/End"
+      msg = "q:quit UD:line LR:page g:goto /:hex f:text n/N:match e:edit t:struct Home/End"
     }
   }
 

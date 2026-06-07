@@ -14,6 +14,7 @@ fn main {
     "view" => cmd_view(argv)
     "info" => cmd_info(argv)
     "search" => cmd_search(argv)
+    "struct" => cmd_struct(argv)
     "help" => cmd_help()
     "interactive" | "tui" => run_tui(find_file_arg(argv, cmd))
     _ => {
@@ -124,6 +125,30 @@ fn cmd_search(argv : Array[String]) -> Unit {
         println(@lib.format_hex_dump(buf, start_offset=ctx, length=clen, config=config))
       }
       if count > show { println("  ... +\{count - show} more") }
+    }
+  }
+}
+
+///|
+/// Struct command: parse and display file structure.
+fn cmd_struct(argv : Array[String]) -> Unit {
+  let file_path = match find_file_arg(argv, "struct") {
+    Some(p) => p
+    None => { println("Usage: struct <file>"); return }
+  }
+  let result = load_file(file_path)
+  match result {
+    Err(m) => { println("Error: \{m}"); return }
+    Ok(buf) => {
+      let bytes = buf.to_bytes()
+      let fields = @lib.parse_structure(bytes)
+      if fields.length() == 0 {
+        println("No known structure detected.")
+      } else {
+        println("File: \{file_path} (\{@lib.format_size(buf.length())})")
+        println("")
+        println(@lib.format_structure(fields))
+      }
     }
   }
 }

@@ -1,6 +1,25 @@
 // TUI screen rendering — draw_screen and highlight helpers
 
 ///|
+/// Split text into lines by newline.
+fn split_text_lines(text : String) -> Array[String] {
+  let lines = []
+  let mut sb = StringBuilder()
+  for i = 0; i < text.length(); i = i + 1 {
+    let ch = text.get_char(i).unwrap()
+    if ch == '\n' {
+      lines.push(sb.to_string())
+      sb = StringBuilder()
+    } else {
+      sb.write_char(ch)
+    }
+  }
+  let remaining = sb.to_string()
+  if remaining.length() > 0 { lines.push(remaining) }
+  lines
+}
+
+///|
 /// Build a set of offsets to highlight from all search results.
 fn build_highlight_set(
   results : Array[Int],
@@ -45,6 +64,8 @@ fn draw_screen(
   edit_mode : Bool,
   edit_off : Int,
   edit_ascii : Bool,
+  struct_view : Bool,
+  struct_offset : Int,
 ) -> Unit {
   raw_print(str_to_bytes("[H"))
 
@@ -59,7 +80,27 @@ fn draw_screen(
   }
   raw_print(str_to_bytes("[44;37m \{info} [0m[K\r\n"))
 
-  if buffer.is_empty() {
+  if struct_view && !buffer.is_empty() {
+    let bytes = buffer.to_bytes()
+    let fields = @lib.parse_structure(bytes)
+    if fields.length() > 0 {
+      let text = @lib.format_structure(fields)
+      let lines = split_text_lines(text)
+      let total = lines.length()
+      let off = if struct_offset < 0 { 0 } else { struct_offset }
+      let off = if off >= total { total - 1 } else { off }
+      let end = if off + 18 < total { off + 18 } else { total }
+      for i = off; i < end; i = i + 1 {
+        raw_print(str_to_bytes("  \{lines[i]}[K\r\n"))
+      }
+      for i = end; i < off + 18; i = i + 1 {
+        raw_print(str_to_bytes("  [K\r\n"))
+      }
+    } else {
+      raw_print(str_to_bytes("  No structure detected.[K\r\n"))
+      for i = 0; i < 17; i = i + 1 { raw_print(str_to_bytes("  [K\r\n")) }
+    }
+  } else if buffer.is_empty() {
     raw_print(str_to_bytes("\r\n  [Empty]  o:open  q:quit[K\r\n"))
   } else {
     let len = buffer.length()
@@ -139,7 +180,9 @@ fn draw_screen(
   if edit_mode {
     let mode = if edit_ascii { "ASCII" } else { "Hex" }
     raw_print(str_to_bytes("[47;30m Esc:exit Tab:\{mode} i:insert Del:delete Ctrl+Z:undo Ctrl+S:save [0m\r\n"))
+  } else if struct_view {
+    raw_print(str_to_bytes("[47;30m q:quit UD:scroll LR:page t:hex [0m\r\n"))
   } else {
-    raw_print(str_to_bytes("[47;30m q:quit UD:line LR:page g:goto /:hex f:text n/N:match e:edit [0m\r\n"))
+    raw_print(str_to_bytes("[47;30m q:quit UD:line LR:page g:goto /:hex f:text n/N:match e:edit t:struct [0m\r\n"))
   }
 }
