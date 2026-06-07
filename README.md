@@ -1,16 +1,17 @@
 # MoonBit Hex Editor
 
-A terminal-based hex editor and binary file analyzer written in MoonBit, featuring an interactive TUI, structure parsing for 16+ file formats, search, and editing capabilities.
+A terminal-based hex editor and binary file analyzer written in MoonBit, featuring an interactive TUI, structure parsing for 16+ file formats, search, and editing capabilities. Runs on Windows, Linux, and macOS.
 
 ## Features
 
 ### Interactive TUI
-- Hex dump with offset, 16 bytes/row, and ASCII sidebar
-- Navigation: Arrow keys scroll line/page, Home/End, Goto offset
+- Hex dump with offset column, 16 bytes/row, and ASCII sidebar
+- Navigation: Arrow keys (`↑↓` line scroll, `←→` page), Home/End, Goto offset
 - Search: `/` hex pattern, `f` ASCII text, `n`/`N` next/prev match
 - Highlighting: current match (green), other matches (yellow), edit cursor (inverse)
-- Edit mode: hex/ASCII input, insert, delete, undo (Ctrl+Z), save (Ctrl+S)
+- Edit mode: hex/ASCII input, insert, delete, undo (`Ctrl+Z`), save (`Ctrl+S`)
 - Structure view: parsed file structure with scrollable display
+- Display: 32 rows of hex/struct content, status bar, help bar
 
 ### CLI Commands
 ```
@@ -43,7 +44,7 @@ moon build
 moon test
 
 # Start TUI
-moon run --target native cmd/main -- file.jpg
+moon run --target native cmd/main -- file.bin
 moon run --target native cmd/main                  # empty start
 ```
 
@@ -64,6 +65,15 @@ moon run --target native cmd/main                  # empty start
 
 Struct view: `↑↓←→` scroll, `t` back to hex, `q` quit.
 
+### Platform Notes
+
+| Platform | Status |
+|----------|--------|
+| Windows | Full support (conio + ANSI via ENABLE_VIRTUAL_TERMINAL_PROCESSING) |
+| Linux | Full support (termios raw mode, signal-safe terminal restore) |
+| macOS | Should work (uses same Unix code path as Linux) |
+| wasm/js | CLI only (no TUI) |
+
 ## Project Structure
 
 ```
@@ -74,7 +84,7 @@ hex_editor/
 │   ├── main.mbt / main_wasm.mbt  # CLI entries
 │   ├── helpers.mbt               # Shared utilities
 │   ├── tui.mbt / tui_draw.mbt / tui_edit.mbt  # TUI
-│   └── tui_stub.c                # C terminal stubs
+│   └── tui_stub.c                # C terminal stubs (cross-platform)
 ```
 
 ## Dependencies

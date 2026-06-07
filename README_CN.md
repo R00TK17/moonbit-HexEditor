@@ -1,16 +1,17 @@
 # MoonBit 十六进制编辑器
 
-基于 MoonBit 的终端十六进制编辑器与二进制文件分析工具，支持交互式 TUI 界面、16+ 种文件格式解析、搜索与编辑功能。
+基于 MoonBit 的终端十六进制编辑器与二进制文件分析工具，支持交互式 TUI 界面、16+ 种文件格式解析、搜索与编辑功能。支持 Windows、Linux、macOS。
 
 ## 功能特性
 
 ### 交互式 TUI 界面
 - 经典十六进制显示：偏移量列、每行16字节、右侧ASCII字符栏
-- 导航：方向键滚动（上下逐行/左右翻页）、Home/End跳转、Goto定位
+- 导航：方向键滚动（`↑↓` 逐行、`←→` 翻页）、Home/End跳转、Goto定位
 - 搜索：`/` 十六进制模式搜索、`f` ASCII文本搜索、`n`/`N` 上下匹配
 - 高亮：当前匹配绿色、其它匹配黄色、编辑光标反色
-- 编辑模式：十六进制/ASCII输入、插入、删除、撤销(Ctrl+Z)、保存(Ctrl+S)
+- 编辑模式：十六进制/ASCII输入、插入、删除、撤销(`Ctrl+Z`)、保存(`Ctrl+S`)
 - 结构视图：解析文件内部结构，支持滚动浏览
+- 显示：32 行十六进制/结构内容 + 状态栏 + 帮助栏
 
 ### CLI 命令
 ```
@@ -43,7 +44,7 @@ moon build
 moon test
 
 # 启动 TUI
-moon run --target native cmd/main -- 图片.jpg
+moon run --target native cmd/main -- 文件.bin
 moon run --target native cmd/main                  # 空启动
 ```
 
@@ -64,6 +65,15 @@ moon run --target native cmd/main                  # 空启动
 
 结构视图模式：`↑↓←→` 滚动、`t` 返回十六进制视图、`q` 退出。
 
+### 平台说明
+
+| 平台 | 状态 |
+|------|------|
+| Windows | 完整支持（conio + ENABLE_VIRTUAL_TERMINAL_PROCESSING） |
+| Linux | 完整支持（termios raw模式，信号安全终端恢复） |
+| macOS | 应可运行（使用与 Linux 相同的 Unix 代码路径） |
+| wasm/js | 仅 CLI（无 TUI） |
+
 ## 项目结构
 
 ```
@@ -74,7 +84,7 @@ hex_editor/
 │   ├── main.mbt / main_wasm.mbt  # CLI入口
 │   ├── helpers.mbt               # 共享工具函数
 │   ├── tui.mbt / tui_draw.mbt / tui_edit.mbt  # TUI模块
-│   └── tui_stub.c                # C终端桩代码（Windows/Linux）
+│   └── tui_stub.c                # C终端桩代码（跨平台）
 ```
 
 ## 依赖
