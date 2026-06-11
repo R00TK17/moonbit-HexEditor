@@ -1,6 +1,6 @@
 # MoonBit Hex Editor
 
-A terminal-based hex editor and binary file analyzer written in MoonBit, featuring an interactive TUI, structure parsing for 16+ file formats, search, and editing capabilities. Runs on Windows, Linux, and macOS.
+A terminal-based hex editor and binary file analyzer written in MoonBit, featuring an interactive TUI, structure parsing for 16+ file formats, search, and editing capabilities. Runs on Windows and Linux.
 
 ## Features
 
@@ -11,7 +11,7 @@ A terminal-based hex editor and binary file analyzer written in MoonBit, featuri
 - Highlighting: current match (green), other matches (yellow), edit cursor (inverse)
 - Edit mode: hex/ASCII input, insert, delete, undo (`Ctrl+Z`), save (`Ctrl+S`)
 - Structure view: parsed file structure with scrollable display
-- Display: 32 rows of hex/struct content, status bar, help bar
+- Display: adaptive rows fill the terminal, info bar + status bar + help bar
 
 ### CLI Commands
 ```
@@ -36,9 +36,8 @@ Parsed details: dimensions (image/video), sample rate/channels (audio), compress
 ## Build & Usage
 
 ```bash
-# Build (native for TUI, wasm for CLI only)
+# Build
 moon build --target native
-moon build
 
 # Run tests
 moon test
@@ -67,12 +66,10 @@ Struct view: `↑↓←→` scroll, `t` back to hex, `q` quit.
 
 ### Platform Notes
 
-| Platform | Status |
-|----------|--------|
-| Windows | Full support (conio + ANSI via ENABLE_VIRTUAL_TERMINAL_PROCESSING) |
-| Linux | Full support (termios raw mode, signal-safe terminal restore) |
-| macOS | Should work (uses same Unix code path as Linux) |
-| wasm/js | CLI only (no TUI) |
+| Platform | Details |
+|----------|---------|
+| Windows | conio + ENABLE_VIRTUAL_TERMINAL_PROCESSING, alternate screen buffer |
+| Linux | termios persistent raw mode, signal-safe restore, alt screen, direct `write()` |
 
 ## Project Structure
 
@@ -81,10 +78,12 @@ hex_editor/
 ├── hex_editor.mbt / hex_view.mbt / hex_search.mbt / hex_edit.mbt / hex_struct.mbt
 ├── hex_editor_test.mbt           # Tests
 ├── cmd/main/
-│   ├── main.mbt / main_wasm.mbt  # CLI entries
-│   ├── helpers.mbt               # Shared utilities
-│   ├── tui.mbt / tui_draw.mbt / tui_edit.mbt  # TUI
-│   └── tui_stub.c                # C terminal stubs (cross-platform)
+│   ├── main.mbt                  # CLI + TUI entry
+│   ├── helpers.mbt / helpers_native.mbt  # Shared utilities
+│   ├── tui.mbt                   # TUI main loop & input
+│   ├── tui_draw.mbt              # Screen rendering (buffered, single-flush)
+│   ├── tui_edit.mbt              # Edit mode & undo
+│   └── tui_stub.c                # C terminal stubs (raw mode, alt screen, adaptive size)
 ```
 
 ## Dependencies

@@ -68,7 +68,9 @@ fn draw_screen(
   struct_offset : Int,
   screen_rows : Int,
 ) -> Unit {
-  raw_print(str_to_bytes("[H"))
+  let sb = StringBuilder()
+
+  sb.write_string("[H")
 
   let info = if buffer.is_empty() {
     "<empty>"
@@ -79,7 +81,7 @@ fn draw_screen(
     }
     "\{path} | \{@lib.format_size(buffer.length())}"
   }
-  raw_print(str_to_bytes("[44;37m \{info} [0m[K\r\n"))
+  sb.write_string("[44;37m \{info} [0m[K\r\n")
 
   if struct_view && !buffer.is_empty() {
     let bytes = buffer.to_bytes()
@@ -93,17 +95,17 @@ fn draw_screen(
       let off = if off < 0 { 0 } else { off }
       let end = if off + screen_rows < total { off + screen_rows } else { total }
       for i = off; i < end; i = i + 1 {
-        raw_print(str_to_bytes("  \{lines[i]}[K\r\n"))
+        sb.write_string("  \{lines[i]}[K\r\n")
       }
       for i = end; i < off + screen_rows; i = i + 1 {
-        raw_print(str_to_bytes("  [K\r\n"))
+        sb.write_string("  [K\r\n")
       }
     } else {
-      raw_print(str_to_bytes("  No structure detected.[K\r\n"))
-      for i = 0; i < screen_rows - 1; i = i + 1 { raw_print(str_to_bytes("  [K\r\n")) }
+      sb.write_string("  No structure detected.[K\r\n")
+      for i = 0; i < screen_rows - 1; i = i + 1 { sb.write_string("  [K\r\n") }
     }
   } else if buffer.is_empty() {
-    raw_print(str_to_bytes("\r\n  [Empty]  o:open  q:quit[K\r\n"))
+    sb.write_string("\r\n  [Empty]  o:open  q:quit[K\r\n")
   } else {
     let len = buffer.length()
     let max_row = (len + 15) / 16
@@ -121,29 +123,29 @@ fn draw_screen(
       let row_len = if row_off + 16 <= len { 16 } else { len - row_off }
 
       let off_str = @lib.format_offset(row_off)
-      raw_print(str_to_bytes("[34m\{off_str}[0m  "))
+      sb.write_string("[34m\{off_str}[0m  ")
 
       for col = 0; col < 16; col = col + 1 {
-        if col > 0 && col == 8 { raw_print(str_to_bytes(" ")) }
+        if col > 0 && col == 8 { sb.write_string(" ") }
         if col < row_len {
           let byte_off = row_off + col
           let byte = data[byte_off]
           let is_edit = edit_mode && byte_off == edit_off
           let is_cur = !is_edit && highlight_cur.contains(byte_off)
           let is_hl = !is_edit && !is_cur && highlight_all.contains(byte_off)
-          if is_edit { raw_print(str_to_bytes("[7m")) }
-          else if is_cur { raw_print(str_to_bytes("[42;30m")) }
-          else if is_hl { raw_print(str_to_bytes("[43;30m")) }
+          if is_edit { sb.write_string("[7m") }
+          else if is_cur { sb.write_string("[42;30m") }
+          else if is_hl { sb.write_string("[43;30m") }
           let hex = @lib.format_byte_hex(byte, uppercase=true)
-          raw_print(str_to_bytes(hex))
-          if is_edit || is_cur || is_hl { raw_print(str_to_bytes("[0m")) }
-          raw_print(str_to_bytes(" "))
+          sb.write_string(hex)
+          if is_edit || is_cur || is_hl { sb.write_string("[0m") }
+          sb.write_string(" ")
         } else {
-          raw_print(str_to_bytes("   "))
+          sb.write_string("   ")
         }
       }
 
-      raw_print(str_to_bytes(" |"))
+      sb.write_string(" |")
       for col = 0; col < 16; col = col + 1 {
         if col < row_len {
           let byte_off = row_off + col
@@ -151,45 +153,50 @@ fn draw_screen(
           let is_edit = edit_mode && byte_off == edit_off
           let is_cur = !is_edit && highlight_cur.contains(byte_off)
           let is_hl = !is_edit && !is_cur && highlight_all.contains(byte_off)
-          if is_edit { raw_print(str_to_bytes("[7m")) }
-          else if is_cur { raw_print(str_to_bytes("[42;30m")) }
-          else if is_hl { raw_print(str_to_bytes("[43;30m")) }
+          if is_edit { sb.write_string("[7m") }
+          else if is_cur { sb.write_string("[42;30m") }
+          else if is_hl { sb.write_string("[43;30m") }
           let a = @lib.format_ascii(byte)
           let s = StringBuilder()
           s.write_char(a)
-          raw_print(str_to_bytes(s.to_string()))
-          if is_edit || is_cur || is_hl { raw_print(str_to_bytes("[0m")) }
+          sb.write_string(s.to_string())
+          if is_edit || is_cur || is_hl { sb.write_string("[0m") }
         } else {
-          raw_print(str_to_bytes(" "))
+          sb.write_string(" ")
         }
       }
-      raw_print(str_to_bytes("[K|\r\n"))
+      sb.write_string("[K|\r\n")
     }
 
     // Fill remaining rows if hex data is shorter than screen
     let remaining = screen_rows - display_rows
     for i = 0; i < remaining; i = i + 1 {
-      raw_print(str_to_bytes("[K\r\n"))
+      sb.write_string("[K\r\n")
     }
   }
 
-  raw_print(str_to_bytes("[J"))
+  sb.write_string("[J")
 
   let cur_row = if buffer.length() > 0 { offset / 16 + 1 } else { 0 }
   let max_row = if buffer.length() > 0 { (buffer.length() + 15) / 16 } else { 0 }
-  raw_print(str_to_bytes("[44;37m 0x\{@lib.to_hex_string(offset, width=8)} | row \{cur_row}/\{max_row} [0m"))
+  sb.write_string("[44;37m 0x\{@lib.to_hex_string(offset, width=8)} | row \{cur_row}/\{max_row} [0m")
 
   if status_msg != "" {
-    raw_print(str_to_bytes(" [41;37m \{status_msg} [0m"))
+    sb.write_string(" [41;37m \{status_msg} [0m")
   }
-  raw_print(str_to_bytes("[K\r\n"))
+  sb.write_string("[K\r\n")
 
   if edit_mode {
     let mode = if edit_ascii { "ASCII" } else { "Hex" }
-    raw_print(str_to_bytes("[47;30m Esc:exit Tab:\{mode} i:insert Del:delete Ctrl+Z:undo Ctrl+S:save [0m\r\n"))
+    sb.write_string("[47;30m Esc:exit Tab:\{mode} i:insert Del:delete Ctrl+Z:undo Ctrl+S:save [0m\r\n")
   } else if struct_view {
-    raw_print(str_to_bytes("[47;30m q:quit UD:scroll LR:page t:hex [0m\r\n"))
+    sb.write_string("[47;30m q:quit UD:scroll LR:page t:hex [0m\r\n")
   } else {
-    raw_print(str_to_bytes("[47;30m q:quit UD:line LR:page g:goto /:hex f:text n/N:match e:edit t:struct [0m\r\n"))
+    sb.write_string("[47;30m q:quit UD:line LR:page g:goto /:hex f:text n/N:match e:edit t:struct [0m\r\n")
   }
+
+  // Erase below: clear anything after the help bar
+  sb.write_string("[J")
+  let output = sb.to_string()
+  raw_print(str_to_bytes(output))
 }

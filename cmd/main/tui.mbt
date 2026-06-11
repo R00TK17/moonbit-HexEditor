@@ -7,6 +7,11 @@ extern "C" fn tui_get_key() -> Int = "tui_get_key"
 extern "C" fn tui_clear_screen() -> Unit = "tui_clear_screen"
 extern "C" fn tui_hide_cursor() -> Unit = "tui_hide_cursor"
 extern "C" fn tui_show_cursor() -> Unit = "tui_show_cursor"
+extern "C" fn tui_enter_raw() -> Unit = "tui_enter_raw"
+extern "C" fn tui_exit_raw() -> Unit = "tui_exit_raw"
+extern "C" fn tui_enter_alt_screen() -> Unit = "tui_enter_alt_screen"
+extern "C" fn tui_exit_alt_screen() -> Unit = "tui_exit_alt_screen"
+extern "C" fn tui_get_terminal_rows() -> Int = "tui_get_terminal_rows"
 #borrow(_s)
 extern "C" fn raw_print(_s : Bytes) -> Unit = "raw_print"
 
@@ -71,7 +76,10 @@ pub fn run_tui(file_path : String?) -> Unit {
   }
 
   let mut offset = 0
-  let mut msg = ""
+  let mut msg = match file_path {
+    Some(p) => if buffer.length() > 0 { "\{p} | \{@lib.format_size(buffer.length())}" } else { "" }
+    None => ""
+  }
   let mut results : Array[Int] = []
   let mut result_idx = 0
   let mut match_len = 0
@@ -86,11 +94,14 @@ pub fn run_tui(file_path : String?) -> Unit {
   let mut struct_offset = 0
   let mut undo_stack : Array[UndoOp] = []
 
+  tui_enter_raw()
+  tui_enter_alt_screen()
   tui_clear_screen()
   tui_hide_cursor()
 
   for _i = 0; running; _i = _i + 1 {
-    let screen_rows = 32
+    let term_rows = tui_get_terminal_rows()
+    let screen_rows = if term_rows > 6 { term_rows - 3 } else { 32 }
     draw_screen(buffer, offset, msg, results, result_idx, match_len, edit_mode, edit_off, edit_ascii, struct_view, struct_offset, screen_rows)
     msg = ""
 
@@ -342,7 +353,8 @@ pub fn run_tui(file_path : String?) -> Unit {
   }
 
   tui_show_cursor()
-  tui_clear_screen()
+  tui_exit_alt_screen()
+  tui_exit_raw()
 }
 
 ///|
