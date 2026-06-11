@@ -101,7 +101,7 @@ pub fn run_tui(file_path : String?) -> Unit {
 
   for _i = 0; running; _i = _i + 1 {
     let term_rows = tui_get_terminal_rows()
-    let screen_rows = if term_rows > 6 { term_rows - 3 } else { 32 }
+    let screen_rows = if term_rows > 5 { term_rows - 2 } else { 32 }
     draw_screen(buffer, offset, msg, results, result_idx, match_len, edit_mode, edit_off, edit_ascii, struct_view, struct_offset, screen_rows)
     msg = ""
 

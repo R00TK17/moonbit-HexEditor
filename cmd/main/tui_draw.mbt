@@ -72,17 +72,6 @@ fn draw_screen(
 
   sb.write_string("[H")
 
-  let info = if buffer.is_empty() {
-    "<empty>"
-  } else {
-    let path = match buffer.get_file_path() {
-      Some(p) => p
-      None => "<no file>"
-    }
-    "\{path} | \{@lib.format_size(buffer.length())}"
-  }
-  sb.write_string("[44;37m \{info} [0m[K\r\n")
-
   if struct_view && !buffer.is_empty() {
     let bytes = buffer.to_bytes()
     let fields = @lib.parse_structure(bytes)
@@ -175,7 +164,6 @@ fn draw_screen(
     }
   }
 
-  sb.write_string("[J")
 
   let cur_row = if buffer.length() > 0 { offset / 16 + 1 } else { 0 }
   let max_row = if buffer.length() > 0 { (buffer.length() + 15) / 16 } else { 0 }
@@ -188,11 +176,11 @@ fn draw_screen(
 
   if edit_mode {
     let mode = if edit_ascii { "ASCII" } else { "Hex" }
-    sb.write_string("[47;30m Esc:exit Tab:\{mode} i:insert Del:delete Ctrl+Z:undo Ctrl+S:save [0m\r\n")
+    sb.write_string("[47;30m Esc:exit Tab:\{mode} i:insert Del:delete Ctrl+Z:undo Ctrl+S:save [0m[K")
   } else if struct_view {
-    sb.write_string("[47;30m q:quit UD:scroll LR:page t:hex [0m\r\n")
+    sb.write_string("[47;30m q:quit UD:scroll LR:page t:hex [0m[K")
   } else {
-    sb.write_string("[47;30m q:quit UD:line LR:page g:goto /:hex f:text n/N:match e:edit t:struct [0m\r\n")
+    sb.write_string("[47;30m q:quit UD:line LR:page g:goto /:hex f:text n/N:match e:edit t:struct [0m[K")
   }
 
   // Erase below: clear anything after the help bar
