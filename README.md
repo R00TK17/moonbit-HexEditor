@@ -9,9 +9,9 @@ A terminal-based hex editor and binary file analyzer written in MoonBit, featuri
 - Navigation: Arrow keys (`↑↓` line scroll, `←→` page), Home/End, Goto offset
 - Search: `/` hex pattern, `f` ASCII text, `n`/`N` next/prev match
 - Highlighting: current match (green), other matches (yellow), edit cursor (inverse)
-- Edit mode: hex/ASCII input, insert, delete, undo (`Ctrl+Z`), save (`Ctrl+S`)
+- Edit mode: hex/ASCII input, insert, delete, undo/redo (`Ctrl+Z`/`Ctrl+Y`) with depth display, smart save prompt
 - Structure view: parsed file structure with scrollable display
-- Display: adaptive rows fill the terminal, info bar + status bar + help bar
+- Display: adaptive rows fill the terminal, file info on open, status bar + help bar
 
 ### CLI Commands
 ```
@@ -58,8 +58,8 @@ moon run --target native cmd/main                  # empty start
 | `g` | Goto offset | `i` | Insert byte |
 | `/` | Hex search | `Del` | Delete byte |
 | `f` | Text search | `Ctrl+Z` | Undo |
-| `n/N` | Next/prev match | `Ctrl+S` | Save |
-| `e` | Edit mode | | |
+| `n/N` | Next/prev match | `Ctrl+Y` | Redo |
+| `e` | Edit mode | `Ctrl+S` | Save |
 | `t` | Struct view | | |
 
 Struct view: `↑↓←→` scroll, `t` back to hex, `q` quit.
@@ -82,7 +82,7 @@ hex_editor/
 │   ├── helpers.mbt / helpers_native.mbt  # Shared utilities
 │   ├── tui.mbt                   # TUI main loop & input
 │   ├── tui_draw.mbt              # Screen rendering (buffered, single-flush)
-│   ├── tui_edit.mbt              # Edit mode & undo
+│   ├── tui_edit.mbt              # Edit mode, undo/redo
 │   └── tui_stub.c                # C terminal stubs (raw mode, alt screen, adaptive size)
 ```
 

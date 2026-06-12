@@ -239,6 +239,8 @@ pub fn run_tui(file_path : String?) -> Unit {
             msg = "Undo: restored deleted byte\{depth}"
           }
           edit_off = op.offset
+          // All edits undone → no unsaved changes
+          edit_modified = undo_stack.length() > 0
         }
       }
 
@@ -260,6 +262,7 @@ pub fn run_tui(file_path : String?) -> Unit {
             msg = "Redo: removed byte\{depth}"
           }
           edit_off = op.offset
+          edit_modified = true
         }
       }
 
