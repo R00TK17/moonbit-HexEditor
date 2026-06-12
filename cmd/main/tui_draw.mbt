@@ -180,7 +180,7 @@ fn draw_screen(
   } else if struct_view {
     sb.write_string("[47;30m q:quit UD:scroll LR:page t:hex [0m[K")
   } else {
-    sb.write_string("[47;30m q:quit UD:line LR:page g:goto /:hex f:text n/N:match e:edit t:struct [0m[K")
+    sb.write_string("[47;30m q:quit UD:line LR:page g:goto /:hex f:text n/p:match e:edit t:struct [0m[K")
   }
 
   // Erase below: clear anything after the help bar

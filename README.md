@@ -58,8 +58,9 @@ moon run --target native cmd/main                  # empty start
 | `g` | Goto offset | `i` | Insert byte |
 | `/` | Hex search | `Del` | Delete byte |
 | `f` | Text search | `Ctrl+Z` | Undo |
-| `n/N` | Next/prev match | `Ctrl+Y` | Redo |
-| `e` | Edit mode | `Ctrl+S` | Save |
+| `n` | Next match | `Ctrl+Y` | Redo |
+| `p` | Prev match | `Ctrl+S` | Save |
+| `e` | Edit mode | | |
 | `t` | Struct view | | |
 
 Struct view: `↑↓←→` scroll, `t` back to hex, `q` quit.

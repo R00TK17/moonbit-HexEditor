@@ -31,6 +31,8 @@ fn str_to_bytes(s : String) -> Bytes {
 /// Read a line of input from the user with a prompt.
 fn tui_read_line(prompt : String) -> String {
   tui_show_cursor()
+  // Move cursor up from help bar to status bar line
+  raw_print(str_to_bytes("[A[62G[K"))
   raw_print(str_to_bytes(prompt))
 
   let mut sb = StringBuilder()
@@ -119,7 +121,7 @@ pub fn run_tui(file_path : String?) -> Unit {
       struct_offset = struct_offset + screen_rows
     } else if struct_view && key == -7 {
       struct_offset = 0
-    } else if struct_view && key == 't'.to_int() {
+    } else if struct_view && (key == 't'.to_int() || key == 'T'.to_int()) {
       struct_view = false
       msg = "Hex view"
     } else if struct_view && (key == 'q'.to_int() || key == 'Q'.to_int()) {
@@ -182,7 +184,7 @@ pub fn run_tui(file_path : String?) -> Unit {
       match_len = 0
       msg = "Deleted 1 byte\{depth_suffix(undo_stack.length(), redo_stack.length())}"
 
-    } else if edit_mode && key == 'i'.to_int() {
+    } else if edit_mode && (key == 'i'.to_int() || key == 'I'.to_int()) {
       edit_modified = true
       esc_pending = false
       undo_stack.push({ kind: 1, offset: edit_off, old_byte: b'\x00' })
@@ -325,7 +327,7 @@ pub fn run_tui(file_path : String?) -> Unit {
         }
       }
 
-    } else if key == 'f'.to_int() {
+    } else if key == 'f'.to_int() || key == 'F'.to_int() {
       let pattern = tui_read_line("Text search: ")
       if pattern != "" {
         let bytes = ascii_to_bytes(pattern)
@@ -338,7 +340,7 @@ pub fn run_tui(file_path : String?) -> Unit {
         } else { msg = "Not found"; results = []; match_len = 0 }
       }
 
-    } else if key == 'n'.to_int() {
+    } else if key == 'n'.to_int() || key == 'N'.to_int() {
       let total = results.length()
       if total > 0 {
         result_idx = result_idx + 1
@@ -347,7 +349,7 @@ pub fn run_tui(file_path : String?) -> Unit {
         msg = "Match \{result_idx + 1}/\{total}"
       }
 
-    } else if key == 'N'.to_int() {
+    } else if key == 'p'.to_int() || key == 'P'.to_int() {
       let total = results.length()
       if total > 0 {
         result_idx = result_idx - 1
@@ -356,7 +358,7 @@ pub fn run_tui(file_path : String?) -> Unit {
         msg = "Match \{result_idx + 1}/\{total}"
       }
 
-    } else if key == 'g'.to_int() {
+    } else if key == 'g'.to_int() || key == 'G'.to_int() {
       let input = tui_read_line("Goto offset (hex): ")
       if input != "" {
         let off = if string_starts_with(input, "0x") || string_starts_with(input, "0X") {
@@ -369,13 +371,13 @@ pub fn run_tui(file_path : String?) -> Unit {
         }
       }
 
-    } else if key == 'e'.to_int() {
+    } else if key == 'e'.to_int() || key == 'E'.to_int() {
       if buffer.length() > 0 {
         edit_mode = true; edit_off = offset; edit_nibble = None; edit_ascii = false
         msg = "Entered edit mode"
       } else { msg = "Nothing to edit" }
 
-    } else if key == 't'.to_int() {
+    } else if key == 't'.to_int() || key == 'T'.to_int() {
       struct_view = !struct_view
       msg = if struct_view { "Structure view" } else { "Hex view" }
 
