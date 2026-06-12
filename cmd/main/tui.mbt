@@ -112,13 +112,28 @@ pub fn run_tui(file_path : String?) -> Unit {
 
     // ====== Struct view mode ======
     if struct_view && key == -1 {
-      if struct_offset >= 1 { struct_offset = struct_offset - 1 }
+      // Up: only scroll if content exceeds visible area
+      let (total, _max) = get_struct_info(buffer)
+      if total > screen_rows && struct_offset > 0 { struct_offset = struct_offset - 1 }
     } else if struct_view && key == -2 {
-      struct_offset = struct_offset + 1
+      // Down: stop when last line is visible
+      let (total, _max) = get_struct_info(buffer)
+      let max_off = if total > screen_rows { total - screen_rows } else { 0 }
+      if struct_offset < max_off { struct_offset = struct_offset + 1 }
     } else if struct_view && key == -3 {
-      if struct_offset >= screen_rows { struct_offset = struct_offset - screen_rows } else { struct_offset = 0 }
+      // Left: page up
+      let (total, _max) = get_struct_info(buffer)
+      if total > screen_rows {
+        if struct_offset >= screen_rows { struct_offset = struct_offset - screen_rows } else { struct_offset = 0 }
+      }
     } else if struct_view && key == -4 {
-      struct_offset = struct_offset + screen_rows
+      // Right: page down, stop at bottom
+      let (total, _max) = get_struct_info(buffer)
+      if total > screen_rows {
+        let max_off = total - screen_rows
+        let new_off = struct_offset + screen_rows
+        struct_offset = if new_off > max_off { max_off } else { new_off }
+      }
     } else if struct_view && key == -7 {
       struct_offset = 0
     } else if struct_view && (key == 't'.to_int() || key == 'T'.to_int()) {
@@ -405,4 +420,16 @@ fn scroll_to_show(target : Int, current_offset : Int, total_len : Int, screen_ro
     if max < 0 { 0 } else { max }
   }
   else { (ideal / 16) * 16 }
+}
+
+///|
+/// Get total lines and max scroll offset for struct view.
+fn get_struct_info(buffer : @lib.HexBuffer) -> (Int, Int) {
+  let bytes = buffer.to_bytes()
+  let fields = @lib.parse_structure(bytes)
+  guard fields.length() > 0 else { (0, 0) }
+  let text = @lib.format_structure(fields)
+  let lines = split_text_lines(text)
+  let total = lines.length()
+  (total, if total > 0 { total - 1 } else { 0 })
 }

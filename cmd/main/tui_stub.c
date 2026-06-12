@@ -115,31 +115,43 @@ void tui_exit_raw(void) {}
 int tui_get_key(void) {
 #ifdef _WIN32
     enable_ansi();
-    int c = _getch();
-    if (c == 0 || c == 0xE0) {
-        int c2 = _getch();
-        switch (c2) {
-            case 72: return -1; case 80: return -2;
-            case 75: return -3; case 77: return -4;
-            case 73: return -5; case 81: return -6;
-            case 71: return -7; case 79: return -8;
-            case 83: return -9;
-            default: break;
+    // Poll with _kbhit for ~100ms, then return -10 if no key
+    for (int i = 0; i < 10; i++) {
+        if (_kbhit()) {
+            int c = _getch();
+            if (c == 0 || c == 0xE0) {
+                int c2 = _getch();
+                switch (c2) {
+                    case 72: return -1; case 80: return -2;
+                    case 75: return -3; case 77: return -4;
+                    case 73: return -5; case 81: return -6;
+                    case 71: return -7; case 79: return -8;
+                    case 83: return -9;
+                    default: break;
+                }
+            }
+            return c;
         }
+        Sleep(10);
     }
-    return c;
+    return -10;  // timeout: no key, check resize
 #else
-    // Terminal is already in raw mode (set by tui_enter_raw).
+    // Use select() with 100ms timeout for the initial read
+    fd_set fds;
+    struct timeval tv;
+    FD_ZERO(&fds); FD_SET(STDIN_FILENO, &fds);
+    tv.tv_sec = 0; tv.tv_usec = 100000;  // 100ms
+    if (select(1, &fds, NULL, NULL, &tv) <= 0) return -10;  // timeout
+
     char c_byte;
     int n = read(STDIN_FILENO, &c_byte, 1);
-    if (n != 1) return -1;
+    if (n != 1) return -10;
     int c = (int)(unsigned char)c_byte;
 
     if (c == 27) {
-        fd_set fds;
-        struct timeval tv;
+        // Check for more bytes in the escape sequence
         FD_ZERO(&fds); FD_SET(STDIN_FILENO, &fds);
-        tv.tv_sec = 0; tv.tv_usec = 100000;
+        tv.tv_sec = 0; tv.tv_usec = 50000;  // 50ms for sequence
         if (select(1, &fds, NULL, NULL, &tv) > 0) {
             char seq[8];
             ssize_t nseq = read(STDIN_FILENO, seq, sizeof(seq));
@@ -182,6 +194,7 @@ int tui_get_key(void) {
             return 27;
         }
     }
+
     return c;
 #endif
 }
