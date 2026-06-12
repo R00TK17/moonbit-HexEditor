@@ -1,4 +1,4 @@
-// TUI edit mode — hex/ASCII input, undo, revert
+// TUI edit mode — hex/ASCII input, undo, redo
 
 ///|
 /// Undo operation record.
@@ -54,4 +54,71 @@ fn revert_all_edits(buffer : @lib.HexBuffer, undo_stack : Array[UndoOp]) -> Unit
       buffer.insert_byte(op.offset, op.old_byte) |> ignore
     }
   }
+}
+
+///|
+/// Apply a single undo operation to the buffer.
+/// Returns the corresponding redo operation that can re-apply the original edit.
+pub fn apply_undo(
+  buffer : @lib.HexBuffer,
+  op : UndoOp,
+) -> UndoOp {
+  if op.kind == 0 {
+    // Modify: capture current (the "new" value), restore old
+    let current = match buffer.get_byte(op.offset) { Some(b) => b; None => b'\x00' }
+    buffer.set_byte(op.offset, op.old_byte) |> ignore
+    { kind: 0, offset: op.offset, old_byte: current }
+  } else if op.kind == 1 {
+    // Insert → delete
+    buffer.delete_byte(op.offset) |> ignore
+    { kind: 2, offset: op.offset, old_byte: b'\x00' }
+  } else {
+    // Delete → re-insert
+    buffer.insert_byte(op.offset, op.old_byte) |> ignore
+    { kind: 1, offset: op.offset, old_byte: op.old_byte }
+  }
+}
+
+///|
+/// Apply a single redo operation to the buffer.
+/// Returns the corresponding undo operation for future undo.
+pub fn apply_redo(
+  buffer : @lib.HexBuffer,
+  op : UndoOp,
+) -> UndoOp {
+  if op.kind == 0 {
+    // Re-modify: capture current, set to saved value
+    let current = match buffer.get_byte(op.offset) { Some(b) => b; None => b'\x00' }
+    buffer.set_byte(op.offset, op.old_byte) |> ignore
+    { kind: 0, offset: op.offset, old_byte: current }
+  } else if op.kind == 1 {
+    // Re-insert
+    buffer.insert_byte(op.offset, op.old_byte) |> ignore
+    { kind: 2, offset: op.offset, old_byte: op.old_byte }
+  } else {
+    // Re-delete
+    let captured = match buffer.get_byte(op.offset) { Some(b) => b; None => b'\x00' }
+    buffer.delete_byte(op.offset) |> ignore
+    { kind: 2, offset: op.offset, old_byte: captured }
+  }
+}
+
+///|
+/// Pop the last element from an array and return (new_array, popped_element).
+pub fn pop_last(stack : Array[UndoOp]) -> (Array[UndoOp], UndoOp?) {
+  let len = stack.length()
+  guard len > 0 else { ([], None) }
+  let last = len - 1
+  let new_stack : Array[UndoOp] = []
+  for i = 0; i < last; i = i + 1 {
+    new_stack.push(stack[i])
+  }
+  (new_stack, Some(stack[last]))
+}
+
+///|
+/// Build depth display suffix for status messages.
+pub fn depth_suffix(undo_len : Int, redo_len : Int) -> String {
+  if undo_len == 0 && redo_len == 0 { "" }
+  else { " (undo:\{undo_len} redo:\{redo_len})" }
 }

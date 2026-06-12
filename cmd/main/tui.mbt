@@ -93,6 +93,7 @@ pub fn run_tui(file_path : String?) -> Unit {
   let mut struct_view = false
   let mut struct_offset = 0
   let mut undo_stack : Array[UndoOp] = []
+  let mut redo_stack : Array[UndoOp] = []
 
   tui_enter_raw()
   tui_enter_alt_screen()
@@ -138,6 +139,7 @@ pub fn run_tui(file_path : String?) -> Unit {
         edit_modified = false
         esc_pending = false
         undo_stack = []
+        redo_stack = []
         msg = if was_modified { "Edit mode off (changes discarded)" } else { "Edit mode off" }
       }
 
@@ -173,73 +175,100 @@ pub fn run_tui(file_path : String?) -> Unit {
       esc_pending = false
       let old = match buffer.get_byte(edit_off) { Some(b) => b; None => b'\x00' }
       undo_stack.push({ kind: 2, offset: edit_off, old_byte: old })
+      redo_stack = []
       buffer.delete_byte(edit_off) |> ignore
       if edit_off >= buffer.length() && edit_off > 0 { edit_off = edit_off - 1 }
       results = []
       match_len = 0
-      msg = "Deleted 1 byte"
+      msg = "Deleted 1 byte\{depth_suffix(undo_stack.length(), redo_stack.length())}"
 
     } else if edit_mode && key == 'i'.to_int() {
       edit_modified = true
       esc_pending = false
       undo_stack.push({ kind: 1, offset: edit_off, old_byte: b'\x00' })
+      redo_stack = []
       buffer.insert_byte(edit_off, b'\x00') |> ignore
-      msg = "Inserted 00"
+      msg = "Inserted 00\{depth_suffix(undo_stack.length(), redo_stack.length())}"
 
     } else if edit_mode && !edit_ascii && key >= '0'.to_int() && key <= '9'.to_int() {
-      edit_modified = true; esc_pending = false
+      edit_modified = true; esc_pending = false; redo_stack = []
       let (new_off, new_nib, new_msg, undo) = handle_hex_input(buffer, edit_off, edit_nibble, key)
-      edit_off = new_off; edit_nibble = new_nib; msg = new_msg
+      edit_off = new_off; edit_nibble = new_nib
       match undo { Some(op) => undo_stack.push(op); None => () }
+      msg = "\{new_msg}\{depth_suffix(undo_stack.length(), redo_stack.length())}"
 
     } else if edit_mode && !edit_ascii && key >= 'a'.to_int() && key <= 'f'.to_int() {
-      edit_modified = true; esc_pending = false
+      edit_modified = true; esc_pending = false; redo_stack = []
       let (new_off, new_nib, new_msg, undo) = handle_hex_input(buffer, edit_off, edit_nibble, key)
-      edit_off = new_off; edit_nibble = new_nib; msg = new_msg
+      edit_off = new_off; edit_nibble = new_nib
       match undo { Some(op) => undo_stack.push(op); None => () }
+      msg = "\{new_msg}\{depth_suffix(undo_stack.length(), redo_stack.length())}"
 
     } else if edit_mode && !edit_ascii && key >= 'A'.to_int() && key <= 'F'.to_int() {
-      edit_modified = true; esc_pending = false
+      edit_modified = true; esc_pending = false; redo_stack = []
       let lower = key + ('a'.to_int() - 'A'.to_int())
       let (new_off, new_nib, new_msg, undo) = handle_hex_input(buffer, edit_off, edit_nibble, lower)
-      edit_off = new_off; edit_nibble = new_nib; msg = new_msg
+      edit_off = new_off; edit_nibble = new_nib
       match undo { Some(op) => undo_stack.push(op); None => () }
+      msg = "\{new_msg}\{depth_suffix(undo_stack.length(), redo_stack.length())}"
 
     } else if edit_mode && edit_ascii && key >= 32 && key <= 126 {
-      edit_modified = true; esc_pending = false; edit_nibble = None
+      edit_modified = true; esc_pending = false; edit_nibble = None; redo_stack = []
       let old = match buffer.get_byte(edit_off) { Some(b) => b; None => b'\x00' }
       undo_stack.push({ kind: 0, offset: edit_off, old_byte: old })
       let ch = key.to_char().unwrap()
       buffer.set_byte(edit_off, ch.to_int().to_byte()) |> ignore
-      msg = "Set '\{ch}' (0x\{@lib.format_byte_hex(ch.to_int().to_byte())})"
+      msg = "Set '\{ch}' (0x\{@lib.format_byte_hex(ch.to_int().to_byte())})\{depth_suffix(undo_stack.length(), redo_stack.length())}"
       if edit_off + 1 < buffer.length() { edit_off = edit_off + 1 }
 
+    // Ctrl+Z: Undo
     } else if edit_mode && key == 26 {
-      if undo_stack.length() > 0 {
-        let last_idx = undo_stack.length() - 1
-        let op = undo_stack[last_idx]
-        let new_stack = []
-        for i = 0; i < last_idx; i = i + 1 { new_stack.push(undo_stack[i]) }
-        undo_stack = new_stack
-        if op.kind == 0 {
-          buffer.set_byte(op.offset, op.old_byte) |> ignore
-          msg = "Undo: restored 0x\{@lib.format_byte_hex(op.old_byte)}"
-        } else if op.kind == 1 {
-          buffer.delete_byte(op.offset) |> ignore
-          msg = "Undo: removed insertion"
-        } else {
-          buffer.insert_byte(op.offset, op.old_byte) |> ignore
-          msg = "Undo: restored deleted byte"
+      let (new_undo, popped) = pop_last(undo_stack)
+      match popped {
+        None => msg = "Nothing to undo (undo:0 redo:\{redo_stack.length()})"
+        Some(op) => {
+          undo_stack = new_undo
+          let redo_op = apply_undo(buffer, op)
+          redo_stack.push(redo_op)
+          let depth = depth_suffix(undo_stack.length(), redo_stack.length())
+          if op.kind == 0 {
+            msg = "Undo: restored 0x\{@lib.format_byte_hex(op.old_byte)}\{depth}"
+          } else if op.kind == 1 {
+            msg = "Undo: removed insertion\{depth}"
+          } else {
+            msg = "Undo: restored deleted byte\{depth}"
+          }
+          edit_off = op.offset
         }
-        if edit_off >= buffer.length() && edit_off > 0 { edit_off = edit_off - 1 }
-      } else { msg = "Nothing to undo" }
+      }
+
+    // Ctrl+Y: Redo
+    } else if edit_mode && key == 25 {
+      let (new_redo, popped) = pop_last(redo_stack)
+      match popped {
+        None => msg = "Nothing to redo (undo:\{undo_stack.length()} redo:0)"
+        Some(op) => {
+          redo_stack = new_redo
+          let undo_op = apply_redo(buffer, op)
+          undo_stack.push(undo_op)
+          let depth = depth_suffix(undo_stack.length(), redo_stack.length())
+          if op.kind == 0 {
+            msg = "Redo: restored 0x\{@lib.format_byte_hex(op.old_byte)}\{depth}"
+          } else if op.kind == 1 {
+            msg = "Redo: re-inserted byte\{depth}"
+          } else {
+            msg = "Redo: removed byte\{depth}"
+          }
+          edit_off = op.offset
+        }
+      }
 
     } else if edit_mode && key == 19 {
       match buffer.get_file_path() {
         Some(p) => {
           try {
             buffer.save(path=p)
-            edit_modified = false; undo_stack = []; msg = "Saved: \{p}"
+            edit_modified = false; undo_stack = []; redo_stack = []; msg = "Saved: \{p}"
           } catch {
             @fs.IOError::IOError(m) => msg = "Save error: \{m}"
             _ => msg = "Unknown save error"
