@@ -6,12 +6,21 @@
 pub fn handle_bookmark_popup_key(
   state : TuiState,
   key : Int,
+  screen_rows : Int,
 ) -> Bool {
   if key == -1 {
     if state.bookmark_sel > 0 { state.bookmark_sel = state.bookmark_sel - 1 }
+    // Auto-scroll: keep selected slot visible
+    if state.bookmark_sel < state.bookmark_scroll {
+      state.bookmark_scroll = state.bookmark_sel
+    }
     true
   } else if key == -2 {
-    if state.bookmark_sel < 9 { state.bookmark_sel = state.bookmark_sel + 1 }
+    if state.bookmark_sel < 20 { state.bookmark_sel = state.bookmark_sel + 1 }
+    let max_visible = if screen_rows > 1 { screen_rows - 1 } else { 1 }
+    if state.bookmark_sel >= state.bookmark_scroll + max_visible {
+      state.bookmark_scroll = state.bookmark_sel - max_visible + 1
+    }
     true
   } else if key == 13 {
     match state.bookmarks[state.bookmark_sel] {
@@ -57,7 +66,7 @@ pub fn handle_bookmark_normal_key(
   } else if key == 2 {
     // Ctrl+B: set bookmark at current offset
     let mut slot = -1
-    for i = 0; i < 10; i = i + 1 {
+    for i = 0; i < 21; i = i + 1 {
       match state.bookmarks[i] { None => { slot = i; break }; _ => () }
     }
     if slot < 0 { slot = 0 }

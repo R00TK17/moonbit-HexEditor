@@ -160,6 +160,7 @@ pub fn format_hex_row(
 
   // Offset column
   if config.show_offset {
+    sb.write_string("0x")
     sb.write_string(format_offset(base_offset, width=config.offset_width, uppercase=config.uppercase_hex))
     sb.write_string("  ")
   }

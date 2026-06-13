@@ -19,6 +19,7 @@ struct TuiState {
   mut struct_offset : Int
   mut bookmark_view : Bool
   mut bookmark_sel : Int
+  mut bookmark_scroll : Int
   bookmarks : FixedArray[Int?]
   mut undo_stack : Array[UndoOp]
   mut redo_stack : Array[UndoOp]
@@ -47,7 +48,8 @@ pub fn TuiState::new(file_path : String?, buffer : @lib.HexBuffer) -> TuiState {
     struct_offset: 0,
     bookmark_view: false,
     bookmark_sel: 0,
-    bookmarks: FixedArray::make(10, None),
+    bookmark_scroll: 0,
+    bookmarks: FixedArray::make(21, None),
     undo_stack: [],
     redo_stack: [],
   }
@@ -65,7 +67,7 @@ pub fn handle_key(
   if key != -10 { state.msg = "" }
 
   // ====== Bookmark popup (in tui_bookmark.mbt) ======
-  if state.bookmark_view && handle_bookmark_popup_key(state, key) {
+  if state.bookmark_view && handle_bookmark_popup_key(state, key, screen_rows) {
     ()
 
   // ====== Struct view mode ======

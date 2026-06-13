@@ -68,6 +68,7 @@ fn draw_screen(
   struct_offset : Int,
   bookmark_view : Bool,
   bookmark_sel : Int,
+  bookmark_scroll : Int,
   bookmarks : FixedArray[Int?],
   screen_rows : Int,
 ) -> Unit {
@@ -76,7 +77,7 @@ fn draw_screen(
   sb.write_string("[H")
 
   if bookmark_view {
-    draw_bookmark_popup(sb, bookmark_sel, bookmarks, screen_rows)
+    draw_bookmark_popup(sb, bookmark_sel, bookmark_scroll, bookmarks, screen_rows)
   } else if struct_view && !buffer.is_empty() {
     let bytes = buffer.to_bytes()
     let fields = @lib.parse_structure(bytes)
@@ -118,9 +119,9 @@ fn draw_screen(
 
       let off_str = @lib.format_offset(row_off)
       if row == 0 {
-        sb.write_string("[44;37m\{off_str}[0m  ")
+        sb.write_string("[44;37m0x\{off_str}[0m  ")
       } else {
-        sb.write_string("[34m\{off_str}[0m  ")
+        sb.write_string("[34m0x\{off_str}[0m  ")
       }
 
       for col = 0; col < 16; col = col + 1 {
@@ -205,11 +206,14 @@ fn draw_screen(
 fn draw_bookmark_popup(
   sb : StringBuilder,
   sel : Int,
+  scroll : Int,
   bookmarks : FixedArray[Int?],
   screen_rows : Int,
 ) -> Unit {
   sb.write_string("  -- Bookmarks --[K\r\n")
-  for i = 0; i < 10; i = i + 1 {
+  let max_visible = if screen_rows > 1 { screen_rows - 1 } else { 0 }
+  let end = if scroll + max_visible < 21 { scroll + max_visible } else { 21 }
+  for i = scroll; i < end; i = i + 1 {
     let marker = if i == sel { "> " } else { "  " }
     let content = match bookmarks[i] {
       None => "(empty)"
@@ -221,7 +225,8 @@ fn draw_bookmark_popup(
       sb.write_string("  " + marker + i.to_string() + ": " + content + "[K\r\n")
     }
   }
-  let remaining = if screen_rows > 11 { screen_rows - 11 } else { 0 }
+  let displayed = end - scroll
+  let remaining = if screen_rows > displayed + 1 { screen_rows - displayed - 1 } else { 0 }
   for _i = 0; _i < remaining; _i = _i + 1 {
     sb.write_string("  [K\r\n")
   }
