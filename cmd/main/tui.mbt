@@ -106,9 +106,10 @@ pub fn run_tui(file_path : String?) -> Unit {
     let term_rows = tui_get_terminal_rows()
     let screen_rows = if term_rows > 5 { term_rows - 2 } else { 32 }
     draw_screen(buffer, offset, msg, results, result_idx, match_len, edit_mode, edit_off, edit_ascii, struct_view, struct_offset, screen_rows)
-    msg = ""
 
     let key = tui_get_key()
+    // Only clear status message on real keypress, not on timeout (-10)
+    if key != -10 { msg = "" }
 
     // ====== Struct view mode ======
     if struct_view && key == -1 {
