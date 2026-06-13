@@ -1,4 +1,4 @@
-// Shared helpers used by main.mbt, main_wasm.mbt, and tui modules
+// Shared helpers used by main.mbt and tui modules
 
 ///|
 /// Get command-line args (skip program name).

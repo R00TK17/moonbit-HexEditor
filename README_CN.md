@@ -81,9 +81,11 @@ hex_editor/
 ├── cmd/main/
 │   ├── main.mbt                  # CLI + TUI 入口
 │   ├── helpers.mbt / helpers_native.mbt  # 共享工具函数
-│   ├── tui.mbt                   # TUI 主循环与输入
+│   ├── tui.mbt                   # TUI 主循环、FFI、输入助手
+│   ├── tui_key.mbt               # 按键分发与 TuiState（结构/编辑/普通模式）
+│   ├── tui_bookmark.mbt          # 书签功能（弹出窗口、设置、跳转、删除）
 │   ├── tui_draw.mbt              # 屏幕渲染（缓冲、单次刷新）
-│   ├── tui_edit.mbt              # 编辑模式、撤销/重做
+│   ├── tui_edit.mbt              # 编辑操作、撤销/重做
 │   └── tui_stub.c                # C 终端桩代码（raw mode、alt screen、自适应尺寸）
 ```
 

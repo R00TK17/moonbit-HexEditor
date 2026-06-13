@@ -81,9 +81,11 @@ hex_editor/
 ├── cmd/main/
 │   ├── main.mbt                  # CLI + TUI entry
 │   ├── helpers.mbt / helpers_native.mbt  # Shared utilities
-│   ├── tui.mbt                   # TUI main loop & input
+│   ├── tui.mbt                   # TUI main loop, FFI, input helpers
+│   ├── tui_key.mbt               # Key dispatch & TuiState (struct/edit/normal)
+│   ├── tui_bookmark.mbt          # Bookmark popup, set, jump, delete
 │   ├── tui_draw.mbt              # Screen rendering (buffered, single-flush)
-│   ├── tui_edit.mbt              # Edit mode, undo/redo
+│   ├── tui_edit.mbt              # Edit operations, undo/redo
 │   └── tui_stub.c                # C terminal stubs (raw mode, alt screen, adaptive size)
 ```
 
