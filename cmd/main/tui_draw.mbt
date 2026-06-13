@@ -66,13 +66,18 @@ fn draw_screen(
   edit_ascii : Bool,
   struct_view : Bool,
   struct_offset : Int,
+  bookmark_view : Bool,
+  bookmark_sel : Int,
+  bookmarks : FixedArray[Int?],
   screen_rows : Int,
 ) -> Unit {
   let sb = StringBuilder()
 
   sb.write_string("[H")
 
-  if struct_view && !buffer.is_empty() {
+  if bookmark_view {
+    draw_bookmark_popup(sb, bookmark_sel, bookmarks, screen_rows)
+  } else if struct_view && !buffer.is_empty() {
     let bytes = buffer.to_bytes()
     let fields = @lib.parse_structure(bytes)
     if fields.length() > 0 {
@@ -112,7 +117,11 @@ fn draw_screen(
       let row_len = if row_off + 16 <= len { 16 } else { len - row_off }
 
       let off_str = @lib.format_offset(row_off)
-      sb.write_string("[34m\{off_str}[0m  ")
+      if row == 0 {
+        sb.write_string("[44;37m\{off_str}[0m  ")
+      } else {
+        sb.write_string("[34m\{off_str}[0m  ")
+      }
 
       for col = 0; col < 16; col = col + 1 {
         if col > 0 && col == 8 { sb.write_string(" ") }
@@ -177,14 +186,43 @@ fn draw_screen(
   if edit_mode {
     let mode = if edit_ascii { "ASCII" } else { "Hex" }
     sb.write_string("[47;30m Esc:exit Tab:\{mode} i:insert Del:delete Ctrl+Z:undo Ctrl+Y:redo Ctrl+S:save [0m[K")
+  } else if bookmark_view {
+    sb.write_string("[47;30m q:quit  Enter:jump  d:delete  b:close  Ctrl+B:set [0m[K")
   } else if struct_view {
     sb.write_string("[47;30m q:quit UD:scroll LR:page t:hex [0m[K")
   } else {
-    sb.write_string("[47;30m q:quit UD:line LR:page g:goto /:hex f:text n/p:match e:edit t:struct [0m[K")
+    sb.write_string("[47;30m q:quit g:goto /:hex f:text n/p:match e:edit t:struct b:bookmark [0m[K")
   }
 
   // Erase below: clear anything after the help bar
   sb.write_string("[J")
   let output = sb.to_string()
   raw_print(str_to_bytes(output))
+}
+
+///|
+/// Draw the bookmark list popup over the hex content area.
+fn draw_bookmark_popup(
+  sb : StringBuilder,
+  sel : Int,
+  bookmarks : FixedArray[Int?],
+  screen_rows : Int,
+) -> Unit {
+  sb.write_string("  -- Bookmarks --[K\r\n")
+  for i = 0; i < 10; i = i + 1 {
+    let marker = if i == sel { "> " } else { "  " }
+    let content = match bookmarks[i] {
+      None => "(empty)"
+      Some(off) => "0x" + @lib.to_hex_string(off, width=8)
+    }
+    if i == sel {
+      sb.write_string("  [44;37m" + marker + i.to_string() + ": " + content + "[0m[K\r\n")
+    } else {
+      sb.write_string("  " + marker + i.to_string() + ": " + content + "[K\r\n")
+    }
+  }
+  let remaining = if screen_rows > 11 { screen_rows - 11 } else { 0 }
+  for _i = 0; _i < remaining; _i = _i + 1 {
+    sb.write_string("  [K\r\n")
+  }
 }

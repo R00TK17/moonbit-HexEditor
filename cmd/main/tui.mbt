@@ -94,6 +94,9 @@ pub fn run_tui(file_path : String?) -> Unit {
   let mut esc_pending = false
   let mut struct_view = false
   let mut struct_offset = 0
+  let mut bookmark_view = false
+  let mut bookmark_sel = 0
+  let bookmarks = FixedArray::make(10, None)
   let mut undo_stack : Array[UndoOp] = []
   let mut redo_stack : Array[UndoOp] = []
 
@@ -105,14 +108,42 @@ pub fn run_tui(file_path : String?) -> Unit {
   for _i = 0; running; _i = _i + 1 {
     let term_rows = tui_get_terminal_rows()
     let screen_rows = if term_rows > 5 { term_rows - 2 } else { 32 }
-    draw_screen(buffer, offset, msg, results, result_idx, match_len, edit_mode, edit_off, edit_ascii, struct_view, struct_offset, screen_rows)
+    draw_screen(buffer, offset, msg, results, result_idx, match_len, edit_mode, edit_off, edit_ascii, struct_view, struct_offset, bookmark_view, bookmark_sel, bookmarks, screen_rows)
 
     let key = tui_get_key()
     // Only clear status message on real keypress, not on timeout (-10)
     if key != -10 { msg = "" }
 
+    // ====== Bookmark popup ======
+    if bookmark_view && key == -1 {
+      if bookmark_sel > 0 { bookmark_sel = bookmark_sel - 1 }
+    } else if bookmark_view && key == -2 {
+      if bookmark_sel < 9 { bookmark_sel = bookmark_sel + 1 }
+    } else if bookmark_view && key == 13 {
+      match bookmarks[bookmark_sel] {
+        None => msg = "Bookmark " + bookmark_sel.to_string() + " is empty"
+        Some(off) => {
+          offset = (off / 16) * 16
+          bookmark_view = false
+          msg = "Jumped to bookmark " + bookmark_sel.to_string() + ": 0x" + @lib.to_hex_string(off, width=8)
+        }
+      }
+    } else if bookmark_view && (key == 'd'.to_int() || key == 'D'.to_int()) {
+      bookmarks[bookmark_sel] = None
+      msg = "Bookmark " + bookmark_sel.to_string() + " deleted"
+    } else if bookmark_view && (key == 'q'.to_int() || key == 'Q'.to_int()) {
+      running = false
+    } else if bookmark_view && (key == 'b'.to_int() || key == 'B'.to_int()) {
+      bookmark_view = false
+      msg = "Hex view"
+    } else if bookmark_view && key == 27 {
+      bookmark_view = false
+      msg = "Hex view"
+    } else if bookmark_view {
+      ()
+
     // ====== Struct view mode ======
-    if struct_view && key == -1 {
+    } else if struct_view && key == -1 {
       // Up: only scroll if content exceeds visible area
       let (total, _max) = get_struct_info(buffer)
       if total > screen_rows && struct_offset > 0 { struct_offset = struct_offset - 1 }
@@ -137,7 +168,7 @@ pub fn run_tui(file_path : String?) -> Unit {
       }
     } else if struct_view && key == -7 {
       struct_offset = 0
-    } else if struct_view && (key == 't'.to_int() || key == 'T'.to_int()) {
+    } else if struct_view && (key == 't'.to_int() || key == 'T'.to_int() || key == 27) {
       struct_view = false
       msg = "Hex view"
     } else if struct_view && (key == 'q'.to_int() || key == 'Q'.to_int()) {
@@ -305,25 +336,24 @@ pub fn run_tui(file_path : String?) -> Unit {
     } else if key == 'q'.to_int() || key == 'Q'.to_int() {
       running = false
 
-    } else if key == -1 {
+    } else if !bookmark_view && key == -1 {
       if offset >= 16 { offset = offset - 16 }
 
-    } else if key == -2 {
-      let rows = buffer.length() / 16
-      if offset + 16 < rows * 16 { offset = offset + 16 }
+    } else if !bookmark_view && key == -2 {
+      if offset + 16 < buffer.length() { offset = offset + 16 }
 
-    } else if key == -3 {
+    } else if !bookmark_view && key == -3 {
       let page = 256
       if offset >= page { offset = offset - page } else { offset = 0 }
 
-    } else if key == -4 {
+    } else if !bookmark_view && key == -4 {
       let page = 256
       if offset + page < buffer.length() { offset = offset + page }
 
-    } else if key == -7 {
+    } else if !bookmark_view && key == -7 {
       offset = 0
 
-    } else if key == -8 {
+    } else if !bookmark_view && key == -8 {
       let rows = buffer.length() / 16
       offset = rows * 16
 
@@ -396,6 +426,20 @@ pub fn run_tui(file_path : String?) -> Unit {
     } else if key == 't'.to_int() || key == 'T'.to_int() {
       struct_view = !struct_view
       msg = if struct_view { "Structure view" } else { "Hex view" }
+
+    } else if key == 'b'.to_int() || key == 'B'.to_int() {
+      bookmark_view = !bookmark_view
+      msg = if bookmark_view { "Bookmark view" } else { "Hex view" }
+
+    // Ctrl+B: set bookmark at current offset
+    } else if key == 2 {
+      let mut slot = -1
+      for i = 0; i < 10; i = i + 1 {
+        match bookmarks[i] { None => { slot = i; break }; _ => () }
+      }
+      if slot < 0 { slot = 0 }
+      bookmarks[slot] = Some(offset)
+      msg = "Bookmark " + slot.to_string() + " set at 0x" + @lib.to_hex_string(offset, width=8)
 
     } else if key == '?'.to_int() || key == 'h'.to_int() {
       msg = "q:quit UD:line LR:page g:goto /:hex f:text n/N:match e:edit t:struct Home/End"
