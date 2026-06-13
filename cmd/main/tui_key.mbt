@@ -328,15 +328,31 @@ pub fn handle_key(
     }
 
   } else if key == 'g'.to_int() || key == 'G'.to_int() {
-    let input = tui_read_line("Goto offset (hex): ")
+    let input = tui_read_line("Goto offset (hex, #N bookmark): ")
     if input != "" {
-      let off = if string_starts_with(input, "0x") || string_starts_with(input, "0X") {
-        parse_int(input)
-      } else { parse_hex_int(input) }
-      match off {
-        Some(o) if o >= 0 && o < buffer.length() => state.offset = (o / 16) * 16
-        Some(_) => state.msg = "Offset out of range"
-        None => state.msg = "Invalid offset"
+      // Bookmark reference: #N (e.g., #0, #5, #20)
+      if string_starts_with(input, "#") {
+        let num_str = input[1:].to_owned()
+        match parse_int(num_str) {
+          Some(n) if n >= 0 && n <= 20 => match state.bookmarks[n] {
+            None => state.msg = "Bookmark #" + n.to_string() + " is empty"
+            Some(off) => {
+              state.offset = (off / 16) * 16
+              state.msg = "Jumped to #" + n.to_string() + ": 0x" + @lib.to_hex_string(off, width=8)
+            }
+          }
+          Some(n) => state.msg = "Bookmark #" + n.to_string() + " out of range (0-20)"
+          None => state.msg = "Invalid bookmark number"
+        }
+      } else {
+        let off = if string_starts_with(input, "0x") || string_starts_with(input, "0X") {
+          parse_int(input)
+        } else { parse_hex_int(input) }
+        match off {
+          Some(o) if o >= 0 && o < buffer.length() => state.offset = (o / 16) * 16
+          Some(_) => state.msg = "Offset out of range"
+          None => state.msg = "Invalid offset"
+        }
       }
     }
 

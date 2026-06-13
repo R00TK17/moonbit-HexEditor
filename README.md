@@ -6,12 +6,12 @@ A terminal-based hex editor and binary file analyzer written in MoonBit, featuri
 
 ### Interactive TUI
 - Hex dump with offset column, 16 bytes/row, and ASCII sidebar
-- Navigation: Arrow keys (`↑↓` line scroll, `←→` page), Home/End, Goto offset
+- Navigation: Arrow keys (`↑↓` line scroll, `←→` page), Home/End, Goto offset / bookmark (`g #N`)
 - Search: `/` hex pattern, `f` ASCII text, `n`/`N` next/prev match
 - Highlighting: current match (green), other matches (yellow), edit cursor (inverse)
 - Edit mode: hex/ASCII input, insert, delete, undo/redo (`Ctrl+Z`/`Ctrl+Y`) with depth display, smart save prompt
 - Structure view: parsed file structure with scrollable display
-- Display: adaptive rows fill the terminal, file info on open, status bar + help bar
+- Bookmarks: 21 slots (0-20), popup list with auto-scroll, `Ctrl+B` set, `#N` goto
 
 ### CLI Commands
 ```
@@ -55,15 +55,18 @@ moon run --target native cmd/main                  # empty start
 | `↑↓` | Line scroll | `↑↓←→` | Move cursor |
 | `←→` | Page up/down | `0-9 a-f` | Hex input |
 | `Home/End` | Start/end | `Tab` | Hex/ASCII mode |
-| `g` | Goto offset | `i` | Insert byte |
+| `g` | Goto / #N bookmark | `i` | Insert byte |
 | `/` | Hex search | `Del` | Delete byte |
 | `f` | Text search | `Ctrl+Z` | Undo |
 | `n` | Next match | `Ctrl+Y` | Redo |
 | `p` | Prev match | `Ctrl+S` | Save |
 | `e` | Edit mode | | |
-| `t` | Struct view | | |
+| `t` | Struct view | `Ctrl+B` | Set bookmark |
+| `b` | Bookmark list | | |
 
-Struct view: `↑↓←→` scroll, `t` back to hex, `q` quit.
+Struct view: `↑↓←→` scroll, `t`/`Esc` back to hex, `q` quit.
+
+Bookmark list: `↑↓` select, `Enter` jump, `d` delete, `b`/`Esc` close, `q` quit, `Ctrl+B` set.
 
 ### Platform Notes
 
