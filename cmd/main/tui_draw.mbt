@@ -70,13 +70,24 @@ fn draw_screen(
   bookmark_sel : Int,
   bookmark_scroll : Int,
   bookmarks : FixedArray[Int?],
+  scan_view : Bool,
+  scan_sel : Int,
+  scan_scroll : Int,
+  scan_offsets : Array[Int],
+  scan_names : Array[String],
+  scan_sizes : Array[Int],
+  entropy_view : Bool,
+  entropy_sel : Int,
+  entropy_blocks : Array[@lib.EntropyBlock],
   screen_rows : Int,
 ) -> Unit {
   let sb = StringBuilder()
 
   sb.write_string("[H")
 
-  if bookmark_view {
+  if entropy_view {
+    draw_entropy_popup(sb, entropy_sel, entropy_blocks, screen_rows)
+  } else if bookmark_view {
     draw_bookmark_popup(sb, bookmark_sel, bookmark_scroll, bookmarks, screen_rows)
   } else if struct_view && !buffer.is_empty() {
     let bytes = buffer.to_bytes()
@@ -187,12 +198,14 @@ fn draw_screen(
   if edit_mode {
     let mode = if edit_ascii { "ASCII" } else { "Hex" }
     sb.write_string("[47;30m Esc:exit Tab:\{mode} i:insert Del:delete Ctrl+Z:undo Ctrl+Y:redo Ctrl+S:save [0m[K")
+  } else if entropy_view {
+    sb.write_string("[47;30m q:quit  Enter:jump  LR:page h:close [0m[K")
   } else if bookmark_view {
     sb.write_string("[47;30m q:quit  Enter:jump  d:delete  b:close  Ctrl+B:set [0m[K")
   } else if struct_view {
     sb.write_string("[47;30m q:quit UD:scroll LR:page t:hex [0m[K")
   } else {
-    sb.write_string("[47;30m q:quit o:open g:goto /:hex f:text n/p:match e:edit t:struct b:bookmark [0m[K")
+    sb.write_string("[47;30m q:quit o:open g:goto /:hex f:text w:scan h:entropy n/p:match e:edit t:struct b:bookmark [0m[K")
   }
 
   // Erase below: clear anything after the help bar
@@ -230,4 +243,47 @@ fn draw_bookmark_popup(
   for _i = 0; _i < remaining; _i = _i + 1 {
     sb.write_string("  [K\r\n")
   }
+}
+fn draw_entropy_popup(
+  sb : StringBuilder,
+  sel : Int,
+  blocks : Array[@lib.EntropyBlock],
+  screen_rows : Int,
+) -> Unit {
+  sb.write_string("  -- Entropy Scan --[K\r\n")
+  let total = blocks.length()
+  let max_visible = if screen_rows > 1 { screen_rows - 1 } else { 0 }
+  let end = if sel + max_visible < total { sel + max_visible } else { total }
+  for i = sel; i < end; i = i + 1 {
+    let b = blocks[i]
+    let off_str = "0x" + @lib.to_hex_string(b.start, width=8)
+    let e_str = format_e(b.entropy)
+    let bar = make_bar((b.entropy / 8.0 * 40.0).to_int())
+    if i == sel {
+      sb.write_string("  [44;37m" + off_str + "  " + bar + "  " + e_str + "[0m[K\r\n")
+    } else {
+      sb.write_string("  " + off_str + "  " + bar + "  " + e_str + "[K\r\n")
+    }
+  }
+  let displayed = end - sel
+  let remaining = if screen_rows > displayed + 1 { screen_rows - displayed - 1 } else { 0 }
+  for _i = 0; _i < remaining; _i = _i + 1 {
+    sb.write_string("  [K\r\n")
+  }
+}
+
+fn make_bar(len : Int) -> String {
+  let s = StringBuilder()
+  let clamped = if len > 40 { 40 } else { len }
+  let color = if clamped > 30 { "[41m" } else if clamped > 15 { "[43m" } else { "[42m" }
+  s.write_string(color)
+  for _i = 0; _i < clamped; _i = _i + 1 { s.write_char('|') }
+  s.write_string("[0m")
+  for _i = clamped; _i < 40; _i = _i + 1 { s.write_char(' ') }
+  s.to_string()
+}
+
+fn format_e(e : Double) -> String {
+  let n = (e * 10.0).to_int()
+  (n / 10).to_string() + "." + (n % 10).to_string()
 }

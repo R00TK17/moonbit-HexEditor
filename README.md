@@ -79,17 +79,23 @@ Bookmark list: `↑↓` select, `Enter` jump, `d` delete, `b`/`Esc` close, `q` q
 
 ```
 hex_editor/
-├── hex_editor.mbt / hex_view.mbt / hex_search.mbt / hex_edit.mbt / hex_struct.mbt
-├── hex_editor_test.mbt           # Tests
+├── hex_editor.mbt                # HexBuffer data model
+├── hex_view.mbt                 # Hex dump formatting
+├── hex_search.mbt               # Byte/string/hex search
+├── hex_edit.mbt                 # Edit operations, patch, undo/redo primitives
+├── hex_struct.mbt               # 16+ file format parser
+├── hex_scan.mbt                 # Signature scanner, entropy analysis, extraction
+├── hex_editor_test.mbt          # Tests
 ├── cmd/main/
-│   ├── main.mbt                  # CLI + TUI entry
-│   ├── helpers.mbt / helpers_native.mbt  # Shared utilities
-│   ├── tui.mbt                   # TUI main loop, FFI, input helpers
-│   ├── tui_key.mbt               # Key dispatch & TuiState (struct/edit/normal)
-│   ├── tui_bookmark.mbt          # Bookmark popup, set, jump, delete
-│   ├── tui_draw.mbt              # Screen rendering (buffered, single-flush)
-│   ├── tui_edit.mbt              # Edit operations, undo/redo
-│   └── tui_stub.c                # C terminal stubs (raw mode, alt screen, adaptive size)
+│   ├── main.mbt                 # CLI + TUI entry
+│   ├── helpers.mbt              # Argument parsing, file loading, type detection
+│   ├── helpers_native.mbt       # Native-only helpers
+│   ├── tui.mbt                  # Main loop, FFI, input helpers
+│   ├── tui_key.mbt              # Key dispatch, TuiState (all modes)
+│   ├── tui_bookmark.mbt         # Bookmark popup, set, jump, delete
+│   ├── tui_draw.mbt             # Screen rendering (buffered, single-flush)
+│   ├── tui_edit.mbt             # Edit mode, undo/redo operations
+│   └── tui_stub.c               # C stubs (raw mode, alt screen, adaptive size)
 ```
 
 ## Dependencies

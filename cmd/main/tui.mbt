@@ -88,7 +88,7 @@ pub fn run_tui(file_path : String?) -> Unit {
   for _i = 0; state.running; _i = _i + 1 {
     let term_rows = tui_get_terminal_rows()
     let screen_rows = if term_rows > 5 { term_rows - 2 } else { 32 }
-    draw_screen(buffer, state.offset, state.msg, state.results, state.result_idx, state.match_len, state.edit_mode, state.edit_off, state.edit_ascii, state.struct_view, state.struct_offset, state.bookmark_view, state.bookmark_sel, state.bookmark_scroll, state.bookmarks, screen_rows)
+    draw_screen(buffer, state.offset, state.msg, state.results, state.result_idx, state.match_len, state.edit_mode, state.edit_off, state.edit_ascii, state.struct_view, state.struct_offset, state.bookmark_view, state.bookmark_sel, state.bookmark_scroll, state.bookmarks, state.scan_view, state.scan_sel, state.scan_scroll, state.scan_offsets, state.scan_names, state.scan_sizes, state.entropy_view, state.entropy_sel, state.entropy_blocks, screen_rows)
 
     let key = tui_get_key()
 

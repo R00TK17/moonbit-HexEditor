@@ -21,6 +21,15 @@ struct TuiState {
   mut bookmark_sel : Int
   mut bookmark_scroll : Int
   bookmarks : FixedArray[Int?]
+  scan_view : Bool
+  scan_sel : Int
+  scan_scroll : Int
+  scan_offsets : Array[Int]
+  scan_names : Array[String]
+  scan_sizes : Array[Int]
+  mut entropy_view : Bool
+  mut entropy_sel : Int
+  mut entropy_blocks : Array[@lib.EntropyBlock]
   mut undo_stack : Array[UndoOp]
   mut redo_stack : Array[UndoOp]
 }
@@ -50,6 +59,9 @@ pub fn TuiState::new(file_path : String?, buffer : @lib.HexBuffer) -> TuiState {
     bookmark_sel: 0,
     bookmark_scroll: 0,
     bookmarks: FixedArray::make(21, None),
+    scan_view: false, scan_sel: 0, scan_scroll: 0,
+    scan_offsets: [], scan_names: [], scan_sizes: [],
+    entropy_view: false, entropy_sel: 0, entropy_blocks: [],
     undo_stack: [],
     redo_stack: [],
   }
@@ -66,8 +78,34 @@ pub fn handle_key(
   // Only clear status message on real keypress, not on timeout (-10)
   if key != -10 { state.msg = "" }
 
+  // ====== Entropy popup ======
+  if state.entropy_view && key == -1 {
+    if state.entropy_sel > 0 { state.entropy_sel = state.entropy_sel - 1 }
+  } else if state.entropy_view && key == -2 {
+    let total = state.entropy_blocks.length()
+    if state.entropy_sel + 1 < total { state.entropy_sel = state.entropy_sel + 1 }
+  } else if state.entropy_view && key == -3 {
+    let page = if screen_rows > 2 { screen_rows - 2 } else { 1 }
+    if state.entropy_sel >= page { state.entropy_sel = state.entropy_sel - page } else { state.entropy_sel = 0 }
+  } else if state.entropy_view && key == -4 {
+    let total = state.entropy_blocks.length()
+    let page = if screen_rows > 2 { screen_rows - 2 } else { 1 }
+    let new_sel = state.entropy_sel + page
+    state.entropy_sel = if new_sel < total { new_sel } else { total - 1 }
+  } else if state.entropy_view && key == 13 {
+    let total = state.entropy_blocks.length()
+    if total > 0 && state.entropy_sel < total {
+      state.offset = (state.entropy_blocks[state.entropy_sel].start / 16) * 16
+      state.entropy_view = false
+      state.msg = "Jumped to 0x" + @lib.to_hex_string(state.entropy_blocks[state.entropy_sel].start, width=8)
+    }
+  } else if state.entropy_view && (key == 'h'.to_int() || key == 'H'.to_int() || key == 27) {
+    state.entropy_view = false; state.msg = "Hex view"
+  } else if state.entropy_view && (key == 'q'.to_int() || key == 'Q'.to_int()) {
+    state.running = false
+  } else if state.entropy_view { ()
   // ====== Bookmark popup (in tui_bookmark.mbt) ======
-  if state.bookmark_view && handle_bookmark_popup_key(state, key, screen_rows) {
+  } else if state.bookmark_view && handle_bookmark_popup_key(state, key, screen_rows) {
     ()
 
   // ====== Struct view mode ======
@@ -370,7 +408,11 @@ pub fn handle_key(
   } else if handle_bookmark_normal_key(state, key) {
     ()
 
-  } else if key == '?'.to_int() || key == 'h'.to_int() {
-    state.msg = "q:quit UD:line LR:page g:goto /:hex f:text n/N:match e:edit t:struct Home/End"
+  } else if key == 'h'.to_int() || key == 'H'.to_int() {
+    state.entropy_blocks = @lib.entropy_scan(buffer.to_bytes())
+    state.entropy_sel = 0
+    state.entropy_view = true
+  } else if key == '?'.to_int() {
+    state.msg = "q:quit g:goto /:hex f:text n/p:match e:edit t:struct b:bookmark h:entropy"
   }
 }

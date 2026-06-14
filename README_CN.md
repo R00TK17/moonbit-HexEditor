@@ -80,17 +80,23 @@ moon run --target native cmd/main                  # 空启动
 
 ```
 hex_editor/
-├── hex_editor.mbt / hex_view.mbt / hex_search.mbt / hex_edit.mbt / hex_struct.mbt
-├── hex_editor_test.mbt           # 测试文件
+├── hex_editor.mbt                # HexBuffer 数据模型
+├── hex_view.mbt                 # 十六进制格式化
+├── hex_search.mbt               # 字节/字符串/十六进制搜索
+├── hex_edit.mbt                 # 编辑操作、Patch、撤销/重做原语
+├── hex_struct.mbt               # 16+ 种文件格式解析器
+├── hex_scan.mbt                 # 签名扫描、熵分析、提取
+├── hex_editor_test.mbt          # 测试文件
 ├── cmd/main/
-│   ├── main.mbt                  # CLI + TUI 入口
-│   ├── helpers.mbt / helpers_native.mbt  # 共享工具函数
-│   ├── tui.mbt                   # TUI 主循环、FFI、输入助手
-│   ├── tui_key.mbt               # 按键分发与 TuiState（结构/编辑/普通模式）
-│   ├── tui_bookmark.mbt          # 书签功能（弹出窗口、设置、跳转、删除）
-│   ├── tui_draw.mbt              # 屏幕渲染（缓冲、单次刷新）
-│   ├── tui_edit.mbt              # 编辑操作、撤销/重做
-│   └── tui_stub.c                # C 终端桩代码（raw mode、alt screen、自适应尺寸）
+│   ├── main.mbt                 # CLI + TUI 入口
+│   ├── helpers.mbt              # 命令行解析、文件加载、类型检测
+│   ├── helpers_native.mbt       # Native 平台辅助函数
+│   ├── tui.mbt                  # 主循环、FFI、输入助手
+│   ├── tui_key.mbt              # 按键分发、TuiState（所有模式）
+│   ├── tui_bookmark.mbt         # 书签功能（popup、设置、跳转、删除）
+│   ├── tui_draw.mbt             # 屏幕渲染（缓冲、单次刷新）
+│   ├── tui_edit.mbt             # 编辑模式、撤销/重做
+│   └── tui_stub.c               # C 终端桩（raw mode、alt screen、自适应尺寸）
 ```
 
 ## 依赖
