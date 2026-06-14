@@ -73,7 +73,7 @@ fn tui_read_line(prompt : String) -> String {
 ///|
 /// Main TUI entry point. Called from main.mbt.
 pub fn run_tui(file_path : String?) -> Unit {
-  let buffer = match file_path {
+  let mut buffer = match file_path {
     Some(p) => match load_file(p) { Ok(b) => b; Err(_) => @lib.HexBuffer::new() }
     None => @lib.HexBuffer::new()
   }
@@ -91,7 +91,28 @@ pub fn run_tui(file_path : String?) -> Unit {
     draw_screen(buffer, state.offset, state.msg, state.results, state.result_idx, state.match_len, state.edit_mode, state.edit_off, state.edit_ascii, state.struct_view, state.struct_offset, state.bookmark_view, state.bookmark_sel, state.bookmark_scroll, state.bookmarks, screen_rows)
 
     let key = tui_get_key()
-    handle_key(state, buffer, key, screen_rows)
+
+    // o/O: open file — handled here to reload buffer
+    if !state.edit_mode && !state.struct_view && !state.bookmark_view && (key == 'o'.to_int() || key == 'O'.to_int()) {
+      let path = tui_read_line("Open file: ")
+      if path != "" {
+        match load_file(path) {
+          Ok(b) => {
+            buffer = b
+            state.offset = 0
+            state.msg = "\{path} | \{@lib.format_size(buffer.length())}"
+            state.edit_mode = false
+            state.struct_view = false
+            state.bookmark_view = false
+            state.undo_stack = []
+            state.redo_stack = []
+          }
+          Err(m) => state.msg = "Error: \{m}"
+        }
+      }
+    } else {
+      handle_key(state, buffer, key, screen_rows)
+    }
   }
 
   tui_show_cursor()

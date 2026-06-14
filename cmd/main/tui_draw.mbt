@@ -192,7 +192,7 @@ fn draw_screen(
   } else if struct_view {
     sb.write_string("[47;30m q:quit UD:scroll LR:page t:hex [0m[K")
   } else {
-    sb.write_string("[47;30m q:quit g:goto /:hex f:text n/p:match e:edit t:struct b:bookmark [0m[K")
+    sb.write_string("[47;30m q:quit o:open g:goto /:hex f:text n/p:match e:edit t:struct b:bookmark [0m[K")
   }
 
   // Erase below: clear anything after the help bar
