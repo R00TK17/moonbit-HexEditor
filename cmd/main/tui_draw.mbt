@@ -201,7 +201,7 @@ fn draw_screen(
     let mode = if edit_ascii { "ASCII" } else { "Hex" }
     sb.write_string("[47;30m Esc:exit Tab:\{mode} i:insert Del:delete Ctrl+Z:undo Ctrl+Y:redo Ctrl+S:save [0m[K")
   } else if scan_view {
-    sb.write_string("[47;30m q:quit  Enter:jump  x:extract [0m[K")
+    sb.write_string("[47;30m q:quit  Enter:jump  x:extract  w:close [0m[K")
   } else if entropy_view {
     sb.write_string("[47;30m q:quit  Enter:jump  LR:page h:close [0m[K")
   } else if bookmark_view {

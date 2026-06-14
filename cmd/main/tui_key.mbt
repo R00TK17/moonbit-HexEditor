@@ -120,7 +120,7 @@ pub fn handle_key(
     state.scan_view = false; state.msg = "Hex view"
   } else if state.scan_view && (key == 'q'.to_int() || key == 'Q'.to_int()) {
     state.running = false
-  } else if state.scan_view { () }
+  } else if state.scan_view && key != 'w'.to_int() && key != 'W'.to_int() { () }
 
   // ====== Entropy popup ======
   if state.entropy_view && key == -1 {
@@ -181,7 +181,7 @@ pub fn handle_key(
     state.running = false
   } else if state.struct_view {
     ()
-  } else if state.scan_view || state.entropy_view {
+  } else if (state.scan_view || state.entropy_view) && key != 'w'.to_int() && key != 'W'.to_int() {
     ()
 
   // ====== Edit mode keys ======
