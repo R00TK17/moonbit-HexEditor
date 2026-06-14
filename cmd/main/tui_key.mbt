@@ -21,12 +21,12 @@ struct TuiState {
   mut bookmark_sel : Int
   mut bookmark_scroll : Int
   bookmarks : FixedArray[Int?]
-  scan_view : Bool
-  scan_sel : Int
-  scan_scroll : Int
-  scan_offsets : Array[Int]
-  scan_names : Array[String]
-  scan_sizes : Array[Int]
+  mut scan_view : Bool
+  mut scan_sel : Int
+  mut scan_scroll : Int
+  mut scan_offsets : Array[Int]
+  mut scan_names : Array[String]
+  mut scan_sizes : Array[Int]
   mut entropy_view : Bool
   mut entropy_sel : Int
   mut entropy_blocks : Array[@lib.EntropyBlock]
@@ -77,6 +77,50 @@ pub fn handle_key(
 ) -> Unit {
   // Only clear status message on real keypress, not on timeout (-10)
   if key != -10 { state.msg = "" }
+
+  // ====== Scan popup ======
+  if state.scan_view && key == -1 {
+    if state.scan_sel > 0 { state.scan_sel = state.scan_sel - 1 }
+    if state.scan_sel < state.scan_scroll { state.scan_scroll = state.scan_sel }
+  } else if state.scan_view && key == -2 {
+    let total = state.scan_offsets.length()
+    if state.scan_sel + 1 < total { state.scan_sel = state.scan_sel + 1 }
+    let max_visible = if screen_rows > 1 { screen_rows - 1 } else { 1 }
+    if state.scan_sel >= state.scan_scroll + max_visible {
+      state.scan_scroll = state.scan_sel - max_visible + 1
+    }
+  } else if state.scan_view && key == -3 {
+    let page = if screen_rows > 2 { screen_rows - 2 } else { 1 }
+    if state.scan_sel >= page { state.scan_sel = state.scan_sel - page } else { state.scan_sel = 0 }
+    if state.scan_sel < state.scan_scroll { state.scan_scroll = state.scan_sel }
+  } else if state.scan_view && key == -4 {
+    let total = state.scan_offsets.length()
+    let page = if screen_rows > 2 { screen_rows - 2 } else { 1 }
+    let new_sel = state.scan_sel + page
+    state.scan_sel = if new_sel < total { new_sel } else { total - 1 }
+    let max_visible = if screen_rows > 1 { screen_rows - 1 } else { 1 }
+    if state.scan_sel >= state.scan_scroll + max_visible {
+      state.scan_scroll = state.scan_sel - max_visible + 1
+    }
+  } else if state.scan_view && key == 13 {
+    let total = state.scan_offsets.length()
+    if total > 0 && state.scan_sel < total {
+      state.offset = (state.scan_offsets[state.scan_sel] / 16) * 16
+      state.scan_view = false
+      state.msg = "Jumped to " + state.scan_names[state.scan_sel] + " (" + @lib.format_size(state.scan_sizes[state.scan_sel]) + ")"
+    }
+  } else if state.scan_view && (key == 'x'.to_int() || key == 'X'.to_int()) {
+    let total = state.scan_offsets.length()
+    if total > 0 && state.scan_sel < total {
+      let data = buffer.to_bytes()
+      let base = match buffer.get_file_path() { Some(p) => p; None => "output" }
+      state.msg = @lib.extract_region(data, state.scan_offsets[state.scan_sel], state.scan_names[state.scan_sel], base)
+    }
+  } else if state.scan_view && key == 27 {
+    state.scan_view = false; state.msg = "Hex view"
+  } else if state.scan_view && (key == 'q'.to_int() || key == 'Q'.to_int()) {
+    state.running = false
+  } else if state.scan_view { () }
 
   // ====== Entropy popup ======
   if state.entropy_view && key == -1 {
@@ -136,6 +180,8 @@ pub fn handle_key(
   } else if state.struct_view && (key == 'q'.to_int() || key == 'Q'.to_int()) {
     state.running = false
   } else if state.struct_view {
+    ()
+  } else if state.scan_view || state.entropy_view {
     ()
 
   // ====== Edit mode keys ======
@@ -297,24 +343,24 @@ pub fn handle_key(
   } else if key == 'q'.to_int() || key == 'Q'.to_int() {
     state.running = false
 
-  } else if !state.bookmark_view && key == -1 {
+  } else if !state.bookmark_view && !state.scan_view && key == -1 {
     if state.offset >= 16 { state.offset = state.offset - 16 }
 
-  } else if !state.bookmark_view && key == -2 {
+  } else if !state.bookmark_view && !state.scan_view && key == -2 {
     if state.offset + 16 < buffer.length() { state.offset = state.offset + 16 }
 
-  } else if !state.bookmark_view && key == -3 {
+  } else if !state.bookmark_view && !state.scan_view && key == -3 {
     let page = 256
     if state.offset >= page { state.offset = state.offset - page } else { state.offset = 0 }
 
-  } else if !state.bookmark_view && key == -4 {
+  } else if !state.bookmark_view && !state.scan_view && key == -4 {
     let page = 256
     if state.offset + page < buffer.length() { state.offset = state.offset + page }
 
-  } else if !state.bookmark_view && key == -7 {
+  } else if !state.bookmark_view && !state.scan_view && key == -7 {
     state.offset = 0
 
-  } else if !state.bookmark_view && key == -8 {
+  } else if !state.bookmark_view && !state.scan_view && key == -8 {
     let rows = buffer.length() / 16
     state.offset = rows * 16
 
@@ -408,10 +454,26 @@ pub fn handle_key(
   } else if handle_bookmark_normal_key(state, key) {
     ()
 
+  } else if key == 'w'.to_int() || key == 'W'.to_int() {
+    if state.scan_view {
+      state.scan_view = false; state.msg = "Hex view"
+    } else {
+      let matches = @lib.scan_signatures(buffer.to_bytes())
+      state.scan_offsets = []; state.scan_names = []; state.scan_sizes = []
+      for i = 0; i < matches.length(); i = i + 1 {
+        state.scan_offsets.push(matches[i].offset)
+        state.scan_names.push(matches[i].name)
+        state.scan_sizes.push(matches[i].size)
+      }
+      state.scan_sel = 0; state.scan_scroll = 0
+      if matches.length() > 0 { state.scan_view = true; state.msg = "Binary scan view" } else { state.msg = "No signatures found" }
+      state.results = state.scan_offsets; state.match_len = 8; state.result_idx = 0
+    }
   } else if key == 'h'.to_int() || key == 'H'.to_int() {
     state.entropy_blocks = @lib.entropy_scan(buffer.to_bytes())
     state.entropy_sel = 0
     state.entropy_view = true
+    state.msg = "Entropy analysis"
   } else if key == '?'.to_int() {
     state.msg = "q:quit g:goto /:hex f:text n/p:match e:edit t:struct b:bookmark h:entropy"
   }

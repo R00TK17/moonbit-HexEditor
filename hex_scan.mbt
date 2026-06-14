@@ -6,7 +6,7 @@ pub struct ScanMatch {
   offset : Int
   name : String
   mut size : Int
-  mut confidence : Int
+  confidence : Int
 } derive(Debug)
 
 ///|
@@ -25,16 +25,24 @@ pub fn scan_signatures(bytes : Bytes) -> Array[ScanMatch] {
   let results : Array[ScanMatch] = []
 
   for off = 0; off < len; off = off + 1 {
-    // JPEG SOI
-    if off + 2 <= len && bytes[off].to_int() == 0xFF && bytes[off + 1].to_int() == 0xD8 {
-      results.push({ offset: off, name: "JPEG image (SOI)", size: 0, confidence: 0 })
+    // JPEG: require FFD8 FF + marker byte (binwalk: FFD8 FFE0 0010 JFIF)
+    // Pure FFD8 alone is too common in random data
+    if off + 4 <= len && bytes[off].to_int() == 0xFF && bytes[off + 1].to_int() == 0xD8 &&
+      bytes[off + 2].to_int() == 0xFF {
+      let marker = bytes[off + 3].to_int()
+      // Valid APP/COM/DQT/SOF markers follow SOI
+      if (marker >= 0xE0 && marker <= 0xEF) || marker == 0xFE || marker == 0xDB ||
+        (marker >= 0xC0 && marker <= 0xC4) {
+        results.push({ offset: off, name: "JPEG image", size: 0, confidence: 2 })
+      }
     }
-    // PNG signature
-    if off + 8 <= len && bytes[off].to_int() == 0x89 && bytes[off + 1].to_int() == 0x50 &&
+    // PNG: 8-byte magic + IHDR must follow (binwalk: requires \x00\x00\x00\x0DIHDR)
+    if off + 21 <= len && bytes[off].to_int() == 0x89 && bytes[off + 1].to_int() == 0x50 &&
       bytes[off + 2].to_int() == 0x4E && bytes[off + 3].to_int() == 0x47 &&
       bytes[off + 4].to_int() == 0x0D && bytes[off + 5].to_int() == 0x0A &&
-      bytes[off + 6].to_int() == 0x1A && bytes[off + 7].to_int() == 0x0A {
-      results.push({ offset: off, name: "PNG image", size: 0, confidence: 0 })
+      bytes[off + 6].to_int() == 0x1A && bytes[off + 7].to_int() == 0x0A &&
+      read_u32_be_at(bytes, off + 8) == 0x0D && read_str_at(bytes, off + 12, 4) == "IHDR" {
+      results.push({ offset: off, name: "PNG image", size: 0, confidence: 3 })
     }
     // GIF
     if off + 6 <= len && (read_str_at(bytes, off, 6) == "GIF87a" || read_str_at(bytes, off, 6) == "GIF89a") {
@@ -75,10 +83,21 @@ pub fn scan_signatures(bytes : Bytes) -> Array[ScanMatch] {
     if off + 4 <= len && read_u32_be_at(bytes, off) == 0x1A45DFA3 {
       results.push({ offset: off, name: "WebM/MKV video", size: 0, confidence: 0 })
     }
-    // ZIP / Office / JAR / APK
-    if off + 4 <= len && bytes[off].to_int() == 0x50 && bytes[off + 1].to_int() == 0x4B &&
+    // ZIP: PK\x03\x04 + validate local file header fields
+    if off + 30 <= len && bytes[off].to_int() == 0x50 && bytes[off + 1].to_int() == 0x4B &&
       bytes[off + 2].to_int() == 0x03 && bytes[off + 3].to_int() == 0x04 {
-      results.push({ offset: off, name: "ZIP archive", size: 0, confidence: 0 })
+      let ver = bytes[off + 4].to_int() + bytes[off + 5].to_int() * 256
+      let flags = bytes[off + 6].to_int() + bytes[off + 7].to_int() * 256
+      let cm = bytes[off + 8].to_int() + bytes[off + 9].to_int() * 256
+      let name_len = bytes[off + 26].to_int() + bytes[off + 27].to_int() * 256
+      // Validate: version <= 63, compression method 0-99, no reserved flags
+      if ver <= 63 && cm <= 99 && (flags & 0xFFE0) == 0 && name_len <= 256 {
+        let ver_str = (ver / 10).to_string() + "." + (ver % 10).to_string()
+        let cm_str = if cm == 0 { "stored" } else if cm == 8 { "deflated" } else { "method=" + cm.to_string() }
+        results.push({ offset: off, name: "ZIP archive, " + cm_str + ", ver " + ver_str, size: 0, confidence: 3 })
+      } else {
+        results.push({ offset: off, name: "ZIP archive (unverified)", size: 0, confidence: 1 })
+      }
     }
     // RAR
     if off + 7 <= len && read_str_at(bytes, off, 4) == "Rar!" {
@@ -90,29 +109,62 @@ pub fn scan_signatures(bytes : Bytes) -> Array[ScanMatch] {
       bytes[off + 4].to_int() == 0x27 && bytes[off + 5].to_int() == 0x1C {
       results.push({ offset: off, name: "7-Zip archive", size: 0, confidence: 0 })
     }
+    // CAB (Microsoft Cabinet): MSCF magic
+    if off + 4 <= len && read_str_at(bytes, off, 4) == "MSCF" {
+      results.push({ offset: off, name: "CAB archive", size: 0, confidence: 0 })
+    }
+    // CPIO (070701 or 070702)
+    if off + 6 <= len && (read_str_at(bytes, off, 6) == "070701" || read_str_at(bytes, off, 6) == "070702") {
+      results.push({ offset: off, name: "CPIO archive", size: 0, confidence: 0 })
+    }
+    // ISO9660: CD001 at offset 32769
+    if off + 32769 + 5 <= len && read_str_at(bytes, off + 32769, 5) == "CD001" {
+      results.push({ offset: off, name: "ISO9660 filesystem", size: 0, confidence: 2 })
+    }
+    // Deb: !<arch> + debian-binary
+    if off + 8 <= len && read_str_at(bytes, off, 8) == "!<arch>\n" {
+      results.push({ offset: off, name: "Debian package (ar archive)", size: 0, confidence: 2 })
+    }
     // TAR (ustar at offset 257 within 512B block)
     // Simplified: check current offset + 257
     if off + 262 <= len && read_str_at(bytes, off + 257, 5) == "ustar" {
       results.push({ offset: off, name: "TAR archive (POSIX)", size: 0, confidence: 0 })
     }
-    // GZip
-    if off + 2 <= len && bytes[off].to_int() == 0x1F && bytes[off + 1].to_int() == 0x8B {
-      results.push({ offset: off, name: "GZip compressed", size: 0, confidence: 0 })
+    // GZip: 1F 8B 08, plus flag byte for extra info (binwalk-style)
+    if off + 10 <= len && bytes[off].to_int() == 0x1F && bytes[off + 1].to_int() == 0x8B {
+      if bytes[off + 2].to_int() == 0x08 {
+        let flg = bytes[off + 3].to_int()
+        let extra = if (flg & 8) != 0 { ", has name" } else { "" }
+        results.push({ offset: off, name: "GZip compressed" + extra, size: 0, confidence: 3 })
+      } else {
+        results.push({ offset: off, name: "GZip (unverified)", size: 0, confidence: 1 })
+      }
     }
     // ZLIB — only match well-known standard headers to avoid false positives
     if off + 2 <= len {
       let cmf = bytes[off].to_int()
       let flg = bytes[off + 1].to_int()
       let header = cmf * 256 + flg
-      // 0x789C = default compression, 0x78DA = max, 0x7801 = no compression
-      if header == 0x789C || header == 0x78DA || header == 0x7801 {
-        results.push({ offset: off, name: "ZLIB stream", size: 0, confidence: 0 })
+      // Common ZLIB headers: 9C=default, DA=max, 01=no compression, 5E=fast (binwalk includes all)
+      if header == 0x789C || header == 0x78DA || header == 0x7801 || header == 0x785E {
+        results.push({ offset: off, name: "ZLIB stream", size: 0, confidence: 2 })
       }
     }
-    // PE (DOS MZ)
-    if off + 2 <= len && ((bytes[off].to_int() == 0x4D && bytes[off + 1].to_int() == 0x5A) ||
-      (bytes[off].to_int() == 0x5A && bytes[off + 1].to_int() == 0x4D)) {
-      results.push({ offset: off, name: "PE executable (MZ)", size: 0, confidence: 0 })
+    // PE: MZ + "PE\\0\\0" at e_lfanew (binwalk-style)
+    if off + 2 <= len && bytes[off].to_int() == 0x4D && bytes[off + 1].to_int() == 0x5A {
+      // Read e_lfanew at offset 0x3C
+      if off + 64 <= len {
+        let pe_off = off + 60
+        let elfanew = bytes[pe_off].to_int() + bytes[pe_off + 1].to_int() * 256 +
+          bytes[pe_off + 2].to_int() * 65536 + bytes[pe_off + 3].to_int() * 16777216
+        if elfanew > 0 && off + elfanew + 4 <= len &&
+          bytes[off + elfanew].to_int() == 0x50 && bytes[off + elfanew + 1].to_int() == 0x45 &&
+          bytes[off + elfanew + 2].to_int() == 0x00 && bytes[off + elfanew + 3].to_int() == 0x00 {
+          results.push({ offset: off, name: "PE executable", size: 0, confidence: 3 })
+          continue
+        }
+      }
+      results.push({ offset: off, name: "PE executable (MZ)", size: 0, confidence: 1 })
     }
     // ELF
     if off + 4 <= len && bytes[off].to_int() == 0x7F && bytes[off + 1].to_int() == b'E'.to_int() &&
@@ -127,9 +179,16 @@ pub fn scan_signatures(bytes : Bytes) -> Array[ScanMatch] {
         results.push({ offset: off, name: "Mach-O executable", size: 0, confidence: 0 })
       }
     }
-    // PDF
-    if off + 5 <= len && read_str_at(bytes, off, 5) == "%PDF-" {
-      results.push({ offset: off, name: "PDF document", size: 0, confidence: 0 })
+    // PDF: %PDF-1.d + newline + % (binwalk-style validation)
+    if off + 9 <= len && read_str_at(bytes, off, 5) == "%PDF-" {
+      let minor = bytes[off + 5].to_int()
+      if minor >= 0x30 && minor <= 0x39 {
+        let after = bytes[off + 6].to_int()
+        if after == 0x0A || after == 0x0D {
+          results.push({ offset: off, name: "PDF document, version 1." + (minor - 0x30).to_string(), size: 0, confidence: 3 })
+        }
+      }
+      results.push({ offset: off, name: "PDF document", size: 0, confidence: 1 })
     }
     // SQLite3
     if off + 16 <= len && read_str_at(bytes, off, 15) == "SQLite format 3" &&
@@ -159,31 +218,44 @@ pub fn scan_signatures(bytes : Bytes) -> Array[ScanMatch] {
     }
   }
 
-  // Filter false positives inside ZIP/GZip compressed data regions
+  // Filter low-confidence matches inside containers
   let filtered = filter_false_positives(bytes, results)
   estimate_sizes(bytes, filtered)
-  set_confidence(filtered)
   filtered
 }
 
 ///|
 /// Remove matches that fall within ZIP local file data regions.
 fn filter_false_positives(bytes : Bytes, matches : Array[ScanMatch]) -> Array[ScanMatch] {
-  // If file starts with ZIP or GZip, remove compression-related false positives
+  // If file starts with a compression-based format, low-confidence matches
+  // at offset > 0 are almost certainly false positives inside compressed data
   let has_container = bytes.length() >= 2 && (
-    (bytes[0].to_int() == 0x50 && bytes[1].to_int() == 0x4B) ||
-    (bytes[0].to_int() == 0x1F && bytes[1].to_int() == 0x8B))
+    (bytes[0].to_int() == 0xFF && bytes[1].to_int() == 0xD8) ||  // JPEG
+    (bytes[0].to_int() == 0x50 && bytes[1].to_int() == 0x4B) ||  // ZIP
+    (bytes[0].to_int() == 0x1F && bytes[1].to_int() == 0x8B) ||  // GZip
+    (bytes[0].to_int() == 0x89 && bytes[1].to_int() == 0x50) ||  // PNG
+    (bytes[0].to_int() == 0x47 && bytes[1].to_int() == 0x49) ||  // GIF
+    (bytes[0].to_int() == 0x42 && bytes[1].to_int() == 0x4D) ||  // BMP
+    (bytes[0].to_int() == 0x42 && bytes[1].to_int() == 0x5A)     // BZip2
+  )
+  // Compression signatures inside containers are almost always false positives
+  let compression_names = ["ZLIB stream", "BZip2 compressed", "XZ compressed", "LZ4 compressed"]
+  fn is_compression(name : String) -> Bool {
+    for k = 0; k < 4; k = k + 1 { if name == compression_names[k] { return true } }
+    false
+  }
   let filtered : Array[ScanMatch] = []
   for i = 0; i < matches.length(); i = i + 1 {
     let m = matches[i]
     let mut keep = true
     if has_container && m.offset > 0 {
-      if m.name == "ZLIB stream" { keep = false }
+      // Remove unverified matches (confidence <= 1)
+      if m.confidence <= 1 { keep = false }
+      // Compression signatures inside compressed data are false positives
+      if is_compression(m.name) { keep = false }
+      // GZip inside container: only keep if verified (confidence 3)
       if m.name == "GZip compressed" { keep = false }
-      if m.name == "PE executable (MZ)" { keep = false }
-      if m.name == "BZip2 compressed" { keep = false }
-      if m.name == "XZ compressed" { keep = false }
-      if m.name == "LZ4 compressed" { keep = false }
+      if m.name == "GZip (unverified)" { keep = false }
     }
     if keep { filtered.push(m) }
   }
@@ -278,21 +350,6 @@ fn format_offset_scan(n : Int) -> String {
 }
 ///|
 /// Set confidence levels: HIGH for 4+ byte magic, MEDIUM for 3, LOW for 2.
-fn set_confidence(matches : Array[ScanMatch]) -> Unit {
-  let high = ["PNG image", "GIF image", "WAV audio", "AVI video", "FLAC audio",
-    "OGG container", "MP4 video", "WebM/MKV video", "ZIP archive", "RAR archive",
-    "7-Zip archive", "TAR archive", "PE executable", "ELF executable",
-    "PDF document", "SQLite3 database", "Java class file", "Mach-O executable",
-    "XZ compressed", "LZ4 compressed"]
-  let medium = ["JPEG image", "BMP image", "GZip compressed", "ZLIB stream", "BZip2 compressed",
-    "MP3 audio"]
-  for i = 0; i < matches.length(); i = i + 1 {
-    let mut conf = 1 // LOW
-    for j = 0; j < 20; j = j + 1 { if matches[i].name == high[j] { conf = 3 } }
-    for j = 0; j < 6; j = j + 1 { if matches[i].name == medium[j] { conf = 2 } }
-    matches[i].confidence = conf
-  }
-}
 
 ///|
 /// Calculate Shannon entropy per block. Block size is adaptive (min 256 bytes).

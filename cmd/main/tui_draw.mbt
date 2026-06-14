@@ -85,7 +85,9 @@ fn draw_screen(
 
   sb.write_string("[H")
 
-  if entropy_view {
+  if scan_view {
+    draw_scan_popup(sb, scan_sel, scan_scroll, scan_offsets, scan_names, scan_sizes, screen_rows)
+  } else if entropy_view {
     draw_entropy_popup(sb, entropy_sel, entropy_blocks, screen_rows)
   } else if bookmark_view {
     draw_bookmark_popup(sb, bookmark_sel, bookmark_scroll, bookmarks, screen_rows)
@@ -198,6 +200,8 @@ fn draw_screen(
   if edit_mode {
     let mode = if edit_ascii { "ASCII" } else { "Hex" }
     sb.write_string("[47;30m Esc:exit Tab:\{mode} i:insert Del:delete Ctrl+Z:undo Ctrl+Y:redo Ctrl+S:save [0m[K")
+  } else if scan_view {
+    sb.write_string("[47;30m q:quit  Enter:jump  x:extract [0m[K")
   } else if entropy_view {
     sb.write_string("[47;30m q:quit  Enter:jump  LR:page h:close [0m[K")
   } else if bookmark_view {
@@ -286,4 +290,32 @@ fn make_bar(len : Int) -> String {
 fn format_e(e : Double) -> String {
   let n = (e * 10.0).to_int()
   (n / 10).to_string() + "." + (n % 10).to_string()
+}
+fn draw_scan_popup(
+  sb : StringBuilder,
+  sel : Int,
+  scroll : Int,
+  offsets : Array[Int],
+  names : Array[String],
+  sizes : Array[Int],
+  screen_rows : Int,
+) -> Unit {
+  sb.write_string("  -- Binary Scan --[K\r\n")
+  let total = offsets.length()
+  let max_visible = if screen_rows > 1 { screen_rows - 1 } else { 0 }
+  let end = if scroll + max_visible < total { scroll + max_visible } else { total }
+  for i = scroll; i < end; i = i + 1 {
+    let off_str = "0x" + @lib.to_hex_string(offsets[i], width=8)
+    let size_str = " (" + @lib.format_size(sizes[i]) + ")"
+    if i == sel {
+      sb.write_string("  [44;37m" + off_str + "  " + names[i] + size_str + "[0m[K\r\n")
+    } else {
+      sb.write_string("  " + off_str + "  " + names[i] + size_str + "[K\r\n")
+    }
+  }
+  let displayed = end - scroll
+  let remaining = if screen_rows > displayed + 1 { screen_rows - displayed - 1 } else { 0 }
+  for _i = 0; _i < remaining; _i = _i + 1 {
+    sb.write_string("  [K\r\n")
+  }
 }
