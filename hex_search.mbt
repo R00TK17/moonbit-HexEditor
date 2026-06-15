@@ -1,56 +1,56 @@
 // Hex Editor — Search Functionality
-// Provides search capabilities for finding byte sequences, strings,
-// and hex patterns within binary data.
+// Uses Boyer-Moore-Horspool for O(n/m) average case search.
 
 ///|
-/// Finds the first occurrence of a byte pattern in the data.
+/// Build BMH bad-character skip table. pattern.length() bytes.
+fn bmh_skip(pattern : Bytes) -> FixedArray[Int] {
+  let m = pattern.length()
+  let skip = FixedArray::make(256, m)
+  for j = 0; j < m - 1; j = j + 1 {
+    skip[pattern[j].to_int()] = m - 1 - j
+  }
+  skip
+}
+
+///|
+/// Boyer-Moore-Horspool search — first occurrence.
 pub fn find_bytes(
   data : Bytes,
   pattern : Bytes,
   start_offset? : Int = 0,
 ) -> Int? {
-  let data_len = data.length()
-  let pat_len = pattern.length()
+  let n = data.length()
+  let m = pattern.length()
   let start = start_offset
-
-  guard pat_len > 0 else { None }
-  guard start >= 0 && start <= data_len else { None }
-  guard pat_len <= data_len else { None }
-
-  let max_start = data_len - pat_len
-  for i = start; i <= max_start; i = i + 1 {
-    for j = 0; j < pat_len; j = j + 1 {
-      if data[i + j] != pattern[j] {
-        break
-      }
-    } nobreak {
-      return Some(i)
-    }
+  guard m > 0 else { None }
+  guard start >= 0 && start <= n else { None }
+  guard m <= n else { None }
+  let skip = bmh_skip(pattern)
+  let mut i = start
+  while i <= n - m {
+    let mut j = m - 1
+    while j >= 0 && data[i + j] == pattern[j] { j = j - 1 }
+    if j < 0 { return Some(i) }
+    i = i + skip[data[i + m - 1].to_int()]
   }
   None
 }
 
 ///|
-/// Finds all occurrences of a byte pattern in the data.
+/// Boyer-Moore-Horspool search — all occurrences.
 pub fn find_all_bytes(data : Bytes, pattern : Bytes) -> Array[Int] {
-  let data_len = data.length()
-  let pat_len = pattern.length()
+  let n = data.length()
+  let m = pattern.length()
   let results = []
-
-  guard pat_len > 0 else { return results }
-  guard pat_len <= data_len else { return results }
-
-  let max_start = data_len - pat_len
-  for i = 0; i <= max_start; i = i + 1 {
-    let mut _found = true
-    for j = 0; j < pat_len; j = j + 1 {
-      if data[i + j] != pattern[j] {
-        _found = false
-        break
-      }
-    } nobreak {
-      results.push(i)
-    }
+  guard m > 0 else { return results }
+  guard m <= n else { return results }
+  let skip = bmh_skip(pattern)
+  let mut i = 0
+  while i <= n - m {
+    let mut j = m - 1
+    while j >= 0 && data[i + j] == pattern[j] { j = j - 1 }
+    if j < 0 { results.push(i) }
+    i = i + skip[data[i + m - 1].to_int()]
   }
   results
 }

@@ -247,3 +247,94 @@ void raw_print(const char* s) {
     if (write(STDOUT_FILENO, s, len) < 0) {}
 #endif
 }
+
+// ====== Memory-mapped file I/O ======
+// Returns a pointer to the mapped file data. Sets *size to the file size.
+// Returns NULL on failure.
+#ifdef _WIN32
+#include <windows.h>
+void* mmap_file(const char* path, int* size) {
+    HANDLE hFile = CreateFileA(path, GENERIC_READ, FILE_SHARE_READ,
+        NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (hFile == INVALID_HANDLE_VALUE) return NULL;
+    *size = (int)GetFileSize(hFile, NULL);
+    if (*size <= 0) { CloseHandle(hFile); return NULL; }
+    HANDLE hMap = CreateFileMappingA(hFile, NULL, PAGE_READONLY, 0, 0, NULL);
+    CloseHandle(hFile);
+    if (!hMap) return NULL;
+    void* ptr = MapViewOfFile(hMap, FILE_MAP_READ, 0, 0, 0);
+    CloseHandle(hMap);
+    return ptr;
+}
+void munmap_file(void* ptr, int size) {
+    if (ptr) UnmapViewOfFile(ptr);
+}
+#else
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+void* mmap_file(const char* path, int* size) {
+    int fd = open(path, O_RDONLY);
+    if (fd < 0) return NULL;
+    struct stat st;
+    if (fstat(fd, &st) < 0) { close(fd); return NULL; }
+    *size = (int)st.st_size;
+    if (*size <= 0) { close(fd); return NULL; }
+    void* ptr = mmap(NULL, *size, PROT_READ, MAP_PRIVATE, fd, 0);
+    close(fd);
+    if (ptr == MAP_FAILED) return NULL;
+    return ptr;
+}
+void munmap_file(void* ptr, int size) {
+    if (ptr) munmap(ptr, size);
+}
+#endif
+
+// Copy mmap'd data into a buffer for MoonBit
+int mmap_read(void* ptr, int offset, unsigned char* buf, int len) {
+    if (!ptr || offset < 0 || len <= 0 || buf == NULL) return 0;
+    for (int i = 0; i < len; i++) {
+        buf[i] = ((unsigned char*)ptr)[offset + i];
+    }
+    return len;
+}
+
+// Get file size via mmap (0 on failure)
+int mmap_file_size(const char* path) {
+    void* ptr = mmap_file(path, &(int){0});
+    if (!ptr) return 0;
+    int size;
+    // Re-read to get size
+    #ifdef _WIN32
+        HANDLE hFile = CreateFileA(path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+        if (hFile == INVALID_HANDLE_VALUE) { munmap_file(ptr, 0); return 0; }
+        size = (int)GetFileSize(hFile, NULL);
+        CloseHandle(hFile);
+    #else
+        struct stat st;
+        int fd = open(path, O_RDONLY);
+        fstat(fd, &st); close(fd);
+        size = (int)st.st_size;
+    #endif
+    munmap_file(ptr, 0);
+    return size;
+}
+
+// Load file via mmap into pre-allocated buffer. Returns bytes read (0 on failure).
+// Caller must allocate buf with mmap_file_size first.
+int mmap_load(const char* path, unsigned char* buf) {
+    int size = 0;
+    void* ptr = mmap_file(path, &size);
+    if (!ptr || size <= 0) return 0;
+    #ifdef _WIN32
+        // Get actual size
+        HANDLE hFile = CreateFileA(path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+        if (hFile != INVALID_HANDLE_VALUE) { size = (int)GetFileSize(hFile, NULL); CloseHandle(hFile); }
+    #endif
+    // Copy from mmap into buffer
+    for (int i = 0; i < size && buf != NULL; i++) {
+        buf[i] = ((unsigned char*)ptr)[i];
+    }
+    munmap_file(ptr, size);
+    return size;
+}

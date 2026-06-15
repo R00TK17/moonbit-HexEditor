@@ -13,6 +13,10 @@ extern "C" fn tui_exit_raw() -> Unit = "tui_exit_raw"
 extern "C" fn tui_enter_alt_screen() -> Unit = "tui_enter_alt_screen"
 extern "C" fn tui_exit_alt_screen() -> Unit = "tui_exit_alt_screen"
 extern "C" fn tui_get_terminal_rows() -> Int = "tui_get_terminal_rows"
+#borrow(_path)
+extern "C" fn mmap_file_size(_path : Bytes) -> Int = "mmap_file_size"
+#borrow(_path, _buf)
+extern "C" fn mmap_load(_path : Bytes, _buf : Bytes) -> Int = "mmap_load"
 #borrow(_s)
 extern "C" fn raw_print(_s : Bytes) -> Unit = "raw_print"
 
@@ -71,10 +75,26 @@ fn tui_read_line(prompt : String) -> String {
 }
 
 ///|
+/// Load file via mmap (fast path). Falls back to regular load on failure.
+fn load_file_best(path : String) -> Result[@lib.HexBuffer, String] {
+  if !@fs.path_exists(path) { return Err("Not found: \{path}") }
+  let c_path = str_to_bytes(path)
+  let size = mmap_file_size(c_path)
+  if size > 0 {
+    let buf = Bytes::make(size, b'\x00')
+    let loaded = mmap_load(c_path, buf)
+    if loaded > 0 {
+      return Ok(@lib.HexBuffer::from_bytes(buf))
+    }
+  }
+  load_file(path)
+}
+
+///|
 /// Main TUI entry point. Called from main.mbt.
 pub fn run_tui(file_path : String?) -> Unit {
   let mut buffer = match file_path {
-    Some(p) => match load_file(p) { Ok(b) => b; Err(_) => @lib.HexBuffer::new() }
+    Some(p) => match load_file_best(p) { Ok(b) => b; Err(_) => @lib.HexBuffer::new() }
     None => @lib.HexBuffer::new()
   }
 
@@ -96,7 +116,7 @@ pub fn run_tui(file_path : String?) -> Unit {
     if !state.edit_mode && !state.struct_view && !state.bookmark_view && (key == 'o'.to_int() || key == 'O'.to_int()) {
       let path = tui_read_line("Open file: ")
       if path != "" {
-        match load_file(path) {
+        match load_file_best(path) {
           Ok(b) => {
             buffer = b
             state.offset = 0

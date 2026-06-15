@@ -15,6 +15,7 @@ A terminal-based hex editor and binary file analyzer written in MoonBit, featuri
 - Signature scan: `w` key, 20 CTF-focused formats with per-signature validation, cached results
 - Entropy analysis: `h` key, 256-byte blocks, Shannon entropy with color-coded bars
 - Extraction: `x` key to dump selected match, trailing data detection
+- mmap loading: memory-mapped file I/O for fast file opens (auto-fallback to standard I/O)
 
 ### CLI Commands
 ```
@@ -81,8 +82,8 @@ Entropy scan: `↑↓←→` navigate, `Enter` jump to block, `h`/`Esc` close.
 
 | Platform | Details |
 |----------|---------|
-| Windows | conio + ENABLE_VIRTUAL_TERMINAL_PROCESSING, alternate screen buffer |
-| Linux | termios persistent raw mode, signal-safe restore, alt screen, direct `write()` |
+| Windows | conio + ENABLE_VIRTUAL_TERMINAL_PROCESSING, alternate screen buffer, `CreateFileMapping` mmap |
+| Linux | termios persistent raw mode, signal-safe restore, alt screen, direct `write()`, `mmap` (syscall) |
 
 ## Project Structure
 
@@ -104,7 +105,7 @@ hex_editor/
 │   ├── tui_bookmark.mbt         # Bookmark popup, set, jump, delete
 │   ├── tui_draw.mbt             # Screen rendering (buffered, single-flush)
 │   ├── tui_edit.mbt             # Edit mode, undo/redo operations
-│   └── tui_stub.c               # C stubs (raw mode, alt screen, adaptive size)
+│   └── tui_stub.c               # C stubs (raw mode, alt screen, adaptive size, mmap I/O)
 ```
 
 ## Dependencies

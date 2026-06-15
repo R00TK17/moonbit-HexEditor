@@ -15,6 +15,7 @@
 - 签名扫描：`w` 键，20 种 CTF 专用格式，每格式独立验证函数，结果缓存
 - 熵分析：`h` 键，256 字节块，香农熵色彩柱状图
 - 提取与检测：`x` 键提取选中段，尾部数据自动告警
+- mmap 加载：内存映射文件 I/O 加速大文件打开（失败时自动回退常规读取）
 - 显示：自适应终端高度，状态栏 + 帮助栏
 
 ### CLI 命令
@@ -82,8 +83,8 @@ moon run --target native cmd/main                  # 空启动
 
 | 平台 | 详情 |
 |------|------|
-| Windows | conio + ENABLE_VIRTUAL_TERMINAL_PROCESSING，alternate screen buffer |
-| Linux | termios 持久 raw mode，信号安全恢复，alt screen，直接 `write()` |
+| Windows | conio + ENABLE_VIRTUAL_TERMINAL_PROCESSING，alternate screen buffer，`CreateFileMapping` mmap |
+| Linux | termios 持久 raw mode，信号安全恢复，alt screen，直接 `write()`，`mmap`（系统调用） |
 
 ## 项目结构
 
@@ -105,7 +106,7 @@ hex_editor/
 │   ├── tui_bookmark.mbt         # 书签功能（popup、设置、跳转、删除）
 │   ├── tui_draw.mbt             # 屏幕渲染（缓冲、单次刷新）
 │   ├── tui_edit.mbt             # 编辑模式、撤销/重做
-│   └── tui_stub.c               # C 终端桩（raw mode、alt screen、自适应尺寸）
+│   └── tui_stub.c               # C 终端桩（raw mode、alt screen、自适应尺寸、mmap I/O）
 ```
 
 ## 依赖
