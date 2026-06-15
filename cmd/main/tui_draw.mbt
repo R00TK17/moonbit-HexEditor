@@ -54,6 +54,7 @@ fn build_match_range(
 
 ///|
 /// Draw the full TUI screen.
+/// Content area spans rows 1..screen_rows. Status bar is at screen_rows+1, help bar at screen_rows+2.
 fn draw_screen(
   buffer : @lib.HexBuffer,
   offset : Int,
@@ -116,8 +117,8 @@ fn draw_screen(
     sb.write_string("\r\n  [Empty]  o:open  q:quit[K\r\n")
   } else {
     let len = buffer.length()
-    let max_row = (len + 15) / 16
-    let display_rows = if screen_rows < max_row { screen_rows } else { max_row }
+    let rows_from_offset = if offset < len { (len - offset + 15) / 16 } else { 0 }
+    let display_rows = if screen_rows < rows_from_offset { screen_rows } else { rows_from_offset }
 
     let data = buffer.to_fixedarray()
     let highlight_all = build_highlight_set(search_results, match_len, buffer)
@@ -187,7 +188,9 @@ fn draw_screen(
     }
   }
 
-
+  // Status bar — fixed at second-to-last line (absolute positioning)
+  let status_row = screen_rows + 1
+  sb.write_string("[" + status_row.to_string() + ";1H")
   let cur_row = if buffer.length() > 0 { offset / 16 + 1 } else { 0 }
   let max_row = if buffer.length() > 0 { (buffer.length() + 15) / 16 } else { 0 }
   sb.write_string("[44;37m 0x\{@lib.to_hex_string(offset, width=8)} | row \{cur_row}/\{max_row} [0m")
@@ -195,8 +198,11 @@ fn draw_screen(
   if status_msg != "" {
     sb.write_string(" [41;37m \{status_msg} [0m")
   }
-  sb.write_string("[K\r\n")
+  sb.write_string("[K")
 
+  // Help bar — fixed at last line (absolute positioning)
+  let help_row = screen_rows + 2
+  sb.write_string("[" + help_row.to_string() + ";1H")
   if edit_mode {
     let mode = if edit_ascii { "ASCII" } else { "Hex" }
     sb.write_string("[47;30m Esc:exit Tab:\{mode} i:insert Del:delete Ctrl+Z:undo Ctrl+Y:redo Ctrl+S:save [0m[K")
@@ -248,6 +254,9 @@ fn draw_bookmark_popup(
     sb.write_string("  [K\r\n")
   }
 }
+
+///|
+/// Draw the entropy analysis popup.
 fn draw_entropy_popup(
   sb : StringBuilder,
   sel : Int,
@@ -291,6 +300,9 @@ fn format_e(e : Double) -> String {
   let n = (e * 10.0).to_int()
   (n / 10).to_string() + "." + (n % 10).to_string()
 }
+
+///|
+/// Draw the signature scan popup.
 fn draw_scan_popup(
   sb : StringBuilder,
   sel : Int,
