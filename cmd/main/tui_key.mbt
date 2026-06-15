@@ -378,6 +378,7 @@ pub fn handle_key(
           state.results = @lib.find_all_bytes(data, bytes)
           if state.results.length() > 0 {
             state.result_idx = 0; state.match_len = bytes.length()
+            state.offset = scroll_to_show(state.results[0], state.offset, buffer.length(), screen_rows)
             state.msg = "Hex: \{state.results.length()} matches (n:next)"
           } else { state.msg = "Not found"; state.results = []; state.match_len = 0 }
         }
@@ -394,6 +395,7 @@ pub fn handle_key(
       state.results = @lib.find_all_bytes(data, bytes)
       if state.results.length() > 0 {
         state.result_idx = 0
+        state.offset = scroll_to_show(state.results[0], state.offset, buffer.length(), screen_rows)
         state.msg = "Text: \{state.results.length()} matches (n:next)"
       } else { state.msg = "Not found"; state.results = []; state.match_len = 0 }
     }
