@@ -53,6 +53,12 @@ fn build_match_range(
 }
 
 ///|
+/// Truncate text to fit within max columns.
+fn clip(text : String, max : Int) -> String {
+  if text.length() <= max { text } else { text[:max].to_owned() }
+}
+
+///|
 /// Draw the full TUI screen.
 /// Content area spans rows 1..screen_rows. Status bar is at screen_rows+1, help bar at screen_rows+2.
 fn draw_screen(
@@ -85,6 +91,7 @@ fn draw_screen(
   strings_scroll : Int,
   strings_matches : Array[@lib.StringMatch],
   screen_rows : Int,
+  term_cols : Int,
 ) -> Unit {
   let sb = StringBuilder()
 
@@ -95,7 +102,7 @@ fn draw_screen(
   } else if entropy_view {
     draw_entropy_popup(sb, entropy_sel, entropy_blocks, screen_rows)
   } else if strings_view {
-    draw_strings_popup(sb, strings_sel, strings_scroll, strings_matches, screen_rows)
+    draw_strings_popup(sb, strings_sel, strings_scroll, strings_matches, screen_rows, term_cols)
   } else if bookmark_view {
     draw_bookmark_popup(sb, bookmark_sel, bookmark_scroll, bookmarks, screen_rows)
   } else if struct_view && !buffer.is_empty() {
@@ -207,24 +214,26 @@ fn draw_screen(
   }
   sb.write_string("[K")
 
-  // Help bar — fixed at last line (absolute positioning)
+  // Help bar — fixed at last line, truncated to terminal width
   let help_row = screen_rows + 2
   sb.write_string("[" + help_row.to_string() + ";1H")
+  let w = if term_cols > 4 { term_cols - 2 } else { 78 }
   if edit_mode {
     let mode = if edit_ascii { "ASCII" } else { "Hex" }
-    sb.write_string("[47;30m Esc:exit Tab:\{mode} i:insert Del:delete Ctrl+Z:undo Ctrl+Y:redo Ctrl+X:save [0m[K")
+    let text = " Esc:exit Tab:\{mode} i:insert Del:delete Ctrl+Z:undo Ctrl+Y:redo Ctrl+X:save "
+    sb.write_string("[47;30m" + clip(text, w) + "[0m[K")
   } else if scan_view {
-    sb.write_string("[47;30m q:quit  Enter:jump  x:extract  w:close [0m[K")
+    sb.write_string("[47;30m " + clip("q:quit  Enter:jump  x:extract  w:close", w) + " [0m[K")
   } else if entropy_view {
-    sb.write_string("[47;30m q:quit  Enter:jump  LR:page h:close [0m[K")
+    sb.write_string("[47;30m " + clip("q:quit  Enter:jump  LR:page  h:close", w) + " [0m[K")
   } else if strings_view {
-    sb.write_string("[47;30m q:quit  Enter:jump  s:close [0m[K")
+    sb.write_string("[47;30m " + clip("q:quit  Enter:jump  s:close", w) + " [0m[K")
   } else if bookmark_view {
-    sb.write_string("[47;30m q:quit  Enter:jump  d:delete  b:close  Ctrl+B:set [0m[K")
+    sb.write_string("[47;30m " + clip("q:quit  Enter:jump  d:delete  b:close  Ctrl+B:set", w) + " [0m[K")
   } else if struct_view {
-    sb.write_string("[47;30m q:quit UD:scroll LR:page t:hex [0m[K")
+    sb.write_string("[47;30m " + clip("q:quit  UD:scroll  LR:page  t:hex", w) + " [0m[K")
   } else {
-    sb.write_string("[47;30m q:quit o:open g:goto /:hex f:text w:scan s:strings h:entropy n/p:match e:edit t:struct b:bookmark [0m[K")
+    sb.write_string("[47;30m " + clip("q:quit o:open g:goto /:hex f:text w:scan s:strings h:entropy n/p:match e:edit t:struct b:bookmark", w) + " [0m[K")
   }
 
   // Erase below: clear anything after the help bar
@@ -318,18 +327,21 @@ fn draw_strings_popup(
   scroll : Int,
   matches : Array[@lib.StringMatch],
   screen_rows : Int,
+  term_cols : Int,
 ) -> Unit {
   sb.write_string("  -- Strings --[K\r\n")
   let total = matches.length()
   let max_visible = if screen_rows > 1 { screen_rows - 1 } else { 0 }
   let end = if scroll + max_visible < total { scroll + max_visible } else { total }
+  let text_w = if term_cols > 16 { term_cols - 16 } else { 60 }
   for i = scroll; i < end; i = i + 1 {
     let m = matches[i]
     let off_str = "0x" + @lib.to_hex_string(m.offset, width=8)
+    let text = clip(m.text, text_w)
     if i == sel {
-      sb.write_string("  [44;37m" + off_str + "  " + m.text + "[0m[K\r\n")
+      sb.write_string("  [44;37m" + off_str + "  " + text + "[0m[K\r\n")
     } else {
-      sb.write_string("  " + off_str + "  " + m.text + "[K\r\n")
+      sb.write_string("  " + off_str + "  " + text + "[K\r\n")
     }
   }
   let displayed = end - scroll

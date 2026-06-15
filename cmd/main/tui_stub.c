@@ -216,6 +216,22 @@ int tui_get_terminal_rows(void) {
 #endif
 }
 
+int tui_get_terminal_cols(void) {
+#ifdef _WIN32
+    CONSOLE_SCREEN_BUFFER_INFO csbi;
+    if (GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi))
+        return csbi.srWindow.Right - csbi.srWindow.Left + 1;
+    return 80;
+#else
+    struct winsize ws = {0};
+    if (ioctl(STDIN_FILENO, TIOCGWINSZ, &ws) != -1 && ws.ws_col > 0) return ws.ws_col;
+    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) != -1 && ws.ws_col > 0) return ws.ws_col;
+    char *env = getenv("COLUMNS");
+    if (env) { int n = atoi(env); if (n > 0 && n <= 500) return n; }
+    return 80;
+#endif
+}
+
 // ====== Screen control ======
 void tui_clear_screen(void) {
 #ifdef _WIN32
