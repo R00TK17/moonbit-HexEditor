@@ -95,7 +95,7 @@ fn draw_screen(
 ) -> Unit {
   let sb = StringBuilder()
 
-  sb.write_string("[H")
+  sb.write_string("\u001b[H")
 
   if scan_view {
     draw_scan_popup(sb, scan_sel, scan_scroll, scan_offsets, scan_names, scan_sizes, screen_rows)
@@ -117,17 +117,17 @@ fn draw_screen(
       let off = if off < 0 { 0 } else { off }
       let end = if off + screen_rows < total { off + screen_rows } else { total }
       for i = off; i < end; i = i + 1 {
-        sb.write_string("  \{lines[i]}[K\r\n")
+        sb.write_string("  \{lines[i]}\u001b[K\r\n")
       }
       for i = end; i < off + screen_rows; i = i + 1 {
-        sb.write_string("  [K\r\n")
+        sb.write_string("  \u001b[K\r\n")
       }
     } else {
-      sb.write_string("  No structure detected.[K\r\n")
-      for i = 0; i < screen_rows - 1; i = i + 1 { sb.write_string("  [K\r\n") }
+      sb.write_string("  No structure detected.\u001b[K\r\n")
+      for i = 0; i < screen_rows - 1; i = i + 1 { sb.write_string("  \u001b[K\r\n") }
     }
   } else if buffer.is_empty() {
-    sb.write_string("\r\n  [Empty]  o:open  q:quit[K\r\n")
+    sb.write_string("\r\n  [Empty]  o:open  q:quit\u001b[K\r\n")
   } else {
     let len = buffer.length()
     let rows_from_offset = if offset < len { (len - offset + 15) / 16 } else { 0 }
@@ -146,9 +146,9 @@ fn draw_screen(
 
       let off_str = @lib.format_offset(row_off)
       if row == 0 {
-        sb.write_string("[44;37m0x\{off_str}[0m  ")
+        sb.write_string("\u001b[44;37m0x\{off_str}\u001b[0m  ")
       } else {
-        sb.write_string("[34m0x\{off_str}[0m  ")
+        sb.write_string("\u001b[34m0x\{off_str}\u001b[0m  ")
       }
 
       for col = 0; col < 16; col = col + 1 {
@@ -159,12 +159,12 @@ fn draw_screen(
           let is_edit = edit_mode && byte_off == edit_off
           let is_cur = !is_edit && highlight_cur.contains(byte_off)
           let is_hl = !is_edit && !is_cur && highlight_all.contains(byte_off)
-          if is_edit { sb.write_string("[7m") }
-          else if is_cur { sb.write_string("[42;30m") }
-          else if is_hl { sb.write_string("[43;30m") }
+          if is_edit { sb.write_string("\u001b[7m") }
+          else if is_cur { sb.write_string("\u001b[42;30m") }
+          else if is_hl { sb.write_string("\u001b[43;30m") }
           let hex = @lib.format_byte_hex(byte, uppercase=true)
           sb.write_string(hex)
-          if is_edit || is_cur || is_hl { sb.write_string("[0m") }
+          if is_edit || is_cur || is_hl { sb.write_string("\u001b[0m") }
           sb.write_string(" ")
         } else {
           sb.write_string("   ")
@@ -179,82 +179,82 @@ fn draw_screen(
           let is_edit = edit_mode && byte_off == edit_off
           let is_cur = !is_edit && highlight_cur.contains(byte_off)
           let is_hl = !is_edit && !is_cur && highlight_all.contains(byte_off)
-          if is_edit { sb.write_string("[7m") }
-          else if is_cur { sb.write_string("[42;30m") }
-          else if is_hl { sb.write_string("[43;30m") }
+          if is_edit { sb.write_string("\u001b[7m") }
+          else if is_cur { sb.write_string("\u001b[42;30m") }
+          else if is_hl { sb.write_string("\u001b[43;30m") }
           let a = @lib.format_ascii(byte)
           let s = StringBuilder()
           s.write_char(a)
           sb.write_string(s.to_string())
-          if is_edit || is_cur || is_hl { sb.write_string("[0m") }
+          if is_edit || is_cur || is_hl { sb.write_string("\u001b[0m") }
         } else {
           sb.write_string(" ")
         }
       }
-      sb.write_string("[K|\r\n")
+      sb.write_string("\u001b[K|\r\n")
     }
 
     // Fill remaining rows if hex data is shorter than screen
     let remaining = screen_rows - display_rows
     for i = 0; i < remaining; i = i + 1 {
-      sb.write_string("[K\r\n")
+      sb.write_string("\u001b[K\r\n")
     }
   }
 
   // Status bar — fixed at second-to-last line (absolute positioning)
   let status_row = screen_rows + 1
-  sb.write_string("[" + status_row.to_string() + ";1H")
+  sb.write_string("\u001b[" + status_row.to_string() + ";1H")
   let max_row = if buffer.length() > 0 { (buffer.length() + 15) / 16 } else { 0 }
   let raw_row = if buffer.length() > 0 { offset / 16 + 1 } else { 0 }
   let cur_row = if raw_row > max_row { max_row } else { raw_row }
-  sb.write_string("[44;37m 0x\{@lib.to_hex_string(offset, width=8)} | row \{cur_row}/\{max_row} [0m")
+  sb.write_string("\u001b[44;37m 0x\{@lib.to_hex_string(offset, width=8)} | row \{cur_row}/\{max_row} \u001b[0m")
 
   if status_msg != "" {
-    sb.write_string(" [41;37m \{status_msg} [0m")
+    sb.write_string(" \u001b[41;37m \{status_msg} \u001b[0m")
   }
-  sb.write_string("[K")
+  sb.write_string("\u001b[K")
 
   // Help bar — 2 lines for long modes, 1 line for short ones
   let w = if term_cols > 4 { term_cols - 2 } else { 78 }
   if edit_mode {
     let mode = if edit_ascii { "ASCII" } else { "Hex" }
     let row1 = screen_rows + 2
-    sb.write_string("[" + row1.to_string() + ";1H")
-    sb.write_string("[47;30m " + clip("Esc:exit Tab:\{mode}  i:insert Del:delete", w) + " [0m[K")
+    sb.write_string("\u001b[" + row1.to_string() + ";1H")
+    sb.write_string("\u001b[47;30m " + clip("Esc:exit Tab:\{mode}  i:insert Del:delete", w) + " \u001b[0m\u001b[K")
     let row2 = screen_rows + 3
-    sb.write_string("[" + row2.to_string() + ";1H")
-    sb.write_string("[47;30m " + clip("Ctrl+Z:undo Ctrl+Y:redo  Ctrl+X:save", w) + " [0m[K")
+    sb.write_string("\u001b[" + row2.to_string() + ";1H")
+    sb.write_string("\u001b[47;30m " + clip("Ctrl+Z:undo Ctrl+Y:redo  Ctrl+X:save", w) + " \u001b[0m\u001b[K")
   } else if scan_view {
     let row = screen_rows + 2
-    sb.write_string("[" + row.to_string() + ";1H")
-    sb.write_string("[47;30m " + clip("q:quit  Enter:jump  x:extract  w:close", w) + " [0m[K")
+    sb.write_string("\u001b[" + row.to_string() + ";1H")
+    sb.write_string("\u001b[47;30m " + clip("q:quit  Enter:jump  x:extract  w:close", w) + " \u001b[0m\u001b[K")
   } else if entropy_view {
     let row = screen_rows + 2
-    sb.write_string("[" + row.to_string() + ";1H")
-    sb.write_string("[47;30m " + clip("q:quit  Enter:jump  LR:page  h:close", w) + " [0m[K")
+    sb.write_string("\u001b[" + row.to_string() + ";1H")
+    sb.write_string("\u001b[47;30m " + clip("q:quit  Enter:jump  LR:page  h:close", w) + " \u001b[0m\u001b[K")
   } else if strings_view {
     let row = screen_rows + 2
-    sb.write_string("[" + row.to_string() + ";1H")
-    sb.write_string("[47;30m " + clip("q:quit  Enter:jump  s:close", w) + " [0m[K")
+    sb.write_string("\u001b[" + row.to_string() + ";1H")
+    sb.write_string("\u001b[47;30m " + clip("q:quit  Enter:jump  s:close", w) + " \u001b[0m\u001b[K")
   } else if bookmark_view {
     let row = screen_rows + 2
-    sb.write_string("[" + row.to_string() + ";1H")
-    sb.write_string("[47;30m " + clip("q:quit  Enter:jump  d:delete  b:close  Ctrl+B:set", w) + " [0m[K")
+    sb.write_string("\u001b[" + row.to_string() + ";1H")
+    sb.write_string("\u001b[47;30m " + clip("q:quit  Enter:jump  d:delete  b:close  Ctrl+B:set", w) + " \u001b[0m\u001b[K")
   } else if struct_view {
     let row = screen_rows + 2
-    sb.write_string("[" + row.to_string() + ";1H")
-    sb.write_string("[47;30m " + clip("q:quit  UD:scroll  LR:page  t:hex", w) + " [0m[K")
+    sb.write_string("\u001b[" + row.to_string() + ";1H")
+    sb.write_string("\u001b[47;30m " + clip("q:quit  UD:scroll  LR:page  t:hex", w) + " \u001b[0m\u001b[K")
   } else {
     let row1 = screen_rows + 2
-    sb.write_string("[" + row1.to_string() + ";1H")
-    sb.write_string("[47;30m " + clip("q:quit o:open g:goto e:edit /:hex f:text n/p:match", w) + " [0m[K")
+    sb.write_string("\u001b[" + row1.to_string() + ";1H")
+    sb.write_string("\u001b[47;30m " + clip("q:quit o:open g:goto e:edit /:hex f:text n/p:match", w) + " \u001b[0m\u001b[K")
     let row2 = screen_rows + 3
-    sb.write_string("[" + row2.to_string() + ";1H")
-    sb.write_string("[47;30m " + clip("w:scan s:strings h:entropy t:struct b:bookmark", w) + " [0m[K")
+    sb.write_string("\u001b[" + row2.to_string() + ";1H")
+    sb.write_string("\u001b[47;30m " + clip("w:scan s:strings h:entropy t:struct b:bookmark", w) + " \u001b[0m\u001b[K")
   }
 
   // Erase below: clear anything after the help bar
-  sb.write_string("[J")
+  sb.write_string("\u001b[J")
   let output = sb.to_string()
   raw_print(str_to_bytes(output))
 }
@@ -268,7 +268,7 @@ fn draw_bookmark_popup(
   bookmarks : FixedArray[Int?],
   screen_rows : Int,
 ) -> Unit {
-  sb.write_string("  -- Bookmarks --[K\r\n")
+  sb.write_string("  -- Bookmarks --\u001b[K\r\n")
   let max_visible = if screen_rows > 1 { screen_rows - 1 } else { 0 }
   let end = if scroll + max_visible < 21 { scroll + max_visible } else { 21 }
   for i = scroll; i < end; i = i + 1 {
@@ -278,15 +278,15 @@ fn draw_bookmark_popup(
       Some(off) => "0x" + @lib.to_hex_string(off, width=8)
     }
     if i == sel {
-      sb.write_string("  [44;37m" + marker + i.to_string() + ": " + content + "[0m[K\r\n")
+      sb.write_string("  \u001b[44;37m" + marker + i.to_string() + ": " + content + "\u001b[0m\u001b[K\r\n")
     } else {
-      sb.write_string("  " + marker + i.to_string() + ": " + content + "[K\r\n")
+      sb.write_string("  " + marker + i.to_string() + ": " + content + "\u001b[K\r\n")
     }
   }
   let displayed = end - scroll
   let remaining = if screen_rows > displayed + 1 { screen_rows - displayed - 1 } else { 0 }
   for _i = 0; _i < remaining; _i = _i + 1 {
-    sb.write_string("  [K\r\n")
+    sb.write_string("  \u001b[K\r\n")
   }
 }
 
@@ -298,7 +298,7 @@ fn draw_entropy_popup(
   blocks : Array[@lib.EntropyBlock],
   screen_rows : Int,
 ) -> Unit {
-  sb.write_string("  -- Entropy Scan --[K\r\n")
+  sb.write_string("  -- Entropy Scan --\u001b[K\r\n")
   let total = blocks.length()
   let max_visible = if screen_rows > 1 { screen_rows - 1 } else { 0 }
   let end = if sel + max_visible < total { sel + max_visible } else { total }
@@ -308,25 +308,25 @@ fn draw_entropy_popup(
     let e_str = format_e(b.entropy)
     let bar = make_bar((b.entropy / 8.0 * 40.0).to_int())
     if i == sel {
-      sb.write_string("  [44;37m" + off_str + "  " + bar + "  " + e_str + "[0m[K\r\n")
+      sb.write_string("  \u001b[44;37m" + off_str + "  " + bar + "  " + e_str + "\u001b[0m\u001b[K\r\n")
     } else {
-      sb.write_string("  " + off_str + "  " + bar + "  " + e_str + "[K\r\n")
+      sb.write_string("  " + off_str + "  " + bar + "  " + e_str + "\u001b[K\r\n")
     }
   }
   let displayed = end - sel
   let remaining = if screen_rows > displayed + 1 { screen_rows - displayed - 1 } else { 0 }
   for _i = 0; _i < remaining; _i = _i + 1 {
-    sb.write_string("  [K\r\n")
+    sb.write_string("  \u001b[K\r\n")
   }
 }
 
 fn make_bar(len : Int) -> String {
   let s = StringBuilder()
   let clamped = if len > 40 { 40 } else { len }
-  let color = if clamped > 30 { "[41m" } else if clamped > 15 { "[43m" } else { "[42m" }
+  let color = if clamped > 30 { "\u001b[41m" } else if clamped > 15 { "\u001b[43m" } else { "\u001b[42m" }
   s.write_string(color)
   for _i = 0; _i < clamped; _i = _i + 1 { s.write_char('|') }
-  s.write_string("[0m")
+  s.write_string("\u001b[0m")
   for _i = clamped; _i < 40; _i = _i + 1 { s.write_char(' ') }
   s.to_string()
 }
@@ -346,7 +346,7 @@ fn draw_strings_popup(
   screen_rows : Int,
   term_cols : Int,
 ) -> Unit {
-  sb.write_string("  -- Strings --[K\r\n")
+  sb.write_string("  -- Strings --\u001b[K\r\n")
   let total = matches.length()
   let max_visible = if screen_rows > 1 { screen_rows - 1 } else { 0 }
   let end = if scroll + max_visible < total { scroll + max_visible } else { total }
@@ -356,15 +356,15 @@ fn draw_strings_popup(
     let off_str = "0x" + @lib.to_hex_string(m.offset, width=8)
     let text = clip(m.text, text_w)
     if i == sel {
-      sb.write_string("  [44;37m" + off_str + "  " + text + "[0m[K\r\n")
+      sb.write_string("  \u001b[44;37m" + off_str + "  " + text + "\u001b[0m\u001b[K\r\n")
     } else {
-      sb.write_string("  " + off_str + "  " + text + "[K\r\n")
+      sb.write_string("  " + off_str + "  " + text + "\u001b[K\r\n")
     }
   }
   let displayed = end - scroll
   let remaining = if screen_rows > displayed + 1 { screen_rows - displayed - 1 } else { 0 }
   for _i = 0; _i < remaining; _i = _i + 1 {
-    sb.write_string("  [K\r\n")
+    sb.write_string("  \u001b[K\r\n")
   }
 }
 
@@ -377,7 +377,7 @@ fn draw_scan_popup(
   sizes : Array[Int],
   screen_rows : Int,
 ) -> Unit {
-  sb.write_string("  -- Binary Scan --[K\r\n")
+  sb.write_string("  -- Binary Scan --\u001b[K\r\n")
   let total = offsets.length()
   let max_visible = if screen_rows > 1 { screen_rows - 1 } else { 0 }
   let end = if scroll + max_visible < total { scroll + max_visible } else { total }
@@ -385,14 +385,14 @@ fn draw_scan_popup(
     let off_str = "0x" + @lib.to_hex_string(offsets[i], width=8)
     let size_str = " (" + @lib.format_size(sizes[i]) + ")"
     if i == sel {
-      sb.write_string("  [44;37m" + off_str + "  " + names[i] + size_str + "[0m[K\r\n")
+      sb.write_string("  \u001b[44;37m" + off_str + "  " + names[i] + size_str + "\u001b[0m\u001b[K\r\n")
     } else {
-      sb.write_string("  " + off_str + "  " + names[i] + size_str + "[K\r\n")
+      sb.write_string("  " + off_str + "  " + names[i] + size_str + "\u001b[K\r\n")
     }
   }
   let displayed = end - scroll
   let remaining = if screen_rows > displayed + 1 { screen_rows - displayed - 1 } else { 0 }
   for _i = 0; _i < remaining; _i = _i + 1 {
-    sb.write_string("  [K\r\n")
+    sb.write_string("  \u001b[K\r\n")
   }
 }
