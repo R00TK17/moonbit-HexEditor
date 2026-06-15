@@ -56,27 +56,6 @@ pub fn find_all_bytes(data : Bytes, pattern : Bytes) -> Array[Int] {
 }
 
 ///|
-/// Finds a byte pattern in a HexBuffer.
-pub fn find_bytes_in_buffer(
-  buffer : HexBuffer,
-  pattern : Bytes,
-  start_offset? : Int = 0,
-) -> Int? {
-  let data = buffer.to_bytes()
-  find_bytes(data, pattern, start_offset=start_offset)
-}
-
-///|
-/// Finds all occurrences of a byte pattern in a HexBuffer.
-pub fn find_all_bytes_in_buffer(
-  buffer : HexBuffer,
-  pattern : Bytes,
-) -> Array[Int] {
-  let data = buffer.to_bytes()
-  find_all_bytes(data, pattern)
-}
-
-///|
 /// Converts an ASCII string to a Bytes sequence.
 /// Non-ASCII characters are replaced with '?'.
 fn string_to_ascii_bytes(text : String) -> Bytes {
@@ -147,26 +126,6 @@ fn hex_char_to_int(ch : Char) -> Int {
   } else {
     c - 'a'.to_int() + 10
   }
-}
-
-///|
-/// Searches for a hex pattern (specified as string) in the data.
-pub fn find_hex_pattern(
-  data : Bytes,
-  hex_str : String,
-  start_offset? : Int = 0,
-) -> Int? {
-  match parse_hex_string(hex_str) {
-    None => None
-    Some(pattern) => find_bytes(data, pattern, start_offset=start_offset)
-  }
-}
-
-///|
-/// Counts the number of occurrences of a byte pattern.
-pub fn count_bytes(data : Bytes, pattern : Bytes) -> Int {
-  let occurrences = find_all_bytes(data, pattern)
-  occurrences.length()
 }
 
 ///|

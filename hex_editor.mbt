@@ -40,20 +40,6 @@ pub fn HexBuffer::from_bytes(bytes : Bytes) -> HexBuffer {
 }
 
 ///|
-/// Creates a HexBuffer from a FixedArray of bytes.
-pub fn HexBuffer::from_fixedarray(arr : FixedArray[Byte]) -> HexBuffer {
-  let len = arr.length()
-  let data = FixedArray::make(len, Byte::default())
-  data.unsafe_blit(0, arr, 0, len)
-  {
-    data,
-    len,
-    modified: false,
-    file_path: None,
-  }
-}
-
-///|
 /// Sets the file path associated with this buffer.
 pub fn HexBuffer::set_file_path(self : HexBuffer, path : String) -> Unit {
   self.file_path = Some(path)
@@ -118,17 +104,6 @@ pub fn HexBuffer::set_byte(
   self.data[offset] = value
   self.modified = true
   true
-}
-
-///|
-/// Gets a range of bytes as a new Bytes sequence.
-pub fn HexBuffer::get_bytes(
-  self : HexBuffer,
-  start : Int,
-  length : Int,
-) -> Bytes? {
-  guard start >= 0 && length >= 0 && start + length <= self.len else { None }
-  Some(Bytes::makei(length, i => self.data[start + i]))
 }
 
 ///|
@@ -300,30 +275,6 @@ pub fn HexBuffer::clear(self : HexBuffer) -> Unit {
 }
 
 ///|
-/// Marks the buffer as unmodified.
-pub fn HexBuffer::mark_clean(self : HexBuffer) -> Unit {
-  self.modified = false
-}
-
-///|
-/// Returns a read-only view of a range of bytes in the buffer.
-pub fn HexBuffer::view(
-  self : HexBuffer,
-  start : Int,
-  length : Int,
-) -> ArrayView[Byte]? {
-  guard start >= 0 && length >= 0 && start + length <= self.len else { None }
-  Some(self.data[start:start + length])
-}
-
-///|
-/// Returns a raw pointer-like view of the data for iteration.
-/// Used internally by display and search functions.
-pub fn HexBuffer::as_view(self : HexBuffer) -> ArrayView[Byte] {
-  self.data[0:self.len]
-}
-
-///|
 /// Ensures the internal buffer has at least the specified capacity.
 fn HexBuffer::ensure_capacity(self : HexBuffer, required : Int) -> Unit {
   let current_cap = self.data.length()
@@ -340,11 +291,3 @@ fn HexBuffer::ensure_capacity(self : HexBuffer, required : Int) -> Unit {
   self.data = new_data
 }
 
-///|
-/// Implementation of Show trait for HexBuffer.
-/// Displays basic info about the buffer.
-pub impl Show for HexBuffer with fn output(self, logger) {
-  logger.write_string(
-    "HexBuffer(len=\{self.len})",
-  )
-}

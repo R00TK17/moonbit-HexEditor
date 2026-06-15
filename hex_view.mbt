@@ -26,19 +26,6 @@ pub fn HexViewConfig::default() -> HexViewConfig {
 }
 
 ///|
-/// Creates a compact HexViewConfig (no ASCII, no grouping).
-pub fn HexViewConfig::compact() -> HexViewConfig {
-  {
-    bytes_per_row: 16,
-    show_ascii: false,
-    uppercase_hex: true,
-    show_offset: true,
-    offset_width: 8,
-    group_bytes: 0,
-  }
-}
-
-///|
 /// Creates a HexViewConfig with custom bytes per row.
 pub fn HexViewConfig::with_bytes_per_row(
   self : HexViewConfig,
@@ -63,15 +50,6 @@ pub fn HexViewConfig::with_uppercase(
   upper : Bool,
 ) -> HexViewConfig {
   { ..self, uppercase_hex: upper }
-}
-
-///|
-/// Creates a HexViewConfig with custom group_bytes setting.
-pub fn HexViewConfig::with_group_bytes(
-  self : HexViewConfig,
-  group : Int,
-) -> HexViewConfig {
-  { ..self, group_bytes: group }
 }
 
 ///|
@@ -240,18 +218,6 @@ pub fn format_hex_dump(
   }
 
   sb.to_string()
-}
-
-///|
-/// Formats a hex dump from raw Bytes data.
-pub fn format_bytes_hex_dump(
-  bytes : Bytes,
-  start_offset? : Int = 0,
-  length? : Int,
-  config? : HexViewConfig,
-) -> String {
-  let buffer = HexBuffer::from_bytes(bytes)
-  format_hex_dump(buffer, start_offset=start_offset, length?=length, config?=config)
 }
 
 ///|

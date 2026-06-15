@@ -290,15 +290,6 @@ void munmap_file(void* ptr, int size) {
 }
 #endif
 
-// Copy mmap'd data into a buffer for MoonBit
-int mmap_read(void* ptr, int offset, unsigned char* buf, int len) {
-    if (!ptr || offset < 0 || len <= 0 || buf == NULL) return 0;
-    for (int i = 0; i < len; i++) {
-        buf[i] = ((unsigned char*)ptr)[offset + i];
-    }
-    return len;
-}
-
 // Get file size via mmap (0 on failure)
 int mmap_file_size(const char* path) {
     void* ptr = mmap_file(path, &(int){0});

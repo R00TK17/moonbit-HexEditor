@@ -107,32 +107,9 @@ pub fn Patch::set(self : Patch, offset : Int, bytes : Bytes) -> Unit {
 }
 
 ///|
-/// Adds an Insert operation to the patch.
-pub fn Patch::insert(self : Patch, offset : Int, bytes : Bytes) -> Unit {
-  self.ops.push(edit_insert(offset, bytes))
-}
-
-///|
 /// Adds a Delete operation to the patch.
 pub fn Patch::delete(self : Patch, offset : Int, count : Int) -> Unit {
   self.ops.push(edit_delete(offset, count))
-}
-
-///|
-/// Adds a Fill operation to the patch.
-pub fn Patch::fill(
-  self : Patch,
-  start : Int,
-  end : Int,
-  value : Byte,
-) -> Unit {
-  self.ops.push(edit_fill(start, end, value))
-}
-
-///|
-/// Returns the number of operations in the patch.
-pub fn Patch::length(self : Patch) -> Int {
-  self.ops.length()
 }
 
 ///|
@@ -141,109 +118,11 @@ pub fn Patch::apply(self : Patch, buffer : HexBuffer) -> Int {
   apply_edits(buffer, self.ops)
 }
 
-///|
-/// Applies patch operations sorted by offset (descending).
-/// This is useful when edits at different offsets should not affect each other.
-pub fn Patch::apply_sorted(self : Patch, buffer : HexBuffer) -> Int {
-  let sorted = sort_ops_by_offset_desc(self.ops)
-  apply_edits(buffer, sorted)
-}
-
-///|
-/// Sorts edit operations by offset in descending order.
-fn sort_ops_by_offset_desc(ops : Array[EditOp]) -> Array[EditOp] {
-  let n = ops.length()
-  // Create a copy
-  let sorted : Array[EditOp] = []
-  for i = 0; i < n; i = i + 1 {
-    sorted.push(ops[i])
-  }
-  // Bubble sort by offset descending
-  for i = 0; i < n; i = i + 1 {
-    for j = 0; j < n - i - 1; j = j + 1 {
-      if sorted[j].offset < sorted[j + 1].offset {
-        let temp = sorted[j]
-        sorted[j] = sorted[j + 1]
-        sorted[j + 1] = temp
-      }
-    }
-  }
-  sorted
-}
-
-///|
-/// Modifies a single byte in the buffer at the specified offset.
-pub fn modify_byte(
-  buffer : HexBuffer,
-  offset : Int,
-  value : Byte,
-) -> Bool {
-  buffer.set_byte(offset, value)
-}
-
-///|
-/// Modifies multiple consecutive bytes starting at an offset.
-pub fn modify_bytes(
-  buffer : HexBuffer,
-  offset : Int,
-  values : Bytes,
-) -> Int {
-  let len = values.length()
-  let mut count = 0
-  for i = 0; i < len; i = i + 1 {
-    if buffer.set_byte(offset + i, values[i]) {
-      count = count + 1
-    }
-  }
-  count
-}
-
-///|
-/// Inserts bytes at an offset. Convenience wrapper.
-pub fn insert_bytes(
-  buffer : HexBuffer,
-  offset : Int,
-  bytes : Bytes,
-) -> Bool {
-  buffer.insert_bytes(offset, bytes)
-}
-
-///|
-/// Deletes bytes at an offset. Convenience wrapper.
-pub fn delete_bytes(
-  buffer : HexBuffer,
-  offset : Int,
-  count : Int,
-) -> Bool {
-  buffer.delete_bytes(offset, count)
-}
-
-///|
-/// Fills a range with a byte value. Convenience wrapper.
-pub fn fill_range(
-  buffer : HexBuffer,
-  start : Int,
-  end : Int,
-  value : Byte,
-) -> Bool {
-  buffer.fill_range(start, end, value)
-}
 
 ///|
 /// Fills a range with zeros (nop out bytes).
 pub fn nop_range(buffer : HexBuffer, start : Int, end : Int) -> Bool {
   buffer.fill_range(start, end, b'\x00')
-}
-
-///|
-/// Replaces a range with new data. Convenience wrapper.
-pub fn replace_range(
-  buffer : HexBuffer,
-  offset : Int,
-  count : Int,
-  new_data : Bytes,
-) -> Bool {
-  buffer.replace_range(offset, count, new_data)
 }
 
 ///|
