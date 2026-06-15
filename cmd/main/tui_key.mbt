@@ -31,6 +31,11 @@ struct TuiState {
   mut entropy_view : Bool
   mut entropy_sel : Int
   mut entropy_blocks : Array[@lib.EntropyBlock]
+  mut strings_view : Bool
+  mut strings_sel : Int
+  mut strings_scroll : Int
+  mut strings_matches : Array[@lib.StringMatch]
+  mut strings_done : Bool
   mut undo_stack : Array[UndoOp]
   mut redo_stack : Array[UndoOp]
 }
@@ -63,6 +68,7 @@ pub fn TuiState::new(file_path : String?, buffer : @lib.HexBuffer) -> TuiState {
     scan_view: false, scan_sel: 0, scan_scroll: 0,
     scan_offsets: [], scan_names: [], scan_sizes: [], scan_done: false,
     entropy_view: false, entropy_sel: 0, entropy_blocks: [],
+    strings_view: false, strings_sel: 0, strings_scroll: 0, strings_matches: [], strings_done: false,
     undo_stack: [],
     redo_stack: [],
   }
@@ -149,6 +155,40 @@ pub fn handle_key(
   } else if state.entropy_view && (key == 'q'.to_int() || key == 'Q'.to_int()) {
     state.running = false
   } else if state.entropy_view { ()
+  // ====== Strings popup ======
+  } else if state.strings_view && key == -2 {
+    let total = state.strings_matches.length()
+    if total > 0 && state.strings_sel < total - 1 { state.strings_sel = state.strings_sel + 1 }
+    if state.strings_sel >= state.strings_scroll + screen_rows - 1 { state.strings_scroll = state.strings_sel - screen_rows + 2 }
+  } else if state.strings_view && key == -1 {
+    if state.strings_sel > 0 { state.strings_sel = state.strings_sel - 1 }
+    if state.strings_sel < state.strings_scroll { state.strings_scroll = state.strings_sel }
+  } else if state.strings_view && key == -3 {
+    let page = if screen_rows > 2 { screen_rows - 2 } else { 1 }
+    state.strings_sel = if state.strings_sel >= page { state.strings_sel - page } else { 0 }
+    if state.strings_sel < state.strings_scroll { state.strings_scroll = state.strings_sel }
+  } else if state.strings_view && key == -4 {
+    let page = if screen_rows > 2 { screen_rows - 2 } else { 1 }
+    let total = state.strings_matches.length()
+    if total > 0 && state.strings_sel + page < total - 1 { state.strings_sel = state.strings_sel + page }
+    else if total > 0 { state.strings_sel = total - 1 }
+    if state.strings_sel >= state.strings_scroll + screen_rows - 1 { state.strings_scroll = state.strings_sel - screen_rows + 2 }
+  } else if state.strings_view && key == 13 {
+    let total = state.strings_matches.length()
+    if total > 0 && state.strings_sel < total {
+      let m = state.strings_matches[state.strings_sel]
+      state.results = [m.offset]
+      state.match_len = m.text.length()
+      state.result_idx = 0
+      state.offset = scroll_to_show(m.offset, state.offset, buffer.length(), screen_rows)
+      state.strings_view = false
+      state.msg = "String at 0x" + @lib.to_hex_string(m.offset, width=8)
+    }
+  } else if state.strings_view && (key == 's'.to_int() || key == 'S'.to_int() || key == 27) {
+    state.strings_view = false; state.msg = "Hex view"
+  } else if state.strings_view && (key == 'q'.to_int() || key == 'Q'.to_int()) {
+    state.running = false
+  } else if state.strings_view { ()
   // ====== Bookmark popup (in tui_bookmark.mbt) ======
   } else if state.bookmark_view && handle_bookmark_popup_key(state, key, screen_rows) {
     ()
@@ -182,7 +222,7 @@ pub fn handle_key(
     state.running = false
   } else if state.struct_view {
     ()
-  } else if (state.scan_view || state.entropy_view) && key != 'w'.to_int() && key != 'W'.to_int() {
+  } else if (state.scan_view || state.entropy_view || state.strings_view) && key != 'w'.to_int() && key != 'W'.to_int() && key != 's'.to_int() && key != 'S'.to_int() {
     ()
 
   // ====== Edit mode keys ======
@@ -233,7 +273,7 @@ pub fn handle_key(
     state.esc_pending = false
     let old = match buffer.get_byte(state.edit_off) { Some(b) => b; None => b'\x00' }
     state.undo_stack.push({ kind: 2, offset: state.edit_off, old_byte: old })
-    state.redo_stack = []; state.scan_done = false
+    state.redo_stack = []; state.scan_done = false; state.strings_done = false
     buffer.delete_byte(state.edit_off) |> ignore
     if state.edit_off >= buffer.length() && state.edit_off > 0 { state.edit_off = state.edit_off - 1 }
     state.results = []
@@ -244,26 +284,26 @@ pub fn handle_key(
     state.edit_modified = true
     state.esc_pending = false
     state.undo_stack.push({ kind: 1, offset: state.edit_off, old_byte: b'\x00' })
-    state.redo_stack = []; state.scan_done = false
+    state.redo_stack = []; state.scan_done = false; state.strings_done = false
     buffer.insert_byte(state.edit_off, b'\x00') |> ignore
     state.msg = "Inserted 00\{depth_suffix(state.undo_stack.length(), state.redo_stack.length())}"
 
   } else if state.edit_mode && !state.edit_ascii && key >= '0'.to_int() && key <= '9'.to_int() {
-    state.edit_modified = true; state.esc_pending = false; state.redo_stack = []; state.scan_done = false
+    state.edit_modified = true; state.esc_pending = false; state.redo_stack = []; state.scan_done = false; state.strings_done = false
     let (new_off, new_nib, new_msg, undo) = handle_hex_input(buffer, state.edit_off, state.edit_nibble, key)
     state.edit_off = new_off; state.edit_nibble = new_nib
     match undo { Some(op) => state.undo_stack.push(op); None => () }
     state.msg = "\{new_msg}\{depth_suffix(state.undo_stack.length(), state.redo_stack.length())}"
 
   } else if state.edit_mode && !state.edit_ascii && key >= 'a'.to_int() && key <= 'f'.to_int() {
-    state.edit_modified = true; state.esc_pending = false; state.redo_stack = []; state.scan_done = false
+    state.edit_modified = true; state.esc_pending = false; state.redo_stack = []; state.scan_done = false; state.strings_done = false
     let (new_off, new_nib, new_msg, undo) = handle_hex_input(buffer, state.edit_off, state.edit_nibble, key)
     state.edit_off = new_off; state.edit_nibble = new_nib
     match undo { Some(op) => state.undo_stack.push(op); None => () }
     state.msg = "\{new_msg}\{depth_suffix(state.undo_stack.length(), state.redo_stack.length())}"
 
   } else if state.edit_mode && !state.edit_ascii && key >= 'A'.to_int() && key <= 'F'.to_int() {
-    state.edit_modified = true; state.esc_pending = false; state.redo_stack = []; state.scan_done = false
+    state.edit_modified = true; state.esc_pending = false; state.redo_stack = []; state.scan_done = false; state.strings_done = false
     let lower = key + ('a'.to_int() - 'A'.to_int())
     let (new_off, new_nib, new_msg, undo) = handle_hex_input(buffer, state.edit_off, state.edit_nibble, lower)
     state.edit_off = new_off; state.edit_nibble = new_nib
@@ -271,7 +311,7 @@ pub fn handle_key(
     state.msg = "\{new_msg}\{depth_suffix(state.undo_stack.length(), state.redo_stack.length())}"
 
   } else if state.edit_mode && state.edit_ascii && key >= 32 && key <= 126 {
-    state.edit_modified = true; state.esc_pending = false; state.edit_nibble = None; state.redo_stack = []; state.scan_done = false
+    state.edit_modified = true; state.esc_pending = false; state.edit_nibble = None; state.redo_stack = []; state.scan_done = false; state.strings_done = false
     let old = match buffer.get_byte(state.edit_off) { Some(b) => b; None => b'\x00' }
     state.undo_stack.push({ kind: 0, offset: state.edit_off, old_byte: old })
     let ch = key.to_char().unwrap()
@@ -346,25 +386,25 @@ pub fn handle_key(
   } else if key == 'q'.to_int() || key == 'Q'.to_int() {
     state.running = false
 
-  } else if !state.bookmark_view && !state.scan_view && key == -1 {
+  } else if !state.bookmark_view && !state.scan_view && !state.strings_view && key == -1 {
     if state.offset >= 16 { state.offset = state.offset - 16 }
 
-  } else if !state.bookmark_view && !state.scan_view && key == -2 {
+  } else if !state.bookmark_view && !state.scan_view && !state.strings_view && key == -2 {
     if state.offset + 16 < buffer.length() { state.offset = state.offset + 16 }
 
-  } else if !state.bookmark_view && !state.scan_view && key == -3 {
+  } else if !state.bookmark_view && !state.scan_view && !state.strings_view && key == -3 {
     let page = screen_rows * 16
     if state.offset >= page { state.offset = state.offset - page } else { state.offset = 0 }
 
-  } else if !state.bookmark_view && !state.scan_view && key == -4 {
+  } else if !state.bookmark_view && !state.scan_view && !state.strings_view && key == -4 {
     let page = screen_rows * 16
     if state.offset + page < buffer.length() { state.offset = state.offset + page }
     else { let last_off = if buffer.length() > 0 { ((buffer.length() - 1) / 16) * 16 } else { 0 }; if state.offset < last_off { state.offset = last_off } }
 
-  } else if !state.bookmark_view && !state.scan_view && key == -7 {
+  } else if !state.bookmark_view && !state.scan_view && !state.strings_view && key == -7 {
     state.offset = 0
 
-  } else if !state.bookmark_view && !state.scan_view && key == -8 {
+  } else if !state.bookmark_view && !state.scan_view && !state.strings_view && key == -8 {
     let len = buffer.length()
     let rows = if len > 0 { (len - 1) / 16 } else { 0 }
     state.offset = rows * 16
@@ -485,6 +525,15 @@ pub fn handle_key(
     state.entropy_sel = 0
     state.entropy_view = true
     state.msg = "Entropy analysis"
+  } else if key == 's'.to_int() || key == 'S'.to_int() {
+    if !state.strings_done {
+      state.strings_matches = @lib.find_strings(buffer.to_bytes())
+      state.strings_done = true
+    }
+    state.strings_sel = 0; state.strings_scroll = 0
+    state.strings_view = true
+    let n = state.strings_matches.length()
+    state.msg = if n > 0 { "\{n} strings (cached)" } else { "No strings found" }
   } else if key == '?'.to_int() {
     state.msg = "q:quit g:goto /:hex f:text n/p:match e:edit t:struct b:bookmark h:entropy"
   }

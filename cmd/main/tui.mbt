@@ -110,12 +110,12 @@ pub fn run_tui(file_path : String?) -> Unit {
   for _i = 0; state.running; _i = _i + 1 {
     let term_rows = tui_get_terminal_rows()
     let screen_rows = if term_rows > 5 { term_rows - 2 } else { 32 }
-    draw_screen(buffer, state.offset, state.msg, state.results, state.result_idx, state.match_len, state.edit_mode, state.edit_off, state.edit_ascii, state.struct_view, state.struct_offset, state.bookmark_view, state.bookmark_sel, state.bookmark_scroll, state.bookmarks, state.scan_view, state.scan_sel, state.scan_scroll, state.scan_offsets, state.scan_names, state.scan_sizes, state.entropy_view, state.entropy_sel, state.entropy_blocks, screen_rows)
+    draw_screen(buffer, state.offset, state.msg, state.results, state.result_idx, state.match_len, state.edit_mode, state.edit_off, state.edit_ascii, state.struct_view, state.struct_offset, state.bookmark_view, state.bookmark_sel, state.bookmark_scroll, state.bookmarks, state.scan_view, state.scan_sel, state.scan_scroll, state.scan_offsets, state.scan_names, state.scan_sizes, state.entropy_view, state.entropy_sel, state.entropy_blocks, state.strings_view, state.strings_sel, state.strings_scroll, state.strings_matches, screen_rows)
 
     let key = tui_get_key()
 
     // o/O: open file — handled here to reload buffer
-    if !state.edit_mode && !state.struct_view && !state.bookmark_view && (key == 'o'.to_int() || key == 'O'.to_int()) {
+    if !state.edit_mode && !state.struct_view && !state.bookmark_view && !state.strings_view && (key == 'o'.to_int() || key == 'O'.to_int()) {
       let path = tui_read_line("Open file: ")
       if path != "" {
         match load_file_best(path) {
@@ -127,6 +127,7 @@ pub fn run_tui(file_path : String?) -> Unit {
             state.struct_view = false
             state.bookmark_view = false
             state.scan_done = false
+            state.strings_done = false
             state.undo_stack = []
             state.redo_stack = []
           }

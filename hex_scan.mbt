@@ -16,6 +16,12 @@ pub struct EntropyBlock {
 } derive(Debug)
 
 ///|
+pub struct StringMatch {
+  offset : Int
+  text : String
+} derive(Debug)
+
+///|
 pub fn scan_signatures(bytes : Bytes) -> Array[ScanMatch] {
   let len = bytes.length()
   let results : Array[ScanMatch] = []
@@ -286,6 +292,31 @@ fn guess_ext(name : String) -> String {
   else if name.contains("PE") { "exe" } else if name.contains("ELF") { "elf" }
   else if name.contains("PDF") { "pdf" } else if name.contains("SQLite") { "db" }
   else { "bin" }
+}
+
+pub fn find_strings(bytes : Bytes) -> Array[StringMatch] {
+  let len = bytes.length()
+  let results : Array[StringMatch] = []
+  let mut i = 0
+  while i < len {
+    while i < len {
+      let b = bytes[i].to_int()
+      if b >= 0x20 && b <= 0x7E { break }
+      i = i + 1
+    }
+    if i >= len { break }
+    let start = i
+    let sb = StringBuilder()
+    while i < len {
+      let b = bytes[i].to_int()
+      if b < 0x20 || b > 0x7E { break }
+      match b.to_char() { Some(c) => sb.write_char(c); None => () }
+      i = i + 1
+    }
+    let text = sb.to_string()
+    if text.length() >= 4 { results.push({ offset: start, text: text }) }
+  }
+  results
 }
 
 pub fn entropy_scan(bytes : Bytes) -> Array[EntropyBlock] {
