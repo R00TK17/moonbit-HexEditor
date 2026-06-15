@@ -214,26 +214,43 @@ fn draw_screen(
   }
   sb.write_string("[K")
 
-  // Help bar — fixed at last line, truncated to terminal width
-  let help_row = screen_rows + 2
-  sb.write_string("[" + help_row.to_string() + ";1H")
+  // Help bar — 2 lines for long modes, 1 line for short ones
   let w = if term_cols > 4 { term_cols - 2 } else { 78 }
   if edit_mode {
     let mode = if edit_ascii { "ASCII" } else { "Hex" }
-    let text = " Esc:exit Tab:\{mode} i:insert Del:delete Ctrl+Z:undo Ctrl+Y:redo Ctrl+X:save "
-    sb.write_string("[47;30m" + clip(text, w) + "[0m[K")
+    let row1 = screen_rows + 2
+    sb.write_string("[" + row1.to_string() + ";1H")
+    sb.write_string("[47;30m " + clip("Esc:exit Tab:\{mode}  i:insert Del:delete", w) + " [0m[K")
+    let row2 = screen_rows + 3
+    sb.write_string("[" + row2.to_string() + ";1H")
+    sb.write_string("[47;30m " + clip("Ctrl+Z:undo Ctrl+Y:redo  Ctrl+X:save", w) + " [0m[K")
   } else if scan_view {
+    let row = screen_rows + 2
+    sb.write_string("[" + row.to_string() + ";1H")
     sb.write_string("[47;30m " + clip("q:quit  Enter:jump  x:extract  w:close", w) + " [0m[K")
   } else if entropy_view {
+    let row = screen_rows + 2
+    sb.write_string("[" + row.to_string() + ";1H")
     sb.write_string("[47;30m " + clip("q:quit  Enter:jump  LR:page  h:close", w) + " [0m[K")
   } else if strings_view {
+    let row = screen_rows + 2
+    sb.write_string("[" + row.to_string() + ";1H")
     sb.write_string("[47;30m " + clip("q:quit  Enter:jump  s:close", w) + " [0m[K")
   } else if bookmark_view {
+    let row = screen_rows + 2
+    sb.write_string("[" + row.to_string() + ";1H")
     sb.write_string("[47;30m " + clip("q:quit  Enter:jump  d:delete  b:close  Ctrl+B:set", w) + " [0m[K")
   } else if struct_view {
+    let row = screen_rows + 2
+    sb.write_string("[" + row.to_string() + ";1H")
     sb.write_string("[47;30m " + clip("q:quit  UD:scroll  LR:page  t:hex", w) + " [0m[K")
   } else {
-    sb.write_string("[47;30m " + clip("q:quit o:open g:goto /:hex f:text w:scan s:strings h:entropy n/p:match e:edit t:struct b:bookmark", w) + " [0m[K")
+    let row1 = screen_rows + 2
+    sb.write_string("[" + row1.to_string() + ";1H")
+    sb.write_string("[47;30m " + clip("q:quit o:open g:goto e:edit /:hex f:text n/p:match", w) + " [0m[K")
+    let row2 = screen_rows + 3
+    sb.write_string("[" + row2.to_string() + ";1H")
+    sb.write_string("[47;30m " + clip("w:scan s:strings h:entropy t:struct b:bookmark", w) + " [0m[K")
   }
 
   // Erase below: clear anything after the help bar

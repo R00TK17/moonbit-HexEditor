@@ -37,8 +37,8 @@ fn str_to_bytes(s : String) -> Bytes {
 /// Read a line of input from the user with a prompt.
 fn tui_read_line(prompt : String) -> String {
   tui_show_cursor()
-  // Move cursor up from help bar to status bar line
-  raw_print(str_to_bytes("[A[62G[K"))
+  // Move cursor up from help bar to status bar line, position at ASCII column
+  raw_print(str_to_bytes("[2A[63G[K"))
   raw_print(str_to_bytes(prompt))
 
   let mut sb = StringBuilder()
@@ -86,8 +86,8 @@ fn load_file_best(path : String) -> Result[@lib.HexBuffer, String] {
     let loaded = mmap_load(c_path, buf)
     if loaded > 0 {
       let hb = @lib.HexBuffer::from_bytes(buf)
-        hb.set_file_path(path)
-        return Ok(hb)
+      hb.set_file_path(path)
+      return Ok(hb)
     }
   }
   load_file(path)
@@ -111,7 +111,7 @@ pub fn run_tui(file_path : String?) -> Unit {
   for _i = 0; state.running; _i = _i + 1 {
     let term_rows = tui_get_terminal_rows()
     let term_cols = tui_get_terminal_cols()
-    let screen_rows = if term_rows > 5 { term_rows - 2 } else { 32 }
+    let screen_rows = if term_rows > 6 { term_rows - 3 } else { 32 }
     draw_screen(buffer, state.offset, state.msg, state.results, state.result_idx, state.match_len, state.edit_mode, state.edit_off, state.edit_ascii, state.struct_view, state.struct_offset, state.bookmark_view, state.bookmark_sel, state.bookmark_scroll, state.bookmarks, state.scan_view, state.scan_sel, state.scan_scroll, state.scan_offsets, state.scan_names, state.scan_sizes, state.entropy_view, state.entropy_sel, state.entropy_blocks, state.strings_view, state.strings_sel, state.strings_scroll, state.strings_matches, screen_rows, term_cols)
 
     let key = tui_get_key()
