@@ -189,7 +189,7 @@ pub fn handle_key(
   } else if state.edit_mode && key == 27 {
     if state.edit_modified && !state.esc_pending {
       state.esc_pending = true
-      state.msg = "Unsaved edits! Press Esc again to discard, Ctrl+S to save"
+      state.msg = "Unsaved edits! Press Esc again to discard, Ctrl+X to save"
     } else {
       let was_modified = state.edit_modified
       if was_modified { revert_all_edits(buffer, state.undo_stack) }
@@ -323,7 +323,7 @@ pub fn handle_key(
       }
     }
 
-  } else if state.edit_mode && key == 19 {
+  } else if state.edit_mode && key == 24 {
     match buffer.get_file_path() {
       Some(p) => {
         try {

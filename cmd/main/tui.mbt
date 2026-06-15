@@ -84,7 +84,9 @@ fn load_file_best(path : String) -> Result[@lib.HexBuffer, String] {
     let buf = Bytes::make(size, b'\x00')
     let loaded = mmap_load(c_path, buf)
     if loaded > 0 {
-      return Ok(@lib.HexBuffer::from_bytes(buf))
+      let hb = @lib.HexBuffer::from_bytes(buf)
+        hb.set_file_path(path)
+        return Ok(hb)
     }
   }
   load_file(path)

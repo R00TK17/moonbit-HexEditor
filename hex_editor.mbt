@@ -54,6 +54,12 @@ pub fn HexBuffer::from_fixedarray(arr : FixedArray[Byte]) -> HexBuffer {
 }
 
 ///|
+/// Sets the file path associated with this buffer.
+pub fn HexBuffer::set_file_path(self : HexBuffer, path : String) -> Unit {
+  self.file_path = Some(path)
+}
+
+///|
 /// Loads a HexBuffer from a file.
 ///
 /// Raises `@fs.IOError` if the file cannot be read.
@@ -135,7 +141,13 @@ pub fn HexBuffer::to_bytes(self : HexBuffer) -> Bytes {
 }
 
 ///|
-/// Converts the buffer contents to a FixedArray of bytes.
+/// Returns internal data without copying — zero-copy for rendering.
+pub fn HexBuffer::data_ref(self : HexBuffer) -> FixedArray[Byte] {
+  self.data
+}
+
+///|
+/// Converts the buffer contents to a FixedArray of bytes (copy).
 pub fn HexBuffer::to_fixedarray(self : HexBuffer) -> FixedArray[Byte] {
   if self.len == 0 {
     return []

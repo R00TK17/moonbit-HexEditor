@@ -43,15 +43,19 @@ pub fn scan_signatures(bytes : Bytes) -> Array[ScanMatch] {
   }
 
   let filtered = filter_false_positives(bytes, results)
-  estimate_sizes(bytes, filtered)
-  if filtered.length() > 0 {
-    let last = filtered[filtered.length() - 1]
+  let trusted : Array[ScanMatch] = []
+  for i = 0; i < filtered.length(); i = i + 1 {
+    if filtered[i].confidence >= 2 { trusted.push(filtered[i]) }
+  }
+  estimate_sizes(bytes, trusted)
+  if trusted.length() > 0 {
+    let last = trusted[trusted.length() - 1]
     let trail_start = last.offset + last.size
     if trail_start > 0 && trail_start + 256 < len {
-      filtered.push({ offset: trail_start, name: "Trailing data (" + format_size(len - trail_start) + ")", size: len - trail_start, confidence: 1 })
+      trusted.push({ offset: trail_start, name: "Trailing data (" + format_size(len - trail_start) + ")", size: len - trail_start, confidence: 1 })
     }
   }
-  filtered
+  trusted
 }
 
 ///| Each format has a dedicated validator (binwalk-style per-signature parser)

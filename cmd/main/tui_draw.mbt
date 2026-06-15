@@ -120,7 +120,7 @@ fn draw_screen(
     let rows_from_offset = if offset < len { (len - offset + 15) / 16 } else { 0 }
     let display_rows = if screen_rows < rows_from_offset { screen_rows } else { rows_from_offset }
 
-    let data = buffer.to_fixedarray()
+    let data = buffer.data_ref()
     let highlight_all = build_highlight_set(search_results, match_len, buffer)
     let highlight_cur : Array[Int] = if search_results.length() > 0 && search_idx >= 0 && search_idx < search_results.length() {
       build_match_range(search_results[search_idx], match_len, buffer)
@@ -206,7 +206,7 @@ fn draw_screen(
   sb.write_string("[" + help_row.to_string() + ";1H")
   if edit_mode {
     let mode = if edit_ascii { "ASCII" } else { "Hex" }
-    sb.write_string("[47;30m Esc:exit Tab:\{mode} i:insert Del:delete Ctrl+Z:undo Ctrl+Y:redo Ctrl+S:save [0m[K")
+    sb.write_string("[47;30m Esc:exit Tab:\{mode} i:insert Del:delete Ctrl+Z:undo Ctrl+Y:redo Ctrl+X:save [0m[K")
   } else if scan_view {
     sb.write_string("[47;30m q:quit  Enter:jump  x:extract  w:close [0m[K")
   } else if entropy_view {

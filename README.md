@@ -9,10 +9,10 @@ A terminal-based hex editor and binary file analyzer written in MoonBit, featuri
 - Navigation: Arrow keys (`↑↓` line scroll, `←→` page), Home/End, Goto offset / bookmark (`g #N`)
 - Search: `/` hex pattern, `f` ASCII text, `n`/`N` next/prev match
 - Highlighting: current match (green), other matches (yellow), edit cursor (inverse)
-- Edit mode: hex/ASCII input, insert, delete, undo/redo (`Ctrl+Z`/`Ctrl+Y`) with depth display, smart save prompt
+- Edit mode: hex/ASCII input, insert, delete, undo/redo (`Ctrl+Z`/`Ctrl+Y`) with depth display, save (`Ctrl+X`)
 - Structure view: parsed file structure with scrollable display
 - Bookmarks: 21 slots (0-20), popup list with auto-scroll, `Ctrl+B` set, `#N` goto
-- Signature scan: `w` key, 20 CTF-focused formats with per-signature validation, cached results
+- Signature scan: `w` key, 21 formats with per-signature validation, confidence filtering, cached results
 - Entropy analysis: `h` key, 256-byte blocks, Shannon entropy with color-coded bars
 - Extraction: `x` key to dump selected match, trailing data detection
 - mmap loading: memory-mapped file I/O for fast file opens (auto-fallback to standard I/O)
@@ -63,7 +63,7 @@ moon run --target native cmd/main                  # empty start
 | `/` | Hex search | `Del` | Delete byte |
 | `f` | Text search | `Ctrl+Z` | Undo |
 | `n` | Next match | `Ctrl+Y` | Redo |
-| `p` | Prev match | `Ctrl+S` | Save |
+| `p` | Prev match | `Ctrl+X` | Save |
 | `e` | Edit mode | | |
 | `t` | Struct view | `Ctrl+B` | Set bookmark |
 | `b` | Bookmark list | | |
@@ -94,7 +94,7 @@ hex_editor/
 ├── hex_search.mbt               # Byte/string/hex search
 ├── hex_edit.mbt                 # Edit operations, patch, undo/redo primitives
 ├── hex_struct.mbt               # 16+ file format parser
-├── hex_scan.mbt                 # CTF signature scanner (20 formats), entropy, extraction, per-format validators
+├── hex_scan.mbt                 # Signature scanner (21 formats, confidence filtered), entropy, extraction
 ├── hex_editor_test.mbt          # Tests
 ├── cmd/main/
 │   ├── main.mbt                 # CLI + TUI entry
