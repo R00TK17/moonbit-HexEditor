@@ -341,6 +341,8 @@ pub fn handle_key(
     ()
 
   // ====== Normal mode keys ======
+  } else if key == 27 {
+    if state.results.length() > 0 { state.results = []; state.match_len = 0; state.msg = "Search cleared" }
   } else if key == 'q'.to_int() || key == 'Q'.to_int() {
     state.running = false
 
