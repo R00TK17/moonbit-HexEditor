@@ -12,6 +12,9 @@ A terminal-based hex editor and binary file analyzer written in MoonBit, featuri
 - Edit mode: hex/ASCII input, insert, delete, undo/redo (`Ctrl+Z`/`Ctrl+Y`) with depth display, smart save prompt
 - Structure view: parsed file structure with scrollable display
 - Bookmarks: 21 slots (0-20), popup list with auto-scroll, `Ctrl+B` set, `#N` goto
+- Signature scan: `w` key, 20 CTF-focused formats with per-signature validation, cached results
+- Entropy analysis: `h` key, 256-byte blocks, Shannon entropy with color-coded bars
+- Extraction: `x` key to dump selected match, trailing data detection
 
 ### CLI Commands
 ```
@@ -63,10 +66,16 @@ moon run --target native cmd/main                  # empty start
 | `e` | Edit mode | | |
 | `t` | Struct view | `Ctrl+B` | Set bookmark |
 | `b` | Bookmark list | | |
+| `w` | Signature scan | | |
+| `h` | Entropy analysis | | |
 
 Struct view: `↑↓←→` scroll, `t`/`Esc` back to hex, `q` quit.
 
 Bookmark list: `↑↓` select, `Enter` jump, `d` delete, `b`/`Esc` close, `q` quit, `Ctrl+B` set.
+
+Signature scan: `↑↓←→` navigate, `Enter` jump, `x` extract, `w`/`Esc` close, results cached until edit.
+
+Entropy scan: `↑↓←→` navigate, `Enter` jump to block, `h`/`Esc` close.
 
 ### Platform Notes
 
@@ -84,7 +93,7 @@ hex_editor/
 ├── hex_search.mbt               # Byte/string/hex search
 ├── hex_edit.mbt                 # Edit operations, patch, undo/redo primitives
 ├── hex_struct.mbt               # 16+ file format parser
-├── hex_scan.mbt                 # Signature scanner, entropy analysis, extraction
+├── hex_scan.mbt                 # CTF signature scanner (20 formats), entropy, extraction, per-format validators
 ├── hex_editor_test.mbt          # Tests
 ├── cmd/main/
 │   ├── main.mbt                 # CLI + TUI entry

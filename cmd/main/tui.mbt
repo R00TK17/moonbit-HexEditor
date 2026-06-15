@@ -104,6 +104,7 @@ pub fn run_tui(file_path : String?) -> Unit {
             state.edit_mode = false
             state.struct_view = false
             state.bookmark_view = false
+            state.scan_done = false
             state.undo_stack = []
             state.redo_stack = []
           }
