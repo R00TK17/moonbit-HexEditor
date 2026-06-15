@@ -191,8 +191,9 @@ fn draw_screen(
   // Status bar — fixed at second-to-last line (absolute positioning)
   let status_row = screen_rows + 1
   sb.write_string("[" + status_row.to_string() + ";1H")
-  let cur_row = if buffer.length() > 0 { offset / 16 + 1 } else { 0 }
   let max_row = if buffer.length() > 0 { (buffer.length() + 15) / 16 } else { 0 }
+  let raw_row = if buffer.length() > 0 { offset / 16 + 1 } else { 0 }
+  let cur_row = if raw_row > max_row { max_row } else { raw_row }
   sb.write_string("[44;37m 0x\{@lib.to_hex_string(offset, width=8)} | row \{cur_row}/\{max_row} [0m")
 
   if status_msg != "" {

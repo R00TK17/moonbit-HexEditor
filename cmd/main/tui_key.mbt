@@ -353,18 +353,20 @@ pub fn handle_key(
     if state.offset + 16 < buffer.length() { state.offset = state.offset + 16 }
 
   } else if !state.bookmark_view && !state.scan_view && key == -3 {
-    let page = 256
+    let page = screen_rows * 16
     if state.offset >= page { state.offset = state.offset - page } else { state.offset = 0 }
 
   } else if !state.bookmark_view && !state.scan_view && key == -4 {
-    let page = 256
+    let page = screen_rows * 16
     if state.offset + page < buffer.length() { state.offset = state.offset + page }
+    else { let last_off = if buffer.length() > 0 { ((buffer.length() - 1) / 16) * 16 } else { 0 }; if state.offset < last_off { state.offset = last_off } }
 
   } else if !state.bookmark_view && !state.scan_view && key == -7 {
     state.offset = 0
 
   } else if !state.bookmark_view && !state.scan_view && key == -8 {
-    let rows = buffer.length() / 16
+    let len = buffer.length()
+    let rows = if len > 0 { (len - 1) / 16 } else { 0 }
     state.offset = rows * 16
 
   } else if key == '/'.to_int() {
