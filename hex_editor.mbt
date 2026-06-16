@@ -171,28 +171,6 @@ pub fn HexBuffer::insert_byte(
 }
 
 ///|
-/// Inserts multiple bytes at the specified offset.
-pub fn HexBuffer::insert_bytes(
-  self : HexBuffer,
-  offset : Int,
-  bytes : Bytes,
-) -> Bool {
-  let insert_len = bytes.length()
-  guard offset >= 0 && offset <= self.len else { false }
-  guard insert_len > 0 else { true }
-  self.ensure_capacity(self.len + insert_len)
-  for i = self.len - 1; i >= offset; i = i - 1 {
-    self.data[i + insert_len] = self.data[i]
-  }
-  for i = 0; i < insert_len; i = i + 1 {
-    self.data[offset + i] = bytes[i]
-  }
-  self.len = self.len + insert_len
-  self.modified = true
-  true
-}
-
-///|
 /// Deletes a byte at the specified offset, shifting subsequent bytes left.
 pub fn HexBuffer::delete_byte(self : HexBuffer, offset : Int) -> Bool {
   guard offset >= 0 && offset < self.len else { false }
@@ -202,76 +180,6 @@ pub fn HexBuffer::delete_byte(self : HexBuffer, offset : Int) -> Bool {
   self.len = self.len - 1
   self.modified = true
   true
-}
-
-///|
-/// Deletes a range of bytes.
-pub fn HexBuffer::delete_bytes(
-  self : HexBuffer,
-  offset : Int,
-  count : Int,
-) -> Bool {
-  guard offset >= 0 && count >= 0 && offset + count <= self.len else { false }
-  guard count > 0 else { true }
-  for i = offset; i < self.len - count; i = i + 1 {
-    self.data[i] = self.data[i + count]
-  }
-  self.len = self.len - count
-  self.modified = true
-  true
-}
-
-///|
-/// Replaces a range of bytes with new data.
-pub fn HexBuffer::replace_range(
-  self : HexBuffer,
-  offset : Int,
-  count : Int,
-  new_bytes : Bytes,
-) -> Bool {
-  guard offset >= 0 && count >= 0 && offset + count <= self.len else { false }
-  let new_len = new_bytes.length()
-  let size_diff = new_len - count
-  if size_diff > 0 {
-    self.ensure_capacity(self.len + size_diff)
-    for i = self.len - 1; i >= offset + count; i = i - 1 {
-      self.data[i + size_diff] = self.data[i]
-    }
-  } else if size_diff < 0 {
-    let shift = -size_diff
-    for i = offset + count; i < self.len; i = i + 1 {
-      self.data[i - shift] = self.data[i]
-    }
-  }
-  for i = 0; i < new_len; i = i + 1 {
-    self.data[offset + i] = new_bytes[i]
-  }
-  self.len = self.len + size_diff
-  self.modified = true
-  true
-}
-
-///|
-/// Fills a range of bytes with a single value.
-pub fn HexBuffer::fill_range(
-  self : HexBuffer,
-  start : Int,
-  end : Int,
-  value : Byte,
-) -> Bool {
-  guard start >= 0 && end >= start && end <= self.len else { false }
-  for i = start; i < end; i = i + 1 {
-    self.data[i] = value
-  }
-  self.modified = true
-  true
-}
-
-///|
-/// Clears all data from the buffer.
-pub fn HexBuffer::clear(self : HexBuffer) -> Unit {
-  self.len = 0
-  self.modified = true
 }
 
 ///|

@@ -155,11 +155,6 @@ fn validate_xml(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
   guard off + 5 <= _len && read_str_at(bytes, off, 5) == "<?xml" else { None }
   Some({ offset: off, name: "XML document", size: 0, confidence: 2 })
 }
-fn validate_copyright(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
-  let cr = read_str_at(bytes, off, 10)
-  guard cr == "Copyright " || cr == "copyright " || cr == "COPYRIGHT " else { None }
-  Some({ offset: off, name: "Copyright string", size: 0, confidence: 3 })
-}
 fn validate_openssl(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
   guard off + 8 <= _len && read_str_at(bytes, off, 8) == "Salted__" else { None }
   Some({ offset: off, name: "OpenSSL encrypted", size: 0, confidence: 2 })
@@ -202,8 +197,7 @@ fn match_prefix(b0 : Int, b1 : Int) -> Bool {
   (b0 == 0x2D && b1 == 0x2D) ||  // PEM
   (b0 == 0x53 && (b1 == 0x61 || b1 == 0x51)) ||  // OpenSSL/SQLite
   (b0 == 0x4C && b1 == 0x55) ||  // LUKS
-  (b0 == 0xA3 && b1 == 0x01) ||  // GPG
-  (b0 == 0x43 || b0 == 0x63)     // Copyright
+  (b0 == 0xA3 && b1 == 0x01)  // GPG
 }
 
 fn check_sigs(bytes : Bytes, off : Int, len : Int, results : Array[ScanMatch]) -> Unit {
@@ -213,7 +207,7 @@ fn check_sigs(bytes : Bytes, off : Int, len : Int, results : Array[ScanMatch]) -
     validate_zip, validate_rar, validate_7z,
     validate_gzip, validate_zlib, validate_bzip2,
     validate_pe, validate_elf,
-    validate_pdf, validate_xml, validate_copyright,
+    validate_pdf, validate_xml,
     validate_openssl, validate_pem, validate_luks, validate_gpg,
     validate_sqlite,
   ]

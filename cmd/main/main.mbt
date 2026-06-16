@@ -44,6 +44,7 @@ fn cmd_view(argv : Array[String]) -> Unit {
       let offset = get_int_option(argv, "-o", "--offset", 0)
       let length = get_int_option(argv, "-n", "--length", -1)
       let bpr = get_int_option(argv, "-b", "--bytes-per-row", 16)
+      if bpr != 8 && bpr != 16 { println("Error: -b supports 8 or 16 only"); return }
       let ascii = !has_flag(argv, "--no-ascii")
       let upper = !has_flag(argv, "--lowercase")
       let len = buf.length()

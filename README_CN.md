@@ -12,7 +12,7 @@
 - 编辑模式：十六进制/ASCII输入、插入、删除、撤销/重做(`Ctrl+Z`/`Ctrl+Y`)带深度显示、保存(`Ctrl+X`)
 - 结构视图：解析文件内部结构，支持滚动浏览
 - 书签：21 个槽位（0-20），弹出列表自动滚动，`Ctrl+B` 设置，`#N` 跳转
-- 签名扫描：`w` 键，21 种格式，每格式独立验证，置信度过滤，结果缓存
+- 签名扫描：`w` 键，20 种格式，每格式独立验证，置信度过滤，结果缓存
   - **图像:** JPEG、PNG、GIF、BMP
   - **压缩/归档:** ZIP、RAR、7z、GZip、Zlib、BZip2
   - **可执行:** PE（exe/dll）、ELF
@@ -20,7 +20,6 @@
   - **加密:** OpenSSL、PEM、LUKS、GPG
   - **音频:** WAV
   - **数据库:** SQLite3
-  - **文本:** Copyright 字符串
 - 扫描缓存：`w`/`s`/`h` 重新打开时保持上次位置，编辑后自动清除
 - 熵分析：`h` 键，256 字节块，香农熵色彩柱状图
 - 字符串提取：`s` 键，可打印 ASCII 序列（>=4 字节），支持缓存、跳转高亮
@@ -30,9 +29,9 @@
 
 ### CLI 命令
 ```
-moon run --target native cmd/main -- view <文件>      快速十六进制查看
+moon run --target native cmd/main -- view [-b 8|16] <文件>  快速十六进制查看
 moon run --target native cmd/main -- info <文件>      文件信息与类型识别
-moon run --target native cmd/main -- search <f> <p>   模式搜索
+moon run --target native cmd/main -- search [-x|-a] <f> <p>  搜索（hex/文本）
 moon run --target native cmd/main -- struct <文件>    结构解析
 moon run --target native cmd/main -- strings <文件>   字符串提取
 moon run --target native cmd/main -- entropy <文件>   熵分析
@@ -108,10 +107,10 @@ moon run --target native cmd/main                  # 空启动
 hex_editor/
 ├── hex_editor.mbt                # HexBuffer 数据模型、文件 I/O、编辑基本操作
 ├── hex_view.mbt                 # 十六进制格式化、尺寸显示
-├── hex_search.mbt               # Boyer-Moore-Horspool 搜索、hex/text 模式匹配
+├── hex_search.mbt               # Boyer-Moore-Horspool 搜索（find_all、parse_hex）
 ├── hex_struct.mbt               # 16+ 种文件格式解析器（JPEG/PNG/ZIP/PE/ELF...）
-├── hex_scan.mbt                 # 签名扫描（21 种格式）、熵分析、字符串提取
-├── hex_edit.mbt                 # Patch 批量编辑 API（仅测试用，TUI 使用 UndoOp）
+├── hex_scan.mbt                 # 签名扫描（20 种格式）、熵分析、字符串提取
+├── hex_edit.mbt                 # 编辑辅助占位
 ├── hex_editor_test.mbt          # 单元测试
 ├── cmd/main/
 │   ├── main.mbt                 # CLI 入口（view/info/struct/strings/entropy/scan）

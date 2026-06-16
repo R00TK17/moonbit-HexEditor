@@ -13,30 +13,6 @@ fn bmh_skip(pattern : Bytes) -> FixedArray[Int] {
 }
 
 ///|
-/// Boyer-Moore-Horspool search — first occurrence.
-pub fn find_bytes(
-  data : Bytes,
-  pattern : Bytes,
-  start_offset? : Int = 0,
-) -> Int? {
-  let n = data.length()
-  let m = pattern.length()
-  let start = start_offset
-  guard m > 0 else { None }
-  guard start >= 0 && start <= n else { None }
-  guard m <= n else { None }
-  let skip = bmh_skip(pattern)
-  let mut i = start
-  while i <= n - m {
-    let mut j = m - 1
-    while j >= 0 && data[i + j] == pattern[j] { j = j - 1 }
-    if j < 0 { return Some(i) }
-    i = i + skip[data[i + m - 1].to_int()]
-  }
-  None
-}
-
-///|
 /// Boyer-Moore-Horspool search — all occurrences.
 pub fn find_all_bytes(data : Bytes, pattern : Bytes) -> Array[Int] {
   let n = data.length()
@@ -53,33 +29,6 @@ pub fn find_all_bytes(data : Bytes, pattern : Bytes) -> Array[Int] {
     i = i + skip[data[i + m - 1].to_int()]
   }
   results
-}
-
-///|
-/// Converts an ASCII string to a Bytes sequence.
-/// Non-ASCII characters are replaced with '?'.
-fn string_to_ascii_bytes(text : String) -> Bytes {
-  let len = text.length()
-  Bytes::makei(len, i => {
-    let ch = text.get_char(i).unwrap()
-    let code = ch.to_int()
-    if code >= 0 && code <= 127 {
-      code.to_byte()
-    } else {
-      b'?'
-    }
-  })
-}
-
-///|
-/// Searches for an ASCII string in the data.
-pub fn find_ascii_string(
-  data : Bytes,
-  text : String,
-  start_offset? : Int = 0,
-) -> Int? {
-  let pattern = string_to_ascii_bytes(text)
-  find_bytes(data, pattern, start_offset=start_offset)
 }
 
 ///|
@@ -128,34 +77,3 @@ fn hex_char_to_int(ch : Char) -> Int {
   }
 }
 
-///|
-/// Searches backwards from a given offset for a byte pattern.
-pub fn rfind_bytes(
-  data : Bytes,
-  pattern : Bytes,
-  start_offset? : Int,
-) -> Int? {
-  let data_len = data.length()
-  let pat_len = pattern.length()
-
-  let start = match start_offset {
-    None => data_len - pat_len
-    Some(s) => if s > data_len - pat_len { data_len - pat_len } else { s }
-  }
-
-  guard pat_len > 0 else { None }
-  guard start >= 0 else { None }
-  guard pat_len <= data_len else { None }
-
-  // Search backwards
-  for i = start; i >= 0; i = i - 1 {
-    for j = 0; j < pat_len; j = j + 1 {
-      if data[i + j] != pattern[j] {
-        break
-      }
-    } nobreak {
-      return Some(i)
-    }
-  }
-  None
-}

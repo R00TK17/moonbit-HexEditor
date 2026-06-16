@@ -12,7 +12,7 @@ A terminal-based hex editor and binary file analyzer written in MoonBit, featuri
 - Edit mode: hex/ASCII input, insert, delete, undo/redo (`Ctrl+Z`/`Ctrl+Y`) with depth display, save (`Ctrl+X`)
 - Structure view: parsed file structure with scrollable display
 - Bookmarks: 21 slots (0-20), popup list with auto-scroll, `Ctrl+B` set, `#N` goto
-- Signature scan: `w` key, 21 formats with per-signature validation, confidence filtering, cached results
+- Signature scan: `w` key, 20 formats with per-signature validation, confidence filtering, cached results
   - **Image:** JPEG, PNG, GIF, BMP
   - **Archive:** ZIP, RAR, 7z, GZip, Zlib, BZip2
   - **Executable:** PE (exe/dll), ELF
@@ -20,7 +20,6 @@ A terminal-based hex editor and binary file analyzer written in MoonBit, featuri
   - **Crypto:** OpenSSL, PEM, LUKS, GPG
   - **Audio:** WAV
   - **Database:** SQLite3
-  - **Text:** Copyright strings
 - Scan result caching: `w`/`s`/`h` save position when re-opened, auto-clear on edits
 - Entropy analysis: `h` key, 256-byte blocks, Shannon entropy with color-coded bars
 - Strings extraction: `s` key, printable ASCII sequences >= 4 chars, with caching, jump-to-offset and highlight
@@ -29,9 +28,9 @@ A terminal-based hex editor and binary file analyzer written in MoonBit, featuri
 
 ### CLI Commands
 ```
-moon run --target native cmd/main -- view <file>      Quick hex dump
+moon run --target native cmd/main -- view [-b 8|16] <f>  Quick hex dump
 moon run --target native cmd/main -- info <file>      File info + type detection
-moon run --target native cmd/main -- search <f> <p>   Hex/text pattern search
+moon run --target native cmd/main -- search [-x|-a] <f> <p>   Search (hex/text)
 moon run --target native cmd/main -- struct <file>    Structure analysis
 moon run --target native cmd/main -- strings <file>   String extraction
 moon run --target native cmd/main -- entropy <file>   Entropy analysis
@@ -107,10 +106,10 @@ Strings: `↑↓←→` navigate, `Enter` jump+highlight, `s`/`Esc` close.
 hex_editor/
 ├── hex_editor.mbt                # HexBuffer data model, file I/O, edit primitives
 ├── hex_view.mbt                 # Hex dump formatting, size display, hex byte table
-├── hex_search.mbt               # Boyer-Moore-Horspool search, hex/text pattern matching
+├── hex_search.mbt               # Boyer-Moore-Horspool search (find_all, parse_hex)
 ├── hex_struct.mbt               # 16+ file format parser (JPEG/PNG/ZIP/PE/ELF...)
-├── hex_scan.mbt                 # Signature scanner (21 formats), entropy, strings extraction
-├── hex_edit.mbt                 # Patch batch edit API (test-only, TUI uses UndoOp)
+├── hex_scan.mbt                 # Signature scanner (20 formats), entropy, strings
+├── hex_edit.mbt                 # Edit helpers placeholder
 ├── hex_editor_test.mbt          # Unit tests
 ├── cmd/main/
 │   ├── main.mbt                 # CLI entry (view/info/struct/strings/entropy/scan)
