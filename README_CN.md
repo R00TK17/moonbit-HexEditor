@@ -30,10 +30,13 @@
 
 ### CLI 命令
 ```
-moon run --target native cmd/main -- view <文件>     快速十六进制查看
-moon run --target native cmd/main -- info <文件>     文件信息与类型识别
-moon run --target native cmd/main -- search <f> <p>  模式搜索
-moon run --target native cmd/main -- struct <文件>   结构解析
+moon run --target native cmd/main -- view <文件>      快速十六进制查看
+moon run --target native cmd/main -- info <文件>      文件信息与类型识别
+moon run --target native cmd/main -- search <f> <p>   模式搜索
+moon run --target native cmd/main -- struct <文件>    结构解析
+moon run --target native cmd/main -- strings <文件>   字符串提取
+moon run --target native cmd/main -- entropy <文件>   熵分析
+moon run --target native cmd/main -- scan <文件>      签名扫描
 ```
 
 ### 文件结构解析（16种格式）
@@ -103,23 +106,23 @@ moon run --target native cmd/main                  # 空启动
 
 ```
 hex_editor/
-├── hex_editor.mbt                # HexBuffer 数据模型
-├── hex_view.mbt                 # 十六进制格式化
-├── hex_search.mbt               # 字节/字符串/十六进制搜索
-├── hex_edit.mbt                 # 编辑操作、Patch、撤销/重做原语
-├── hex_struct.mbt               # 16+ 种文件格式解析器
-├── hex_scan.mbt                 # 签名扫描（21 种格式，置信度过滤）、熵分析、提取
-├── hex_editor_test.mbt          # 测试文件
+├── hex_editor.mbt                # HexBuffer 数据模型、文件 I/O、编辑基本操作
+├── hex_view.mbt                 # 十六进制格式化、尺寸显示
+├── hex_search.mbt               # Boyer-Moore-Horspool 搜索、hex/text 模式匹配
+├── hex_struct.mbt               # 16+ 种文件格式解析器（JPEG/PNG/ZIP/PE/ELF...）
+├── hex_scan.mbt                 # 签名扫描（21 种格式）、熵分析、字符串提取
+├── hex_edit.mbt                 # Patch 批量编辑 API（仅测试用，TUI 使用 UndoOp）
+├── hex_editor_test.mbt          # 单元测试
 ├── cmd/main/
-│   ├── main.mbt                 # CLI + TUI 入口
-│   ├── helpers.mbt              # 命令行解析、文件加载、类型检测
-│   ├── helpers_native.mbt       # Native 平台辅助函数
-│   ├── tui.mbt                  # 主循环、FFI、输入助手
-│   ├── tui_key.mbt              # 按键分发、TuiState（所有模式）
-│   ├── tui_bookmark.mbt         # 书签功能（popup、设置、跳转、删除）
-│   ├── tui_draw.mbt             # 屏幕渲染（缓冲、单次刷新）
-│   ├── tui_edit.mbt             # 编辑模式、撤销/重做
-│   └── tui_stub.c               # C 终端桩（raw mode、alt screen、自适应尺寸、mmap I/O）
+│   ├── main.mbt                 # CLI 入口（view/info/struct/strings/entropy/scan）
+│   ├── helpers.mbt              # CLI 参数解析、文件加载、类型检测
+│   ├── helpers_native.mbt       # Native 平台辅助函数（hex/ASCII 转换）
+│   ├── tui.mbt                  # TUI 主循环、FFI 声明、mmap 加载
+│   ├── tui_key.mbt              # 所有模式的按键分发、TuiState 结构体
+│   ├── tui_bookmark.mbt         # 书签功能（21 槽位）、设置/跳转/删除
+│   ├── tui_draw.mbt             # 屏幕渲染（hex dump、弹窗、状态栏/帮助栏）
+│   ├── tui_edit.mbt             # TUI 编辑模式、基于 UndoOp 的撤销/重做
+│   └── tui_stub.c               # C 终端桩（raw mode、alt screen、mmap I/O）
 ```
 
 ## 依赖

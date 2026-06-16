@@ -29,10 +29,13 @@ A terminal-based hex editor and binary file analyzer written in MoonBit, featuri
 
 ### CLI Commands
 ```
-moon run --target native cmd/main -- view <file>     Quick hex dump
-moon run --target native cmd/main -- info <file>     File info + type detection
-moon run --target native cmd/main -- search <f> <p>  Pattern search
-moon run --target native cmd/main -- struct <file>   Structure analysis
+moon run --target native cmd/main -- view <file>      Quick hex dump
+moon run --target native cmd/main -- info <file>      File info + type detection
+moon run --target native cmd/main -- search <f> <p>   Hex/text pattern search
+moon run --target native cmd/main -- struct <file>    Structure analysis
+moon run --target native cmd/main -- strings <file>   String extraction
+moon run --target native cmd/main -- entropy <file>   Entropy analysis
+moon run --target native cmd/main -- scan <file>      Signature scan
 ```
 
 ### Structure Parser (16 Formats)
@@ -102,23 +105,23 @@ Strings: `↑↓←→` navigate, `Enter` jump+highlight, `s`/`Esc` close.
 
 ```
 hex_editor/
-├── hex_editor.mbt                # HexBuffer data model
-├── hex_view.mbt                 # Hex dump formatting
-├── hex_search.mbt               # Byte/string/hex search
-├── hex_edit.mbt                 # Edit operations, patch, undo/redo primitives
-├── hex_struct.mbt               # 16+ file format parser
-├── hex_scan.mbt                 # Signature scanner (21 formats, confidence filtered), entropy, extraction
-├── hex_editor_test.mbt          # Tests
+├── hex_editor.mbt                # HexBuffer data model, file I/O, edit primitives
+├── hex_view.mbt                 # Hex dump formatting, size display, hex byte table
+├── hex_search.mbt               # Boyer-Moore-Horspool search, hex/text pattern matching
+├── hex_struct.mbt               # 16+ file format parser (JPEG/PNG/ZIP/PE/ELF...)
+├── hex_scan.mbt                 # Signature scanner (21 formats), entropy, strings extraction
+├── hex_edit.mbt                 # Patch batch edit API (test-only, TUI uses UndoOp)
+├── hex_editor_test.mbt          # Unit tests
 ├── cmd/main/
-│   ├── main.mbt                 # CLI + TUI entry
-│   ├── helpers.mbt              # Argument parsing, file loading, type detection
-│   ├── helpers_native.mbt       # Native-only helpers
-│   ├── tui.mbt                  # Main loop, FFI, input helpers
-│   ├── tui_key.mbt              # Key dispatch, TuiState (all modes)
-│   ├── tui_bookmark.mbt         # Bookmark popup, set, jump, delete
-│   ├── tui_draw.mbt             # Screen rendering (buffered, single-flush)
-│   ├── tui_edit.mbt             # Edit mode, undo/redo operations
-│   └── tui_stub.c               # C stubs (raw mode, alt screen, adaptive size, mmap I/O)
+│   ├── main.mbt                 # CLI entry (view/info/struct/strings/entropy/scan)
+│   ├── helpers.mbt              # CLI argument parsing, file loading, type detection
+│   ├── helpers_native.mbt       # Native target helpers (hex/ASCII conversion)
+│   ├── tui.mbt                  # TUI main loop, FFI declarations, mmap loading
+│   ├── tui_key.mbt              # Key dispatch for all modes, TuiState struct
+│   ├── tui_bookmark.mbt         # Bookmark popup (21 slots), set/jump/delete
+│   ├── tui_draw.mbt             # Screen rendering (hex dump, popups, status/help bars)
+│   ├── tui_edit.mbt             # TUI edit mode, UndoOp-based undo/redo
+│   └── tui_stub.c               # C terminal stubs (raw mode, alt screen, mmap I/O)
 ```
 
 ## Dependencies

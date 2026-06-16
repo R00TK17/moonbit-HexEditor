@@ -38,7 +38,7 @@ fn str_to_bytes(s : String) -> Bytes {
 fn tui_read_line(prompt : String) -> String {
   tui_show_cursor()
   // Move cursor up from help bar to status bar line, position at ASCII column
-  raw_print(str_to_bytes("[2A[63G[K"))
+  raw_print(str_to_bytes("\u001b[2A\u001b[63G\u001b[K"))
   raw_print(str_to_bytes(prompt))
 
   let mut sb = StringBuilder()
