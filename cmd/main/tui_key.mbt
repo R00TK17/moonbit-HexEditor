@@ -490,7 +490,9 @@ pub fn handle_key(
 
   } else if key == 'e'.to_int() || key == 'E'.to_int() {
     if buffer.length() > 0 {
-      state.edit_mode = true; state.edit_off = state.offset; state.edit_nibble = None; state.edit_ascii = false
+      let target = if state.results.length() > 0 && state.result_idx < state.results.length() { state.results[state.result_idx] } else { state.offset }
+      state.edit_mode = true; state.edit_off = target; state.edit_nibble = None; state.edit_ascii = false
+      state.offset = scroll_to_show(target, state.offset, buffer.length(), screen_rows)
       state.msg = "Entered edit mode"
     } else { state.msg = "Nothing to edit" }
 
