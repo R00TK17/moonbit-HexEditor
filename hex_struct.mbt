@@ -303,6 +303,8 @@ fn parse_zip(bytes : Bytes) -> Array[StructField] {
       let comp_size = read_u32_le(bytes, pos + 18)
       let uncomp_size = read_u32_le(bytes, pos + 22)
       let name_len = read_u16_le(bytes, pos + 26)
+      let file_time = read_u16_le(bytes, pos + 10)
+      let file_date = read_u16_le(bytes, pos + 12)
       let extra_len = read_u16_le(bytes, pos + 28)
 
       let cmethod_str = match cmethod {
@@ -332,6 +334,8 @@ fn parse_zip(bytes : Bytes) -> Array[StructField] {
         field(pos + 4, 2, "Version", "\{ver}", ""),
         field(pos + 6, 2, "Flags", "0x\{hex(flags, 4)}", if (flags & 1) != 0 { "Encrypted" } else if (flags & 8) != 0 { "DataDescriptor" } else { "" }),
         field(pos + 8, 2, "Method", cmethod_str, ""),
+        field(pos + 10, 2, "FileTime", "0x" + hex(file_time, 4), ""),
+        field(pos + 12, 2, "FileDate", "0x" + hex(file_date, 4), ""),
         field(pos + 14, 4, "CRC32", "0x\{hex(crc, 8)}", ""),
         field(pos + 18, 4, "CompressedSize", "\{comp_size}", ""),
         field(pos + 22, 4, "UncompressedSize", "\{uncomp_size}", ""),
@@ -673,7 +677,7 @@ fn parse_wav(bytes : Bytes) -> Array[StructField] {
     if ck_size == 0 || pos + 8 + ck_size > len { break }
 
     if ck_id == "fmt " {
-let audio_fmt = read_u16_le(bytes, pos + 8)
+      let audio_fmt = read_u16_le(bytes, pos + 8)
       let channels = read_u16_le(bytes, pos + 10)
       let sample_rate = read_u32_le(bytes, pos + 12)
       let bps = read_u16_le(bytes, pos + 22)
@@ -688,15 +692,22 @@ let audio_fmt = read_u16_le(bytes, pos + 8)
         field(pos + 20, 2, "BlockAlign", "\{read_u16_le(bytes, pos + 20)}", ""),
         field(pos + 22, 2, "BitsPerSample", "\{bps}", ""),
       ]))
+    } else if ck_id == "fact" {
+      let fcount_val = read_u32_le(bytes, pos + 8)
+      fields.push(group(pos, 8 + ck_size, "fact", fcount_val.to_string() + " samples", [
+        field(pos, 4, "ChunkID", "fact", ""),
+        field(pos + 4, 4, "ChunkSize", ck_size.to_string(), ""),
+        field(pos + 8, 4, "SampleLength", fcount_val.to_string(), "Uncompressed samples"),
+      ]))
     } else if ck_id == "data" {
-fields.push(field(pos, 8 + ck_size, "data", "\{ck_size} bytes", "Audio samples"))
+      fields.push(field(pos, 8 + ck_size, "data", "{ck_size} bytes", "Audio samples"))
     } else {
       fields.push(field(pos, 8 + ck_size, ck_id, "\{ck_size} bytes", "RIFF chunk"))
-    }
+      }
     pos = pos + 8 + ck_size
     if ck_size % 2 != 0 { pos = pos + 1 }
-  }
-  if pos < len { fields.push(field(pos, len - pos, "Trailing", "\{len - pos} bytes", "")) }
+      }
+    if pos < len { fields.push(field(pos, len - pos, "Trailing", "\{len - pos} bytes", "")) }
   fields
 }
 
@@ -973,10 +984,17 @@ fn parse_elf(bytes : Bytes) -> Array[StructField] {
   let is64 = bytes[4].to_int() == 2
   let isle = bytes[5].to_int() == 1
 
-  fields.push(group(0, 16, "ELF Ident", "\{if is64 { "64-bit" } else { "32-bit" }} \{if isle { "LE" } else { "BE" }}", [
+  let ei_ver = bytes[6].to_int()
+  let ei_osabi = bytes[7].to_int()
+  let ei_abiver = bytes[8].to_int()
+  let osabi_s = match ei_osabi { 0 => "UNIX"; 2 => "NetBSD"; 3 => "Linux"; 6 => "Solaris"; 9 => "FreeBSD"; _ => "?" }
+  fields.push(group(0, 16, "ELF Ident", "\{if is64 { "64-bit" } else { "32-bit" }} \{if isle { "LE" } else { "BE" }}, \{osabi_s}", [
     field(0, 4, "Magic", "7F 45 4C 46", ""),
-    field(4, 1, "Class", if is64 { "ELF64" } else { "ELF32" }, ""),
-    field(5, 1, "Data", if isle { "LittleEndian" } else { "BigEndian" }, ""),
+    field(4, 1, "ei_class", if is64 { "ELF64" } else { "ELF32" }, ""),
+    field(5, 1, "ei_data", if isle { "LittleEndian" } else { "BigEndian" }, ""),
+    field(6, 1, "ei_version", "\{ei_ver}", ""),
+    field(7, 1, "ei_osabi", osabi_s, ""),
+    field(8, 1, "ei_abiversion", "\{ei_abiver}", ""),
   ]))
 
   let r16 = if isle { fn(b, o) { read_u16_le(b, o) } } else { fn(b, o) { read_u16_be(b, o) } }
@@ -985,23 +1003,33 @@ fn parse_elf(bytes : Bytes) -> Array[StructField] {
   let e_type = r16(bytes, 16)
   let e_machine = r16(bytes, 18)
   let e_entry = r32(bytes, 24)
+  let e_flags = r32(bytes, if is64 { 48 } else { 36 })
+  let e_ehsize = r16(bytes, if is64 { 52 } else { 40 })
+  let e_phentsize = r16(bytes, if is64 { 54 } else { 42 })
+  let e_phnum = r16(bytes, if is64 { 56 } else { 44 })
+  let e_shentsize = r16(bytes, if is64 { 58 } else { 46 })
+  let e_shnum = r16(bytes, if is64 { 60 } else { 48 })
+  let e_shstrndx = r16(bytes, if is64 { 62 } else { 50 })
   let e_phoff = if is64 { r32(bytes, 32) } else { r32(bytes, 28) }
   let e_shoff = if is64 { r32(bytes, 40) } else { r32(bytes, 32) }
-  let e_phnum = r16(bytes, if is64 { 56 } else { 44 })
-  let e_shnum = r16(bytes, if is64 { 60 } else { 48 })
 
   let tname = match e_type { 1 => "REL"; 2 => "EXEC"; 3 => "DYN"; _ => "?" }
   let mname = match e_machine { 3 => "i386"; 62 => "AMD64"; 40 => "ARM"; 183 => "ARM64"; _ => "?" }
   let hdr_sz = if is64 { 64 } else { 52 }
 
   fields.push(group(16, hdr_sz - 16, "ELF Header", "Type:\{tname} Machine:\{mname}", [
-    field(16, 2, "Type", tname, ""),
-    field(18, 2, "Machine", mname, ""),
-    field(24, 4, "Entry", "0x\{hex(e_entry, 8)}", "Entry point"),
-    field(if is64 { 32 } else { 28 }, 4, "PHoff", "0x\{hex(e_phoff, 8)}", "Program header offset"),
-    field(if is64 { 40 } else { 32 }, 4, "SHoff", "0x\{hex(e_shoff, 8)}", "Section header offset"),
-    field(if is64 { 56 } else { 44 }, 2, "PHnum", "\{e_phnum}", "Program headers"),
-    field(if is64 { 60 } else { 48 }, 2, "SHnum", "\{e_shnum}", "Section headers"),
+    field(16, 2, "e_type", tname, ""),
+    field(18, 2, "e_machine", mname, ""),
+    field(24, 4, "e_entry", "0x\{hex(e_entry, 8)}", "Entry point"),
+    field(if is64 { 48 } else { 36 }, 4, "e_flags", "0x\{hex(e_flags, 8)}", ""),
+    field(if is64 { 32 } else { 28 }, 4, "e_phoff", "0x\{hex(e_phoff, 8)}", "Program header offset"),
+    field(if is64 { 40 } else { 32 }, 4, "e_shoff", "0x\{hex(e_shoff, 8)}", "Section header offset"),
+    field(if is64 { 52 } else { 40 }, 2, "e_ehsize", "\{e_ehsize}", ""),
+    field(if is64 { 54 } else { 42 }, 2, "e_phentsize", "\{e_phentsize}", ""),
+    field(if is64 { 56 } else { 44 }, 2, "e_phnum", "\{e_phnum}", "Program headers"),
+    field(if is64 { 58 } else { 46 }, 2, "e_shentsize", "\{e_shentsize}", ""),
+    field(if is64 { 60 } else { 48 }, 2, "e_shnum", "\{e_shnum}", "Section headers"),
+    field(if is64 { 62 } else { 50 }, 2, "e_shstrndx", "\{e_shstrndx}", "String table index"),
   ]))
   fields
 }

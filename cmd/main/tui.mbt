@@ -130,6 +130,7 @@ pub fn run_tui(file_path : String?) -> Unit {
             state.bookmark_view = false
             state.scan_done = false
             state.strings_done = false
+            state.entropy_done = false
             state.undo_stack = []
             state.redo_stack = []
           }

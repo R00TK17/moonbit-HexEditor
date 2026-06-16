@@ -13,7 +13,17 @@ A terminal-based hex editor and binary file analyzer written in MoonBit, featuri
 - Structure view: parsed file structure with scrollable display
 - Bookmarks: 21 slots (0-20), popup list with auto-scroll, `Ctrl+B` set, `#N` goto
 - Signature scan: `w` key, 21 formats with per-signature validation, confidence filtering, cached results
+  - **Image:** JPEG, PNG, GIF, BMP
+  - **Archive:** ZIP, RAR, 7z, GZip, Zlib, BZip2
+  - **Executable:** PE (exe/dll), ELF
+  - **Document:** PDF, XML
+  - **Crypto:** OpenSSL, PEM, LUKS, GPG
+  - **Audio:** WAV
+  - **Database:** SQLite3
+  - **Text:** Copyright strings
+- Scan result caching: `w`/`s`/`h` save position when re-opened, auto-clear on edits
 - Entropy analysis: `h` key, 256-byte blocks, Shannon entropy with color-coded bars
+- Strings extraction: `s` key, printable ASCII sequences >= 4 chars, with caching, jump-to-offset and highlight
 - Extraction: `x` key to dump selected match, trailing data detection
 - mmap loading: memory-mapped file I/O for fast file opens (auto-fallback to standard I/O)
 
@@ -69,6 +79,7 @@ moon run --target native cmd/main                  # empty start
 | `b` | Bookmark list | | |
 | `w` | Signature scan | | |
 | `h` | Entropy analysis | | |
+| `s` | Strings extraction | | |
 
 Struct view: `↑↓←→` scroll, `t`/`Esc` back to hex, `q` quit.
 
@@ -77,6 +88,8 @@ Bookmark list: `↑↓` select, `Enter` jump, `d` delete, `b`/`Esc` close, `q` q
 Signature scan: `↑↓←→` navigate, `Enter` jump, `x` extract, `w`/`Esc` close, results cached until edit.
 
 Entropy scan: `↑↓←→` navigate, `Enter` jump to block, `h`/`Esc` close.
+
+Strings: `↑↓←→` navigate, `Enter` jump+highlight, `s`/`Esc` close.
 
 ### Platform Notes
 
