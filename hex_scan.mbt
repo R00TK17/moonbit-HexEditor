@@ -5,7 +5,7 @@ pub struct ScanMatch {
   offset : Int
   name : String
   mut size : Int
-  confidence : Int
+  mut confidence : Int
 } derive(Debug)
 
 ///|
@@ -22,23 +22,114 @@ pub struct StringMatch {
 } derive(Debug)
 
 ///|
+/// Aho-Corasick automaton for multi-pattern matching
+priv struct AcNode {
+  next : FixedArray[Int]    // transition to child node
+  mut fail : Int            // failure link
+  mut pat_idx : Int         // pattern index, -1 = no output
+}
+priv struct AcPattern { bytes : Bytes }
+
+fn build_ac(patterns : Array[Bytes]) -> (Array[AcNode], Array[AcPattern]) {
+  let nodes : Array[AcNode] = []
+  // Root node
+  nodes.push({ next: FixedArray::make(256, -1), fail: 0, pat_idx: -1 })
+  let ac_pats : Array[AcPattern] = []
+  // Build trie
+  for pi = 0; pi < patterns.length(); pi = pi + 1 {
+    let pat = patterns[pi]; let mut n = 0
+    for j = 0; j < pat.length(); j = j + 1 {
+      let b = pat[j].to_int()
+      if nodes[n].next[b] == -1 {
+        nodes[n].next[b] = nodes.length()
+        nodes.push({ next: FixedArray::make(256, -1), fail: 0, pat_idx: -1 })
+      }
+      n = nodes[n].next[b]
+    }
+    nodes[n].pat_idx = ac_pats.length()
+    ac_pats.push({ bytes: pat })
+  }
+  // Build failure links (BFS)
+  let queue : Array[Int] = []
+  // Level 1
+  for b = 0; b < 256; b = b + 1 {
+    let child = nodes[0].next[b]
+    if child != -1 { nodes[child].fail = 0; queue.push(child) }
+    else { nodes[0].next[b] = 0 }
+  }
+  let mut qi = 0
+  while qi < queue.length() {
+    let v = queue[qi]; qi = qi + 1
+    // If v has output, propagate output via fail link
+    let f = nodes[v].fail
+    if nodes[f].pat_idx != -1 && nodes[v].pat_idx == -1 { nodes[v].pat_idx = nodes[f].pat_idx }
+    for b = 0; b < 256; b = b + 1 {
+      let child = nodes[v].next[b]
+      if child != -1 {
+        nodes[child].fail = nodes[f].next[b]
+        queue.push(child)
+      } else {
+        nodes[v].next[b] = nodes[f].next[b]
+      }
+    }
+  }
+  (nodes, ac_pats)
+}
+
 pub fn scan_signatures(bytes : Bytes) -> Array[ScanMatch] {
   let len = bytes.length()
   let results : Array[ScanMatch] = []
 
-  // Fast filter: first-byte lookup for ~18 CTF-relevant formats
-  let first_bytes = [0xFF,0x89,0x47,0x42,0x52,0x1F,0x78,0x50,0x37,
-    0x4D,0x7F,0x25,0x53,0xCA,0x2D,0x3C,0x4C,0xA3]
-  let fast_filter = FixedArray::make(256, false)
-  for k = 0; k < first_bytes.length(); k = k + 1 { fast_filter[first_bytes[k]] = true }
+  // Collect magic patterns from validators
+  let magics = [
+    b"\xFF\xD8\xFF",                         // JPEG
+    b"\x89\x50\x4E\x47",                     // PNG
+    b"\x47\x49\x46\x38",                     // GIF
+    b"\x42\x4D",                             // BMP
+    b"\x52\x49\x46\x46",                     // RIFF/WAV
+    b"\x50\x4B\x03\x04",                     // ZIP
+    b"\x52\x61\x72\x21",                     // RAR
+    b"\x37\x7A\xBC\xAF\x27\x1C",             // 7z
+    b"\x1F\x8B",                             // GZip
+    b"\x78\x9C", b"\x78\xDA", b"\x78\x01", b"\x78\x5E", // Zlib variants
+    b"\x42\x5A\x68",                         // BZip2
+    b"\x4D\x5A",                             // PE (exe/dll)
+    b"\x7F\x45\x4C\x46",                     // ELF
+    b"\x25\x50\x44\x46",                     // PDF
+    b"\x3C\x3F\x78\x6D",                     // XML
+    b"\x2D\x2D\x2D\x2D",                     // PEM
+    b"\x53\x61\x6C\x74\x65\x64\x5F\x5F",     // OpenSSL
+    b"\x53\x51\x4C\x69",                     // SQLite
+    b"\x4C\x55\x4B\x53",                     // LUKS
+    b"\xA3\x01",                             // GPG
+  ]
+  let (nodes, ac_pats) = build_ac(magics)
 
+  // Walk AC automaton through data
+  let mut state = 0
   let mut off = 0
   while off < len && results.length() < 2000 {
-    let b0 = bytes[off].to_int()
-    if !fast_filter[b0] { off = off + 1; continue }
-    // 2-byte pre-check: skip if next byte doesn't match any known prefix
-    if off + 2 <= len && !match_prefix(b0, bytes[off + 1].to_int()) { off = off + 1; continue }
-    check_sigs(bytes, off, len, results)
+    let b = bytes[off].to_int()
+    state = nodes[state].next[b]
+    if nodes[state].pat_idx != -1 {
+      let pi = nodes[state].pat_idx
+      if pi < ac_pats.length() {
+        let p = ac_pats[pi]
+        let match_off = off - p.bytes.length() + 1
+        if match_off >= 0 { check_sigs(bytes, match_off, len, results) }
+      }
+      // Follow fail links for additional patterns
+      let mut fs = nodes[state].fail
+      while nodes[fs].pat_idx != -1 {
+        let fpi = nodes[fs].pat_idx
+        if fpi < ac_pats.length() {
+          let fp = ac_pats[fpi]
+          let fmatch_off = off - fp.bytes.length() + 1
+          if fmatch_off >= 0 { check_sigs(bytes, fmatch_off, len, results) }
+        }
+        fs = nodes[fs].fail
+      }
+    }
     off = off + 1
   }
 
@@ -53,19 +144,28 @@ pub fn scan_signatures(bytes : Bytes) -> Array[ScanMatch] {
     let last = trusted[trusted.length() - 1]
     last.offset + last.size
   } else { 0 }
-  // JPEG EOI
+  // JPEG tail: boost header confidence + add EOI marker
   if len >= 2 && bytes[len-2].to_int() == 0xFF && bytes[len-1].to_int() == 0xD9 &&
      bytes[0].to_int() == 0xFF && bytes[1].to_int() == 0xD8 {
+    for i = 0; i < trusted.length(); i = i + 1 {
+      if trusted[i].name.contains("JPEG") && trusted[i].confidence < 3 { trusted[i].confidence = 3 }
+    }
     trusted.push({ offset: len - 2, name: "JPEG end-of-image (EOI)", size: 2, confidence: 2 })
   }
-  // PNG IEND
+  // PNG tail: boost header + add IEND
   if len >= 12 && bytes[0].to_int() == 0x89 && bytes[1].to_int() == 0x50 &&
      bytes[len-12].to_int() == 0x00 && bytes[len-11].to_int() == 0x00 && bytes[len-10].to_int() == 0x00 && bytes[len-9].to_int() == 0x00 &&
      bytes[len-8].to_int() == 0x49 && bytes[len-7].to_int() == 0x45 && bytes[len-6].to_int() == 0x4E && bytes[len-5].to_int() == 0x44 {
+    for i = 0; i < trusted.length(); i = i + 1 {
+      if trusted[i].name.contains("PNG image") && trusted[i].confidence < 3 { trusted[i].confidence = 3 }
+    }
     trusted.push({ offset: len - 12, name: "PNG image end (IEND)", size: 12, confidence: 3 })
   }
-  // GIF trailer
+  // GIF tail: boost header + add trailer
   if len >= 1 && read_str_at(bytes, 0, 3) == "GIF" && bytes[len-1].to_int() == 0x3B {
+    for i = 0; i < trusted.length(); i = i + 1 {
+      if trusted[i].name.contains("GIF image") && trusted[i].confidence < 3 { trusted[i].confidence = 3 }
+    }
     trusted.push({ offset: len - 1, name: "GIF trailer", size: 1, confidence: 3 })
   }
   // Trailing data
@@ -185,30 +285,6 @@ fn validate_gpg(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
 fn validate_sqlite(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
   guard off + 16 <= _len && read_str_at(bytes, off, 15) == "SQLite format 3" && bytes[off + 15].to_int() == 0x00 else { None }
   Some({ offset: off, name: "SQLite3 database", size: 0, confidence: 3 })
-}
-
-///| Try all validators at a given offset (binwalk-style parser dispatch)
-///| Fast 2-byte prefix check — eliminates ~90% of validator calls
-fn match_prefix(b0 : Int, b1 : Int) -> Bool {
-  (b0 == 0xFF && b1 == 0xD8) ||  // JPEG
-  (b0 == 0x89 && b1 == 0x50) ||  // PNG
-  (b0 == 0x47 && b1 == 0x49) ||  // GIF
-  (b0 == 0x42 && b1 == 0x4D) ||  // BMP
-  (b0 == 0x52 && b1 == 0x49) ||  // RIFF/WAV
-  (b0 == 0x50 && b1 == 0x4B) ||  // ZIP
-  (b0 == 0x52 && b1 == 0x61) ||  // RAR
-  (b0 == 0x37 && b1 == 0x7A) ||  // 7z
-  (b0 == 0x1F && b1 == 0x8B) ||  // GZip
-  (b0 == 0x42 && b1 == 0x5A) ||  // BZip2
-  (b0 == 0x78 && (b1 == 0x9C || b1 == 0xDA || b1 == 0x01 || b1 == 0x5E)) ||  // ZLIB
-  (b0 == 0x4D && b1 == 0x5A) ||  // PE
-  (b0 == 0x7F && b1 == 0x45) ||  // ELF
-  (b0 == 0x25 && b1 == 0x50) ||  // PDF
-  (b0 == 0x3C && b1 == 0x3F) ||  // XML
-  (b0 == 0x2D && b1 == 0x2D) ||  // PEM
-  (b0 == 0x53 && (b1 == 0x61 || b1 == 0x51)) ||  // OpenSSL/SQLite
-  (b0 == 0x4C && b1 == 0x55) ||  // LUKS
-  (b0 == 0xA3 && b1 == 0x01)  // GPG
 }
 
 fn check_sigs(bytes : Bytes, off : Int, len : Int, results : Array[ScanMatch]) -> Unit {
