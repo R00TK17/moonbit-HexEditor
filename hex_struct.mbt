@@ -156,8 +156,14 @@ fn parse_jpeg(bytes : Bytes) -> Array[StructField] {
     fields.push(field(pos, 2, nm, "FF \{format_byte_hex(bytes[pos + 1])}", desc))
     pos = pos + 2 + sl
   }
+  // Fallback: check end of file for EOI if not found during scan
   if pos < len {
-    fields.push(field(pos, len - pos, "Trailing", "\{len - pos} bytes", "Remaining data"))
+    if len >= 2 && bytes[len-2].to_int() == 0xFF && bytes[len-1].to_int() == 0xD9 {
+      if pos < len - 2 { fields.push(field(pos, len - 2 - pos, "Trailing", "\{len - 2 - pos} bytes", "Remaining data")) }
+      fields.push(field(len - 2, 2, "EOI", "FF D9", "End of Image"))
+    } else {
+      fields.push(field(pos, len - pos, "Trailing", "\{len - pos} bytes", "Remaining data"))
+    }
   }
   fields
 }

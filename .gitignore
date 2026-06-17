@@ -6,3 +6,4 @@ target
 .moonagent/
 binwalk-3.1.0/
 bt/
+lib.rs

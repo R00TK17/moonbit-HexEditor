@@ -102,6 +102,7 @@ pub fn scan_signatures(bytes : Bytes) -> Array[ScanMatch] {
     b"\x53\x51\x4C\x69",                     // SQLite
     b"\x4C\x55\x4B\x53",                     // LUKS
     b"\xA3\x01",                             // GPG
+    b"\x75\x73\x74\x61\x72",                 // TAR (ustar)
   ]
   let (nodes, ac_pats) = build_ac(magics)
 
@@ -139,38 +140,32 @@ pub fn scan_signatures(bytes : Bytes) -> Array[ScanMatch] {
     if filtered[i].confidence >= 2 { trusted.push(filtered[i]) }
   }
   estimate_sizes(bytes, trusted)
-  // Tail detection: last match extent + end-of-file markers
-  let tail_off = if trusted.length() > 0 {
-    let last = trusted[trusted.length() - 1]
-    last.offset + last.size
-  } else { 0 }
-  // JPEG tail: boost header confidence + add EOI marker
+  // Tail detection: boost header confidence when end markers found
   if len >= 2 && bytes[len-2].to_int() == 0xFF && bytes[len-1].to_int() == 0xD9 &&
      bytes[0].to_int() == 0xFF && bytes[1].to_int() == 0xD8 {
     for i = 0; i < trusted.length(); i = i + 1 {
       if trusted[i].name.contains("JPEG") && trusted[i].confidence < 3 { trusted[i].confidence = 3 }
     }
-    trusted.push({ offset: len - 2, name: "JPEG end-of-image (EOI)", size: 2, confidence: 2 })
   }
-  // PNG tail: boost header + add IEND
   if len >= 12 && bytes[0].to_int() == 0x89 && bytes[1].to_int() == 0x50 &&
      bytes[len-12].to_int() == 0x00 && bytes[len-11].to_int() == 0x00 && bytes[len-10].to_int() == 0x00 && bytes[len-9].to_int() == 0x00 &&
      bytes[len-8].to_int() == 0x49 && bytes[len-7].to_int() == 0x45 && bytes[len-6].to_int() == 0x4E && bytes[len-5].to_int() == 0x44 {
     for i = 0; i < trusted.length(); i = i + 1 {
       if trusted[i].name.contains("PNG image") && trusted[i].confidence < 3 { trusted[i].confidence = 3 }
     }
-    trusted.push({ offset: len - 12, name: "PNG image end (IEND)", size: 12, confidence: 3 })
   }
-  // GIF tail: boost header + add trailer
   if len >= 1 && read_str_at(bytes, 0, 3) == "GIF" && bytes[len-1].to_int() == 0x3B {
     for i = 0; i < trusted.length(); i = i + 1 {
       if trusted[i].name.contains("GIF image") && trusted[i].confidence < 3 { trusted[i].confidence = 3 }
     }
-    trusted.push({ offset: len - 1, name: "GIF trailer", size: 1, confidence: 3 })
   }
   // Trailing data
-  if tail_off > 0 && tail_off + 256 < len {
-    trusted.push({ offset: tail_off, name: "Trailing data (" + format_size(len - tail_off) + ")", size: len - tail_off, confidence: 1 })
+  if trusted.length() > 0 {
+    let last = trusted[trusted.length() - 1]
+    let tail_off = last.offset + last.size
+    if tail_off > 0 && tail_off + 256 < len {
+      trusted.push({ offset: tail_off, name: "Trailing data (" + format_size(len - tail_off) + ")", size: len - tail_off, confidence: 1 })
+    }
   }
   trusted
 }
@@ -193,12 +188,17 @@ fn validate_gif(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
   Some({ offset: off, name: "GIF image", size: 0, confidence: 3 })
 }
 fn validate_bmp(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
-  guard off + 2 <= _len && bytes[off].to_int() == 0x42 && bytes[off + 1].to_int() == 0x4D else { None }
-  Some({ offset: off, name: "BMP image", size: 0, confidence: 0 })
+  guard off + 30 <= _len && bytes[off].to_int() == 0x42 && bytes[off + 1].to_int() == 0x4D else { None }
+  let hdr_size = bytes[off+14].to_int() + bytes[off+15].to_int() * 256 + bytes[off+16].to_int() * 65536 + bytes[off+17].to_int() * 16777216
+  let planes = bytes[off+26].to_int() + bytes[off+27].to_int() * 256
+  let bpp = bytes[off+28].to_int() + bytes[off+29].to_int() * 256
+  guard hdr_size >= 12 && hdr_size <= 256 else { None }
+  guard planes == 1 && bpp > 0 && bpp <= 32 else { None }
+  Some({ offset: off, name: "BMP image", size: 0, confidence: 3 })
 }
 fn validate_wav(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
   guard off + 12 <= _len && read_str_at(bytes, off, 4) == "RIFF" && read_str_at(bytes, off + 8, 4) == "WAVE" else { None }
-  Some({ offset: off, name: "WAV audio", size: 0, confidence: 0 })
+  Some({ offset: off, name: "WAV audio", size: 0, confidence: 2 })
 }
 
 fn validate_zip(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
@@ -278,6 +278,13 @@ fn validate_luks(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
   guard off + 6 <= _len && read_str_at(bytes, off, 4) == "LUKS" && bytes[off + 4].to_int() == 0xBA && bytes[off + 5].to_int() == 0xBE else { None }
   Some({ offset: off, name: "LUKS encryption header", size: 0, confidence: 3 })
 }
+fn validate_tar(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
+  // ustar magic at offset 257 from block start; check alignment + full magic
+  guard off >= 257 && (off - 257) % 512 == 0 && off + 6 <= _len else { None }
+  guard read_str_at(bytes, off, 5) == "ustar" && (bytes[off+5].to_int() == 0x00 || bytes[off+5].to_int() == 0x20) else { None }
+  Some({ offset: off - 257, name: "TAR archive", size: 0, confidence: 3 })
+}
+
 fn validate_gpg(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
   guard off == 0 && off + 2 <= _len && bytes[off].to_int() == 0xA3 && bytes[off + 1].to_int() == 0x01 else { None }
   Some({ offset: off, name: "GPG signed data", size: 0, confidence: 2 })
@@ -295,7 +302,7 @@ fn check_sigs(bytes : Bytes, off : Int, len : Int, results : Array[ScanMatch]) -
     validate_gzip, validate_zlib, validate_bzip2,
     validate_pe, validate_elf,
     validate_pdf, validate_xml,
-    validate_openssl, validate_pem, validate_luks, validate_gpg,
+    validate_openssl, validate_pem, validate_luks, validate_gpg, validate_tar,
     validate_sqlite,
   ]
   for i = 0; i < parsers.length(); i = i + 1 {
@@ -306,18 +313,20 @@ fn check_sigs(bytes : Bytes, off : Int, len : Int, results : Array[ScanMatch]) -
 ///| Filter false positives inside containers
 fn filter_false_positives(bytes : Bytes, matches : Array[ScanMatch]) -> Array[ScanMatch] {
   let has_container = bytes.length() >= 4 && (
+    (bytes[0].to_int() == 0x42 && bytes[1].to_int() == 0x4D) ||  // BMP
     (bytes[0].to_int() == 0xFF && bytes[1].to_int() == 0xD8) ||  // JPEG
     (bytes[0].to_int() == 0x50 && bytes[1].to_int() == 0x4B) ||  // ZIP
     (bytes[0].to_int() == 0x89 && bytes[1].to_int() == 0x50) ||  // PNG
     (bytes[0].to_int() == 0x1F && bytes[1].to_int() == 0x8B) ||  // GZip
     (bytes[0].to_int() == 0x4D && bytes[1].to_int() == 0x5A) ||  // PE
     (read_str_at(bytes, 0, 4) == "Rar!") ||                        // RAR
-    (bytes[0].to_int() == 0x37 && bytes[1].to_int() == 0x7A)      // 7z
+    (bytes[0].to_int() == 0x37 && bytes[1].to_int() == 0x7A) ||     // 7z
+    (read_str_at(bytes, 257, 5) == "ustar")                          // TAR
   )
   fn is_fp(m : ScanMatch) -> Bool {
     m.confidence <= 1 ||
     m.name.contains("Zlib") || m.name.contains("GZip") || m.name.contains("BZip2") ||
-    m.name.contains("BMP image") || m.name.contains("PE executable (MZ)")
+    m.name.contains("PE executable (MZ)")
   }
   let filtered : Array[ScanMatch] = []
   for i = 0; i < matches.length(); i = i + 1 {
