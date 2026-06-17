@@ -38,13 +38,7 @@ pub fn scan_signatures(bytes : Bytes) -> Array[ScanMatch] {
     if !fast_filter[b0] { off = off + 1; continue }
     // 2-byte pre-check: skip if next byte doesn't match any known prefix
     if off + 2 <= len && !match_prefix(b0, bytes[off + 1].to_int()) { off = off + 1; continue }
-    let prev = results.length()
     check_sigs(bytes, off, len, results)
-    if results.length() > prev {
-      let m = results[results.length() - 1]
-      if m.confidence >= 3 { off = off + 4096; continue }
-      if m.confidence >= 2 { off = off + 256; continue }
-    }
     off = off + 1
   }
 
@@ -54,12 +48,29 @@ pub fn scan_signatures(bytes : Bytes) -> Array[ScanMatch] {
     if filtered[i].confidence >= 2 { trusted.push(filtered[i]) }
   }
   estimate_sizes(bytes, trusted)
-  if trusted.length() > 0 {
+  // Tail detection: last match extent + end-of-file markers
+  let tail_off = if trusted.length() > 0 {
     let last = trusted[trusted.length() - 1]
-    let trail_start = last.offset + last.size
-    if trail_start > 0 && trail_start + 256 < len {
-      trusted.push({ offset: trail_start, name: "Trailing data (" + format_size(len - trail_start) + ")", size: len - trail_start, confidence: 1 })
-    }
+    last.offset + last.size
+  } else { 0 }
+  // JPEG EOI
+  if len >= 2 && bytes[len-2].to_int() == 0xFF && bytes[len-1].to_int() == 0xD9 &&
+     bytes[0].to_int() == 0xFF && bytes[1].to_int() == 0xD8 {
+    trusted.push({ offset: len - 2, name: "JPEG end-of-image (EOI)", size: 2, confidence: 2 })
+  }
+  // PNG IEND
+  if len >= 12 && bytes[0].to_int() == 0x89 && bytes[1].to_int() == 0x50 &&
+     bytes[len-12].to_int() == 0x00 && bytes[len-11].to_int() == 0x00 && bytes[len-10].to_int() == 0x00 && bytes[len-9].to_int() == 0x00 &&
+     bytes[len-8].to_int() == 0x49 && bytes[len-7].to_int() == 0x45 && bytes[len-6].to_int() == 0x4E && bytes[len-5].to_int() == 0x44 {
+    trusted.push({ offset: len - 12, name: "PNG image end (IEND)", size: 12, confidence: 3 })
+  }
+  // GIF trailer
+  if len >= 1 && read_str_at(bytes, 0, 3) == "GIF" && bytes[len-1].to_int() == 0x3B {
+    trusted.push({ offset: len - 1, name: "GIF trailer", size: 1, confidence: 3 })
+  }
+  // Trailing data
+  if tail_off > 0 && tail_off + 256 < len {
+    trusted.push({ offset: tail_off, name: "Trailing data (" + format_size(len - tail_off) + ")", size: len - tail_off, confidence: 1 })
   }
   trusted
 }
