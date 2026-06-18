@@ -20,41 +20,50 @@ fn split_text_lines(text : String) -> Array[String] {
 }
 
 ///|
-/// Build a set of offsets to highlight from all search results.
-fn build_highlight_set(
+/// Build highlight bitmap for visible range. O(1) lookup per byte.
+fn build_highlight_bitmap(
   results : Array[Int],
   match_len : Int,
   match_lens : Array[Int],
-  buffer : @lib.HexBuffer,
-) -> Array[Int] {
-  if results.length() == 0 { return [] }
-  let set = []
+  vis_start : Int,
+  vis_size : Int,
+  buf_len : Int,
+) -> FixedArray[Bool] {
+  let bm = FixedArray::make(vis_size, false)
   for i = 0; i < results.length(); i = i + 1 {
     let off = results[i]
     let mlen = if i < match_lens.length() { match_lens[i] } else { match_len }
     for j = 0; j < mlen; j = j + 1 {
-      if off + j < buffer.length() { set.push(off + j) }
+      let bo = off + j
+      if bo >= vis_start && bo < vis_start + vis_size && bo < buf_len {
+        bm[bo - vis_start] = true
+      }
     }
   }
-  set
+  bm
 }
 
 ///|
-/// Build highlight offsets for a single match (current selection).
-fn build_match_range(
+/// Build bitmap for current match highlight. O(1) lookup per byte.
+fn build_match_bitmap(
   match_offset : Int,
   match_len : Int,
   match_lens : Array[Int],
   search_idx : Int,
-  buffer : @lib.HexBuffer,
-) -> Array[Int] {
+  vis_start : Int,
+  vis_size : Int,
+  buf_len : Int,
+) -> FixedArray[Bool] {
   let mlen = if search_idx >= 0 && search_idx < match_lens.length() { match_lens[search_idx] } else { match_len }
-  if mlen <= 0 || match_offset < 0 || match_offset >= buffer.length() { return [] }
-  let set = []
+  let bm = FixedArray::make(vis_size, false)
+  if mlen <= 0 || match_offset < 0 { return bm }
   for j = 0; j < mlen; j = j + 1 {
-    if match_offset + j < buffer.length() { set.push(match_offset + j) }
+    let bo = match_offset + j
+    if bo >= vis_start && bo < vis_start + vis_size && bo < buf_len {
+      bm[bo - vis_start] = true
+    }
   }
-  set
+  bm
 }
 
 ///|
@@ -161,10 +170,11 @@ fn draw_screen(
     let display_rows = if screen_rows < rows_from_offset { screen_rows } else { rows_from_offset }
 
     let data = buffer.data_ref()
-    let highlight_all = build_highlight_set(search_results, match_len, match_lens, buffer)
-    let highlight_cur : Array[Int] = if search_results.length() > 0 && search_idx >= 0 && search_idx < search_results.length() {
-      build_match_range(search_results[search_idx], match_len, match_lens, search_idx, buffer)
-    } else { [] }
+    let vis_size = display_rows * 16
+    let highlight_all = build_highlight_bitmap(search_results, match_len, match_lens, offset, vis_size, len)
+    let highlight_cur = if search_results.length() > 0 && search_idx >= 0 && search_idx < search_results.length() {
+      build_match_bitmap(search_results[search_idx], match_len, match_lens, search_idx, offset, vis_size, len)
+    } else { FixedArray::make(vis_size, false) }
 
     for row = 0; row < display_rows; row = row + 1 {
       let row_off = offset + row * 16
@@ -183,9 +193,10 @@ fn draw_screen(
         if col < row_len {
           let byte_off = row_off + col
           let byte = data[byte_off]
+          let bi = byte_off - offset
           let is_edit = edit_mode && byte_off == edit_off
-          let is_cur = !is_edit && highlight_cur.contains(byte_off)
-          let is_hl = !is_edit && !is_cur && highlight_all.contains(byte_off)
+          let is_cur = !is_edit && bi < vis_size && highlight_cur[bi]
+          let is_hl = !is_edit && !is_cur && bi < vis_size && highlight_all[bi]
           if is_edit { sb.write_string("\u001b[7m") }
           else if is_cur { sb.write_string("\u001b[42;30m") }
           else if is_hl { sb.write_string("\u001b[43;30m") }
@@ -203,9 +214,10 @@ fn draw_screen(
         if col < row_len {
           let byte_off = row_off + col
           let byte = data[byte_off]
+          let bi = byte_off - offset
           let is_edit = edit_mode && byte_off == edit_off
-          let is_cur = !is_edit && highlight_cur.contains(byte_off)
-          let is_hl = !is_edit && !is_cur && highlight_all.contains(byte_off)
+          let is_cur = !is_edit && bi < vis_size && highlight_cur[bi]
+          let is_hl = !is_edit && !is_cur && bi < vis_size && highlight_all[bi]
           if is_edit { sb.write_string("\u001b[7m") }
           else if is_cur { sb.write_string("\u001b[42;30m") }
           else if is_hl { sb.write_string("\u001b[43;30m") }

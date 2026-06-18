@@ -13,7 +13,7 @@ A terminal-based hex editor and binary file analyzer written in MoonBit, featuri
 - Highlighting: current match (green), other matches (yellow), edit cursor (inverse)
 - Edit mode: hex/ASCII input, insert, delete, undo/redo (`Ctrl+Z`/`Ctrl+Y`) with depth display, save (`Ctrl+X`)
 - Structure view: parsed file structure with scrollable display
-- Bookmarks: 21 slots (0-20), popup list with auto-scroll, `Ctrl+B` set, `#N` goto
+- Bookmarks: 21 slots (0-20), popup list with auto-scroll, `Ctrl+B` set, `#N` goto, **persistent** (auto save/load to `~/.hexedit/`)
 - Signature scan: `w` key, 20 formats with per-signature validation, confidence filtering, cached results
   - **Image:** JPEG, PNG, GIF, BMP
   - **Archive:** ZIP, RAR, 7z, GZip, Zlib, BZip2
@@ -27,6 +27,10 @@ A terminal-based hex editor and binary file analyzer written in MoonBit, featuri
 - Strings extraction: `s` key, printable ASCII sequences >= 4 chars, with caching, jump-to-offset and highlight
 - Extraction: `x` key to dump selected match, trailing data detection
 - Codec popup: `c` key, interactive Base64/URL/Unicode/Hex encode/decode with live preview
+- Multi-file: open multiple files, `Tab` file list popup, switch/close files independently
+- File browser: `o` key opens directory browser with navigation, `Enter` open/enter, `o` type path directly
+- Bookmark persistence: bookmarks + scroll position auto-saved to `~/.hexedit/`, restored on next open
+- UTF-8 support: Chinese filenames display correctly (Windows Wide API + UTF-8 console)
 - mmap loading: memory-mapped file I/O for fast file opens (auto-fallback to standard I/O)
 
 ### CLI Commands
@@ -90,6 +94,8 @@ moon run --target native cmd/main                  # empty start
 | `h` | Entropy analysis | | |
 | `s` | Strings extraction | | |
 | `c` | Codec (encode/decode) | | |
+| `o` | File browser | | |
+| `Tab` | File list (multi-file) | | |
 
 Struct view: `↑↓←→` scroll, `t`/`Esc` back to hex, `q` quit.
 
@@ -102,6 +108,10 @@ Entropy scan: `↑↓←→` navigate, `Enter` jump to block, `h`/`Esc` close.
 Strings: `↑↓←→` navigate, `Enter` jump+highlight, `s`/`Esc` close.
 
 Codec: `←→` switch type (Base64/URL/Unicode/Hex), `Tab` toggle encode/decode, type text, `Esc` close.
+
+File browser (`o`): `↑↓` navigate, `Enter` open file / enter dir, `o` type path, `Esc` cancel.
+
+File list (`Tab`): `↑↓` select, `Enter` switch, `d` close file, `Tab`/`Esc` back.
 
 ### Platform Notes
 
@@ -130,14 +140,15 @@ hex_editor/
 │   ├── tui.mbt                  # TUI main loop, FFI declarations, mmap loading
 │   ├── tui_key.mbt              # Key dispatch for all modes, TuiState struct
 │   ├── tui_bookmark.mbt         # Bookmark popup (21 slots), set/jump/delete
+│   ├── tui_files.mbt            # File browser, multi-file management, bookmark persistence
 │   ├── tui_draw.mbt             # Screen rendering (hex dump, popups, status/help bars)
 │   ├── tui_edit.mbt             # TUI edit mode, UndoOp-based undo/redo
-│   └── tui_stub.c               # C terminal stubs (raw mode, alt screen, mmap I/O)
+│   └── tui_stub.c               # C stubs (terminal, mmap, directory listing, UTF-8)
 ```
 
 ## Dependencies
 
-- [moonbitlang/x](https://mooncakes.io/packages/moonbitlang/x) — File I/O & system APIs
+- [moonbitlang/x](https://github.com/moonbitlang/x) — File I/O & system APIs
 - MoonBit 0.1.20260529+
 
 ## License

@@ -13,7 +13,7 @@
 - 高亮：当前匹配绿色、其它匹配黄色、编辑光标反色
 - 编辑模式：十六进制/ASCII输入、插入、删除、撤销/重做(`Ctrl+Z`/`Ctrl+Y`)带深度显示、保存(`Ctrl+X`)
 - 结构视图：解析文件内部结构，支持滚动浏览
-- 书签：21 个槽位（0-20），弹出列表自动滚动，`Ctrl+B` 设置，`#N` 跳转
+- 书签：21 个槽位（0-20），弹出列表自动滚动，`Ctrl+B` 设置，`#N` 跳转，**持久化**（自动保存/加载到 `~/.hexedit/`）
 - 签名扫描：`w` 键，20 种格式，每格式独立验证，置信度过滤，结果缓存
   - **图像:** JPEG、PNG、GIF、BMP
   - **压缩/归档:** ZIP、RAR、7z、GZip、Zlib、BZip2
@@ -27,6 +27,10 @@
 - 字符串提取：`s` 键，可打印 ASCII 序列（>=4 字节），支持缓存、跳转高亮
 - 提取与检测：`x` 键提取选中段，尾部数据自动告警
 - 编解码弹窗：`c` 键，交互式 Base64/URL/Unicode/Hex 编解码，实时预览
+- 多文件支持：同时打开多个文件，`Tab` 文件列表弹窗，独立切换/关闭
+- 文件浏览器：`o` 键打开目录浏览，`Enter` 打开/进入，`o` 输入路径，支持中文文件名
+- 书签持久化：书签 + 滚动位置自动保存到 `~/.hexedit/`，下次打开自动恢复
+- UTF-8 支持：中文文件名正确显示（Windows Wide API + UTF-8 控制台）
 - mmap 加载：内存映射文件 I/O 加速大文件打开（失败时自动回退常规读取）
 - 显示：自适应终端高度，双行帮助栏
 
@@ -91,6 +95,8 @@ moon run --target native cmd/main                  # 空启动
 | `h` | 熵分析 | | |
 | `s` | 字符串提取 | | |
 | `c` | 编解码 | | |
+| `o` | 文件浏览器 | | |
+| `Tab` | 文件列表（多文件） | | |
 
 结构视图模式：`↑↓←→` 滚动、`t`/`Esc` 返回十六进制视图、`q` 退出。
 
@@ -103,6 +109,10 @@ moon run --target native cmd/main                  # 空启动
 字符串提取：`↑↓←→` 导航、`Enter` 跳转+高亮、`s`/`Esc` 关闭。
 
 编解码：`←→` 切换类型（Base64/URL/Unicode/Hex）、`Tab` 切换编码/解码、直接输入文本、`Esc` 关闭。
+
+文件浏览器（`o`）：`↑↓` 导航、`Enter` 打开文件/进入目录、`o` 输入路径、`Esc` 取消。
+
+文件列表（`Tab`）：`↑↓` 选择、`Enter` 切换、`d` 关闭文件、`Tab`/`Esc` 返回。
 
 ### 平台说明
 
@@ -131,14 +141,15 @@ hex_editor/
 │   ├── tui.mbt                  # TUI 主循环、FFI 声明、mmap 加载
 │   ├── tui_key.mbt              # 所有模式的按键分发、TuiState 结构体
 │   ├── tui_bookmark.mbt         # 书签功能（21 槽位）、设置/跳转/删除
+│   ├── tui_files.mbt            # 文件浏览器、多文件管理、书签持久化
 │   ├── tui_draw.mbt             # 屏幕渲染（hex dump、弹窗、状态栏/帮助栏）
 │   ├── tui_edit.mbt             # TUI 编辑模式、基于 UndoOp 的撤销/重做
-│   └── tui_stub.c               # C 终端桩（raw mode、alt screen、mmap I/O）
+│   └── tui_stub.c               # C 桩（终端、mmap、目录列表、UTF-8）
 ```
 
 ## 依赖
 
-- [moonbitlang/x](https://mooncakes.io/packages/moonbitlang/x) — 文件I/O与系统API
+- [moonbitlang/x](https://github.com/moonbitlang/x) — 文件I/O与系统API
 - MoonBit 0.1.20260529+
 
 ## 许可证
