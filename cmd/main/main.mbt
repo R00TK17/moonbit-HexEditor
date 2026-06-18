@@ -108,28 +108,33 @@ fn cmd_search(argv : Array[String]) -> Unit {
     Err(m) => { println("Error: \{m}"); return }
     Ok(buf) => {
       let data = buf.to_bytes()
-      let (label, sb) = if force_text {
-        ("Text: \"" + pattern_str + "\"", ascii_to_bytes(pattern_str))
+      let (label, results, lens) = if force_text {
+        match @lib.find_text_pattern(data, pattern_str) {
+          Some((r, l)) => ("Text: \"" + pattern_str + "\"", r, l)
+          None => { println("Invalid text pattern"); return }
+        }
       } else if force_hex {
-        match @lib.parse_hex_string(pattern_str) {
-          Some(b) => ("Hex: " + pattern_str, b)
-          None => { println("Invalid hex"); return }
+        match @lib.find_hex_pattern(data, pattern_str) {
+          Some((r, l)) => ("Hex: " + pattern_str, r, l)
+          None => { println("Invalid hex pattern"); return }
         }
       } else {
-        match @lib.parse_hex_string(pattern_str) {
-          Some(b) => ("Hex: " + pattern_str, b)
-          None => ("Text: \"" + pattern_str + "\"", ascii_to_bytes(pattern_str))
+        match @lib.find_hex_pattern(data, pattern_str) {
+          Some((r, l)) => ("Hex: " + pattern_str, r, l)
+          None => match @lib.find_text_pattern(data, pattern_str) {
+            Some((r, l)) => ("Text: \"" + pattern_str + "\"", r, l)
+            None => { println("Invalid pattern"); return }
+          }
         }
       }
       println(label)
-      let results = @lib.find_all_bytes(data, sb)
       let count = results.length()
       if count == 0 { println("Not found."); return }
       println("Found \{count} match(es):")
       let show = if count < 10 { count } else { 10 }
-      let mlen = sb.length()
       for idx = 0; idx < show; idx = idx + 1 {
         let off = results[idx]
+        let mlen = if idx < lens.length() { lens[idx] } else { 1 }
         let ctx = if off >= 16 { ((off - 16) / 16) * 16 } else { 0 }
         let clen = ((off + mlen - ctx + 15) / 16 + 1) * 16
         println("  #\{idx + 1} @ 0x" + @lib.to_hex_string(off, width=8))

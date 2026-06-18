@@ -68,6 +68,27 @@ pub fn handle_file_list_normal_key(
 // ========== File Browser ==========
 
 ///|
+/// Convert a path to absolute. Falls back to original if resolution fails.
+pub fn to_absolute_path(path : String) -> String {
+  let buf = Bytes::make(4096, b'\x00')
+  let path_bytes = str_to_bytes(path)
+  let n = tui_realpath(path_bytes, buf, 4096)
+  if n > 0 { utf8_to_string(buf, 0, n) } else { path }
+}
+
+///|
+/// Get filename from a full path (last component after / or \).
+pub fn basename(path : String) -> String {
+  let len = path.length()
+  let mut last_sep = -1
+  for i = 0; i < len; i = i + 1 {
+    let ch = path.get_char(i).unwrap()
+    if ch == '/' || ch == '\\' { last_sep = i }
+  }
+  if last_sep >= 0 && last_sep + 1 < len { path[last_sep + 1:].to_owned() } else { path }
+}
+
+///|
 /// Join directory path with a file/dir name. Uses \ on Windows, / on Linux.
 fn join_path(dir : String, name : String) -> String {
   if dir.length() == 0 { return name }
@@ -207,14 +228,14 @@ pub fn handle_browser_key(
       state.msg = state.browser_path
     } else {
       // Open file
-      let full_path = join_path(state.browser_path, name)
+      let full_path = to_absolute_path(join_path(state.browser_path, name))
       match load_file_best(full_path) {
         Ok(b) => {
           let new_slot : FileSlot = { buffer: b, path: full_path, offset: 0 }
           state.file_slots.push(new_slot)
           state.pending_switch = state.file_slots.length() - 1
           state.browser_view = false
-          state.msg = "Opened: \{name}"
+          state.msg = "Opened: \{basename(full_path)}"
         }
         Err(m) => state.msg = "Error: \{m}"
       }
@@ -227,13 +248,14 @@ pub fn handle_browser_key(
     let path = tui_read_line("Open file: ")
     tui_hide_cursor()
     if path != "" {
-      match load_file_best(path) {
+      let abs = to_absolute_path(path)
+      match load_file_best(abs) {
         Ok(b) => {
-          let new_slot : FileSlot = { buffer: b, path, offset: 0 }
+          let new_slot : FileSlot = { buffer: b, path: abs, offset: 0 }
           state.file_slots.push(new_slot)
           state.pending_switch = state.file_slots.length() - 1
           state.browser_view = false
-          state.msg = "Opened: \{path}"
+          state.msg = "Opened: \{basename(abs)}"
         }
         Err(m) => state.msg = "Error: \{m}"
       }
@@ -242,4 +264,112 @@ pub fn handle_browser_key(
     state.running = false
   }
   true
+}
+
+// ========== Bookmark Persistence ==========
+
+///|
+/// Get home directory as String.
+fn get_home_string() -> String {
+  let buf = Bytes::make(1024, b'\x00')
+  let n = tui_get_home(buf, 1024)
+  if n <= 0 { return "." }
+  utf8_to_string(buf, 0, n)
+}
+
+///|
+/// Sanitize path for use as filename (replace unsafe chars with _).
+fn sanitize_name(path : String) -> String {
+  let sb = StringBuilder()
+  for i = 0; i < path.length(); i = i + 1 {
+    let ch = path.get_char(i).unwrap()
+    if (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') || ch == '.' || ch == '-' || ch == '_' {
+      sb.write_char(ch)
+    } else {
+      sb.write_char('_')
+    }
+  }
+  sb.to_string()
+}
+
+///|
+/// Get marks file path for a given file.
+fn get_marks_path(file_path : String) -> String {
+  let home = get_home_string()
+  let dir = join_path(home, ".hexedit")
+  join_path(dir, sanitize_name(file_path) + ".marks")
+}
+
+///|
+/// Parse an integer from ASCII bytes. Returns 0 on failure.
+fn parse_int_from_bytes(data : Bytes, start : Int, end : Int) -> Int {
+  let mut val = 0
+  let mut neg = false
+  let mut i = start
+  if i < end && data[i].to_int() == 0x2D { neg = true; i = i + 1 } // '-'
+  while i < end {
+    let d = data[i].to_int() - 0x30
+    if d < 0 || d > 9 { break }
+    val = val * 10 + d
+    i = i + 1
+  }
+  if neg { -val } else { val }
+}
+
+///|
+/// Save bookmarks and scroll offset to marks file.
+pub fn save_file_state(file_path : String, offset : Int, bookmarks : FixedArray[Int?]) -> Unit {
+  if file_path == "(new)" || file_path == "" { return }
+  let marks_dir = join_path(get_home_string(), ".hexedit")
+  tui_mkdir_p(str_to_bytes(marks_dir))
+  let marks_path = get_marks_path(file_path)
+  let sb = StringBuilder()
+  sb.write_string("offset=\{offset}\n")
+  for i = 0; i < 21; i = i + 1 {
+    match bookmarks[i] {
+      Some(off) => sb.write_string("b\{i}=\{off}\n")
+      None => ()
+    }
+  }
+  let content = sb.to_string()
+  let bytes = ascii_to_bytes(content)
+  try { @fs.write_bytes_to_file(marks_path, bytes) }
+  catch { @fs.IOError::IOError(_) => () }
+}
+
+///|
+/// Load bookmarks and scroll offset from marks file. Returns saved offset (0 if none).
+pub fn load_file_state(file_path : String, bookmarks : FixedArray[Int?]) -> Int {
+  if file_path == "(new)" || file_path == "" { return 0 }
+  let marks_path = get_marks_path(file_path)
+  if !@fs.path_exists(marks_path) { return 0 }
+  let mut data : Bytes = Bytes::new(0)
+  try { data = @fs.read_file_to_bytes(marks_path) } catch { _ => return 0 }
+  let mut offset = 0
+  let len = data.length()
+  let mut pos = 0
+  while pos < len {
+    // Find line start and end
+    let line_start = pos
+    while pos < len && data[pos].to_int() != 0x0A { pos = pos + 1 }
+    let line_end = pos
+    pos = pos + 1 // skip \n
+    // Find '=' in line
+    let mut eq = line_start
+    while eq < line_end && data[eq].to_int() != 0x3D { eq = eq + 1 }
+    if eq >= line_end { continue }
+    // Parse key
+    let key_len = eq - line_start
+    let val_start = eq + 1
+    if key_len == 6 && data[line_start].to_int() == 0x6F { // "offset"
+      offset = parse_int_from_bytes(data, val_start, line_end)
+    } else if key_len >= 2 && data[line_start].to_int() == 0x62 { // "bN"
+      let slot = parse_int_from_bytes(data, line_start + 1, eq)
+      if slot >= 0 && slot < 21 {
+        let val = parse_int_from_bytes(data, val_start, line_end)
+        bookmarks[slot] = Some(val)
+      }
+    }
+  }
+  offset
 }

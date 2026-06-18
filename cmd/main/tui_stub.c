@@ -15,6 +15,7 @@
 #include <sys/ioctl.h>
 #include <signal.h>
 #include <dirent.h>
+#include <sys/stat.h>
 
 // Saved terminal state for restoration on exit
 static struct termios saved_term;
@@ -378,4 +379,48 @@ int tui_list_dir(const char* path, char* buf, int buf_size) {
     closedir(d);
 #endif
     return pos;
+}
+
+// ====== Persistence helpers ======
+int tui_get_home(char* buf, int buf_size) {
+#ifdef _WIN32
+    wchar_t wbuf[1024];
+    DWORD len = GetEnvironmentVariableW(L"USERPROFILE", wbuf, 1024);
+    if (len == 0) return 0;
+    return WideCharToMultiByte(CP_UTF8, 0, wbuf, len, buf, buf_size, NULL, NULL);
+#else
+    const char* home = getenv("HOME");
+    if (!home) return 0;
+    int i = 0;
+    while (home[i] && i < buf_size - 1) { buf[i] = home[i]; i++; }
+    buf[i] = 0;
+    return i;
+#endif
+}
+
+void tui_mkdir_p(const char* path) {
+#ifdef _WIN32
+    wchar_t wpath[1024];
+    MultiByteToWideChar(CP_UTF8, 0, path, -1, wpath, 1024);
+    CreateDirectoryW(wpath, NULL);
+#else
+    mkdir(path, 0755);
+#endif
+}
+
+int tui_realpath(const char* path, char* buf, int buf_size) {
+#ifdef _WIN32
+    wchar_t wpath[1024], wout[1024];
+    MultiByteToWideChar(CP_UTF8, 0, path, -1, wpath, 1024);
+    DWORD len = GetFullPathNameW(wpath, 1024, wout, NULL);
+    if (len == 0) return 0;
+    return WideCharToMultiByte(CP_UTF8, 0, wout, len, buf, buf_size, NULL, NULL);
+#else
+    char resolved[4096];
+    if (!realpath(path, resolved)) return 0;
+    int i = 0;
+    while (resolved[i] && i < buf_size - 1) { buf[i] = resolved[i]; i++; }
+    buf[i] = 0;
+    return i;
+#endif
 }

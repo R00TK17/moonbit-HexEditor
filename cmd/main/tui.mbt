@@ -24,6 +24,12 @@ extern "C" fn raw_print(_s : Bytes) -> Unit = "raw_print"
 extern "C" fn tui_list_dir(_path : Bytes, _buf : Bytes, _size : Int) -> Int = "tui_list_dir"
 #borrow(_buf)
 extern "C" fn tui_get_cwd(_buf : Bytes, _size : Int) -> Int = "tui_get_cwd"
+#borrow(_buf)
+extern "C" fn tui_get_home(_buf : Bytes, _size : Int) -> Int = "tui_get_home"
+#borrow(_path)
+extern "C" fn tui_mkdir_p(_path : Bytes) -> Unit = "tui_mkdir_p"
+#borrow(_path, _buf)
+extern "C" fn tui_realpath(_path : Bytes, _buf : Bytes, _size : Int) -> Int = "tui_realpath"
 
 ///|
 /// Convert string to UTF-8 bytes for FFI printing.
@@ -100,12 +106,23 @@ fn load_file_best(path : String) -> Result[@lib.HexBuffer, String] {
 ///|
 /// Main TUI entry point. Called from main.mbt.
 pub fn run_tui(file_path : String?) -> Unit {
-  let mut buffer = match file_path {
+  // Convert to absolute path for consistent bookmark lookup
+  let abs_path : String? = match file_path {
+    Some(p) => Some(to_absolute_path(p))
+    None => None
+  }
+  let mut buffer = match abs_path {
     Some(p) => match load_file_best(p) { Ok(b) => b; Err(_) => @lib.HexBuffer::new() }
     None => @lib.HexBuffer::new()
   }
 
-  let state = TuiState::new(file_path, buffer)
+  let state = TuiState::new(abs_path, buffer)
+
+  // Load saved bookmarks and scroll position
+  match abs_path {
+    Some(p) => { state.offset = load_file_state(p, state.bookmarks) }
+    None => ()
+  }
 
   tui_enter_raw()
   tui_enter_alt_screen()
@@ -132,18 +149,26 @@ pub fn run_tui(file_path : String?) -> Unit {
 
     // Consume pending file switch
     if state.pending_switch >= 0 && state.pending_switch < state.file_slots.length() {
+      // Save old file's state
+      save_file_state(state.file_slots[state.active_file].path, state.offset, state.bookmarks)
       state.file_slots[state.active_file].offset = state.offset
       state.file_slots[state.active_file].buffer = buffer
+      // Switch
       state.active_file = state.pending_switch
       buffer = state.file_slots[state.active_file].buffer
-      state.offset = state.file_slots[state.active_file].offset
+      // Clear and load new file's bookmarks
+      for i = 0; i < 21; i = i + 1 { state.bookmarks[i] = None }
+      state.offset = load_file_state(state.file_slots[state.active_file].path, state.bookmarks)
       state.scan_done = false; state.strings_done = false; state.entropy_done = false
       state.results = []; state.match_len = 0; state.match_lens = []
       state.edit_mode = false; state.undo_stack = []; state.redo_stack = []
-      state.msg = "[\{state.active_file + 1}/\{state.file_slots.length()}] \{state.file_slots[state.active_file].path} | \{@lib.format_size(buffer.length())}"
+      state.msg = "[\{state.active_file + 1}/\{state.file_slots.length()}] \{basename(state.file_slots[state.active_file].path)} | \{@lib.format_size(buffer.length())}"
       state.pending_switch = -1
     }
   }
+
+  // Save state on exit
+  save_file_state(state.file_slots[state.active_file].path, state.offset, state.bookmarks)
 
   tui_show_cursor()
   tui_exit_alt_screen()

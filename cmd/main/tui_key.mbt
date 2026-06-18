@@ -72,7 +72,7 @@ pub fn TuiState::new(file_path : String?, buffer : @lib.HexBuffer) -> TuiState {
   {
     offset: 0,
     msg: match file_path {
-      Some(p) => if buffer.length() > 0 { "\{p} | \{@lib.format_size(buffer.length())}" } else { "" }
+      Some(p) => if buffer.length() > 0 { "\{basename(p)} | \{@lib.format_size(buffer.length())}" } else { "" }
       None => ""
     },
     results: [],

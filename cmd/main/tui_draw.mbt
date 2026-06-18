@@ -533,7 +533,7 @@ fn draw_file_list_popup(
   let start = if scroll < end { scroll } else { 0 }
   for i = start; i < end; i = i + 1 {
     let marker = if i == active { "*" } else { " " }
-    let name = slots[i].path
+    let name = basename(slots[i].path)
     let size = @lib.format_size(slots[i].buffer.length())
     if i == sel {
       sb.write_string("  \u001b[44;37m" + marker + " " + (i + 1).to_string() + ": " + name + " (" + size + ")\u001b[0m\u001b[K\r\n")
