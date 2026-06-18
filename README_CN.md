@@ -8,6 +8,8 @@
 - 经典十六进制显示：偏移量列、每行16字节、右侧ASCII字符栏
 - 导航：方向键滚动（`↑↓` 逐行、`←→` 翻页）、Home/End跳转、Goto定位 / 书签跳转（`g #N`）
 - 搜索：`/` 十六进制模式搜索、`f` ASCII文本搜索、`n`/`N` 上下匹配
+  - Hex 通配符：`??` 任意字节、`*` 任意长度、`*N` 跳过 N 字节（如 `FF ?? 00`、`89 *3 0D 0A`）
+  - 文本通配符：`?` 任意字符、`*` 任意长度、`*N` 跳过 N 字符、`\` 转义（如 `He*ld`、`\?`）
 - 高亮：当前匹配绿色、其它匹配黄色、编辑光标反色
 - 编辑模式：十六进制/ASCII输入、插入、删除、撤销/重做(`Ctrl+Z`/`Ctrl+Y`)带深度显示、保存(`Ctrl+X`)
 - 结构视图：解析文件内部结构，支持滚动浏览
@@ -24,6 +26,7 @@
 - 熵分析：`h` 键，256 字节块，香农熵色彩柱状图
 - 字符串提取：`s` 键，可打印 ASCII 序列（>=4 字节），支持缓存、跳转高亮
 - 提取与检测：`x` 键提取选中段，尾部数据自动告警
+- 编解码弹窗：`c` 键，交互式 Base64/URL/Unicode/Hex 编解码，实时预览
 - mmap 加载：内存映射文件 I/O 加速大文件打开（失败时自动回退常规读取）
 - 显示：自适应终端高度，双行帮助栏
 
@@ -36,8 +39,8 @@ moon run --target native cmd/main -- struct <文件>    结构解析
 moon run --target native cmd/main -- strings <文件>   字符串提取
 moon run --target native cmd/main -- entropy <文件>   熵分析
 moon run --target native cmd/main -- scan <文件>      签名扫描
-moon run --target native cmd/main -- encode <类型> <文件>   编码 (base64/url/unicode/ascii)
-moon run --target native cmd/main -- decode <类型> <文件>   解码 (base64/url/unicode/ascii)
+moon run --target native cmd/main -- encode <类型> <文件>   编码 (base64/url/unicode/hex)
+moon run --target native cmd/main -- decode <类型> <文件>   解码 (base64/url/unicode/hex)
 moon run --target native cmd/main -- base64 <文件>          Base64 编码（别名）
 moon run --target native cmd/main -- unbase64 <文件>        Base64 解码（别名）
 ```
@@ -87,6 +90,7 @@ moon run --target native cmd/main                  # 空启动
 | `w` | 签名扫描 | | |
 | `h` | 熵分析 | | |
 | `s` | 字符串提取 | | |
+| `c` | 编解码 | | |
 
 结构视图模式：`↑↓←→` 滚动、`t`/`Esc` 返回十六进制视图、`q` 退出。
 
@@ -97,6 +101,8 @@ moon run --target native cmd/main                  # 空启动
 熵分析：`↑↓←→` 导航、`Enter` 跳转、`h`/`Esc` 关闭。
 
 字符串提取：`↑↓←→` 导航、`Enter` 跳转+高亮、`s`/`Esc` 关闭。
+
+编解码：`←→` 切换类型（Base64/URL/Unicode/Hex）、`Tab` 切换编码/解码、直接输入文本、`Esc` 关闭。
 
 ### 平台说明
 
@@ -111,12 +117,12 @@ moon run --target native cmd/main                  # 空启动
 hex_editor/
 ├── hex_editor.mbt                # HexBuffer 数据模型、文件 I/O、编辑基本操作
 ├── hex_view.mbt                 # 十六进制格式化、尺寸显示
-├── hex_search.mbt               # Boyer-Moore-Horspool 搜索（find_all、parse_hex）
+├── hex_search.mbt               # 搜索：BMH 精确、通配符（?? * *N）、文本模式（? * \）
 ├── hex_struct.mbt               # 16+ 种文件格式解析器（JPEG/PNG/ZIP/PE/ELF...）
 ├── hex_scan.mbt                 # 签名扫描（20 种格式）、Aho-Corasick 自动机
 ├── hex_strings.mbt              # 可打印 ASCII 字符串提取
 ├── hex_entropy.mbt              # 香农熵分析（256 字节块）
-├── hex_codec.mbt                # 编解码：Base64、URL、Unicode、ASCII
+├── hex_codec.mbt                # 编解码：Base64、URL、Unicode、Hex
 ├── hex_editor_test.mbt          # 单元测试
 ├── cmd/main/
 │   ├── main.mbt                 # CLI 入口（view/info/struct/strings/entropy/scan）

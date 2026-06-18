@@ -8,6 +8,8 @@ A terminal-based hex editor and binary file analyzer written in MoonBit, featuri
 - Hex dump with offset column, 16 bytes/row, and ASCII sidebar
 - Navigation: Arrow keys (`↑↓` line scroll, `←→` page), Home/End, Goto offset / bookmark (`g #N`)
 - Search: `/` hex pattern, `f` ASCII text, `n`/`N` next/prev match
+  - Hex wildcards: `??` any byte, `*` any length, `*N` skip N bytes (e.g. `FF ?? 00`, `89 *3 0D 0A`)
+  - Text wildcards: `?` any char, `*` any length, `*N` skip N chars, `\` escape (e.g. `He*ld`, `\?`)
 - Highlighting: current match (green), other matches (yellow), edit cursor (inverse)
 - Edit mode: hex/ASCII input, insert, delete, undo/redo (`Ctrl+Z`/`Ctrl+Y`) with depth display, save (`Ctrl+X`)
 - Structure view: parsed file structure with scrollable display
@@ -24,6 +26,7 @@ A terminal-based hex editor and binary file analyzer written in MoonBit, featuri
 - Entropy analysis: `h` key, 256-byte blocks, Shannon entropy with color-coded bars
 - Strings extraction: `s` key, printable ASCII sequences >= 4 chars, with caching, jump-to-offset and highlight
 - Extraction: `x` key to dump selected match, trailing data detection
+- Codec popup: `c` key, interactive Base64/URL/Unicode/Hex encode/decode with live preview
 - mmap loading: memory-mapped file I/O for fast file opens (auto-fallback to standard I/O)
 
 ### CLI Commands
@@ -35,8 +38,8 @@ moon run --target native cmd/main -- struct <file>    Structure analysis
 moon run --target native cmd/main -- strings <file>   String extraction
 moon run --target native cmd/main -- entropy <file>   Entropy analysis
 moon run --target native cmd/main -- scan <file>      Signature scan
-moon run --target native cmd/main -- encode <type> <f>   Encode (base64/url/unicode/ascii)
-moon run --target native cmd/main -- decode <type> <f>   Decode (base64/url/unicode/ascii)
+moon run --target native cmd/main -- encode <type> <f>   Encode (base64/url/unicode/hex)
+moon run --target native cmd/main -- decode <type> <f>   Decode (base64/url/unicode/hex)
 moon run --target native cmd/main -- base64 <file>       Base64 encode (alias)
 moon run --target native cmd/main -- unbase64 <file>     Base64 decode (alias)
 ```
@@ -86,6 +89,7 @@ moon run --target native cmd/main                  # empty start
 | `w` | Signature scan | | |
 | `h` | Entropy analysis | | |
 | `s` | Strings extraction | | |
+| `c` | Codec (encode/decode) | | |
 
 Struct view: `↑↓←→` scroll, `t`/`Esc` back to hex, `q` quit.
 
@@ -96,6 +100,8 @@ Signature scan: `↑↓←→` navigate, `Enter` jump, `x` extract, `w`/`Esc` cl
 Entropy scan: `↑↓←→` navigate, `Enter` jump to block, `h`/`Esc` close.
 
 Strings: `↑↓←→` navigate, `Enter` jump+highlight, `s`/`Esc` close.
+
+Codec: `←→` switch type (Base64/URL/Unicode/Hex), `Tab` toggle encode/decode, type text, `Esc` close.
 
 ### Platform Notes
 
@@ -110,12 +116,12 @@ Strings: `↑↓←→` navigate, `Enter` jump+highlight, `s`/`Esc` close.
 hex_editor/
 ├── hex_editor.mbt                # HexBuffer data model, file I/O, edit primitives
 ├── hex_view.mbt                 # Hex dump formatting, size display, hex byte table
-├── hex_search.mbt               # Boyer-Moore-Horspool search (find_all, parse_hex)
+├── hex_search.mbt               # Search: BMH exact, wildcard (?? * *N), text pattern (? * \)
 ├── hex_struct.mbt               # 16+ file format parser (JPEG/PNG/ZIP/PE/ELF...)
 ├── hex_scan.mbt                 # Signature scanner (20 formats), Aho-Corasick
 ├── hex_strings.mbt              # Printable ASCII string extraction
 ├── hex_entropy.mbt              # Shannon entropy analysis (256-byte blocks)
-├── hex_codec.mbt                # Codecs: Base64, URL, Unicode, ASCII encoding/decoding
+├── hex_codec.mbt                # Codecs: Base64, URL, Unicode, Hex encoding/decoding
 ├── hex_editor_test.mbt          # Unit tests
 ├── cmd/main/
 │   ├── main.mbt                 # CLI entry (view/info/struct/strings/entropy/scan)
