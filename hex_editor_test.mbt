@@ -339,3 +339,120 @@ test "hex_decode invalid" {
   assert_true!(@hex_editor.hex_decode("GG") is None)
   assert_true!(@hex_editor.hex_decode("0") is None)
 }
+
+// ========== Wildcard Hex Pattern Tests ==========
+
+test "find_hex_pattern exact" {
+  let data = b"\x41\x42\x43\x41\x42"
+  let r = @hex_editor.find_hex_pattern(data, "41 42")
+  assert_true!(r is Some(_))
+  let (off, len) = r.unwrap()
+  assert_eq!(off.length(), 2)
+  assert_eq!(off[0], 0)
+  assert_eq!(off[1], 3)
+  assert_eq!(len[0], 2)
+}
+
+test "find_hex_pattern fallback hex string" {
+  let data = b"\xFF\xD8\xFF\xE0"
+  let r = @hex_editor.find_hex_pattern(data, "FFD8FF")
+  assert_true!(r is Some(_))
+  let (off, _) = r.unwrap()
+  assert_eq!(off.length(), 1)
+  assert_eq!(off[0], 0)
+}
+
+test "find_hex_pattern ?? wildcard" {
+  let data = b"\xA0\x11\xB2\xA0\x22\xB2\xA0\x33\xC0"
+  let r = @hex_editor.find_hex_pattern(data, "A0 ?? B2")
+  assert_true!(r is Some(_))
+  let (off, len) = r.unwrap()
+  assert_eq!(off.length(), 2)
+  assert_eq!(off[0], 0)
+  assert_eq!(off[1], 3)
+  assert_eq!(len[0], 3)
+}
+
+test "find_hex_pattern * wildcard" {
+  let data = b"\x00\xAA\xBB\xCC\xFF"
+  let r = @hex_editor.find_hex_pattern(data, "00 * FF")
+  assert_true!(r is Some(_))
+  let (off, len) = r.unwrap()
+  assert_eq!(off.length(), 1)
+  assert_eq!(off[0], 0)
+  assert_eq!(len[0], 5)
+}
+
+test "find_hex_pattern invalid" {
+  let data = b"\x00\x01"
+  assert_true!(@hex_editor.find_hex_pattern(data, "GG") is None)
+  assert_true!(@hex_editor.find_hex_pattern(data, "*") is None)
+  assert_true!(@hex_editor.find_hex_pattern(data, "") is None)
+}
+
+test "find_hex_pattern *N fixed wildcard" {
+  // *3 = skip exactly 3 bytes (same as ?? ?? ??)
+  let data = b"\xAA\x11\x22\x33\xBB"
+  let r = @hex_editor.find_hex_pattern(data, "AA *3 BB")
+  assert_true!(r is Some(_))
+  let (off, len) = r.unwrap()
+  assert_eq!(off.length(), 1)
+  assert_eq!(off[0], 0)
+  assert_eq!(len[0], 5)
+  // *2 won't match (gap is 3 bytes, not 2)
+  let r2 = @hex_editor.find_hex_pattern(data, "AA *2 BB")
+  assert_true!(r2 is Some(_))
+  let (off2, _) = r2.unwrap()
+  assert_eq!(off2.length(), 0)
+}
+
+// ========== Text Pattern Tests ==========
+
+test "find_text_pattern exact" {
+  let data = b"\x48\x65\x6C\x6C\x6F\x20\x48\x65\x6C\x6C\x6F"
+  let r = @hex_editor.find_text_pattern(data, "Hello")
+  assert_true!(r is Some(_))
+  let (off, len) = r.unwrap()
+  assert_eq!(off.length(), 2)
+  assert_eq!(off[0], 0)
+  assert_eq!(off[1], 6)
+  assert_eq!(len[0], 5)
+}
+
+test "find_text_pattern ? wildcard" {
+  let data = b"\x48\x65\x6C\x6C\x6F"
+  let r = @hex_editor.find_text_pattern(data, "H?llo")
+  assert_true!(r is Some(_))
+  let (off, _) = r.unwrap()
+  assert_eq!(off.length(), 1)
+  assert_eq!(off[0], 0)
+}
+
+test "find_text_pattern * wildcard" {
+  let data = b"\x48\x65\x6C\x6C\x6F\x20\x57\x6F\x72\x6C\x64"
+  let r = @hex_editor.find_text_pattern(data, "He*ld")
+  assert_true!(r is Some(_))
+  let (off, len) = r.unwrap()
+  assert_eq!(off.length(), 1)
+  assert_eq!(off[0], 0)
+  assert_eq!(len[0], 11)
+}
+
+test "find_text_pattern *N fixed" {
+  let data = b"\x41\x42\x43\x44\x45"
+  let r = @hex_editor.find_text_pattern(data, "A*3E")
+  assert_true!(r is Some(_))
+  let (off, len) = r.unwrap()
+  assert_eq!(off.length(), 1)
+  assert_eq!(off[0], 0)
+  assert_eq!(len[0], 5)
+}
+
+test "find_text_pattern escape" {
+  let data = b"\x48\x3F\x21"
+  let r = @hex_editor.find_text_pattern(data, "H\\?!")
+  assert_true!(r is Some(_))
+  let (off, _) = r.unwrap()
+  assert_eq!(off.length(), 1)
+  assert_eq!(off[0], 0)
+}

@@ -24,13 +24,15 @@ fn split_text_lines(text : String) -> Array[String] {
 fn build_highlight_set(
   results : Array[Int],
   match_len : Int,
+  match_lens : Array[Int],
   buffer : @lib.HexBuffer,
 ) -> Array[Int] {
-  if results.length() == 0 || match_len <= 0 { return [] }
+  if results.length() == 0 { return [] }
   let set = []
   for i = 0; i < results.length(); i = i + 1 {
     let off = results[i]
-    for j = 0; j < match_len; j = j + 1 {
+    let mlen = if i < match_lens.length() { match_lens[i] } else { match_len }
+    for j = 0; j < mlen; j = j + 1 {
       if off + j < buffer.length() { set.push(off + j) }
     }
   }
@@ -42,11 +44,14 @@ fn build_highlight_set(
 fn build_match_range(
   match_offset : Int,
   match_len : Int,
+  match_lens : Array[Int],
+  search_idx : Int,
   buffer : @lib.HexBuffer,
 ) -> Array[Int] {
-  if match_len <= 0 || match_offset < 0 || match_offset >= buffer.length() { return [] }
+  let mlen = if search_idx >= 0 && search_idx < match_lens.length() { match_lens[search_idx] } else { match_len }
+  if mlen <= 0 || match_offset < 0 || match_offset >= buffer.length() { return [] }
   let set = []
-  for j = 0; j < match_len; j = j + 1 {
+  for j = 0; j < mlen; j = j + 1 {
     if match_offset + j < buffer.length() { set.push(match_offset + j) }
   }
   set
@@ -68,6 +73,7 @@ fn draw_screen(
   search_results : Array[Int],
   search_idx : Int,
   match_len : Int,
+  match_lens : Array[Int],
   edit_mode : Bool,
   edit_off : Int,
   edit_ascii : Bool,
@@ -141,9 +147,9 @@ fn draw_screen(
     let display_rows = if screen_rows < rows_from_offset { screen_rows } else { rows_from_offset }
 
     let data = buffer.data_ref()
-    let highlight_all = build_highlight_set(search_results, match_len, buffer)
+    let highlight_all = build_highlight_set(search_results, match_len, match_lens, buffer)
     let highlight_cur : Array[Int] = if search_results.length() > 0 && search_idx >= 0 && search_idx < search_results.length() {
-      build_match_range(search_results[search_idx], match_len, buffer)
+      build_match_range(search_results[search_idx], match_len, match_lens, search_idx, buffer)
     } else { [] }
 
     for row = 0; row < display_rows; row = row + 1 {

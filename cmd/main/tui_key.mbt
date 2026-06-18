@@ -8,6 +8,7 @@ struct TuiState {
   mut results : Array[Int]
   mut result_idx : Int
   mut match_len : Int
+  mut match_lens : Array[Int]
   mut running : Bool
   mut edit_mode : Bool
   mut edit_off : Int
@@ -58,6 +59,7 @@ pub fn TuiState::new(file_path : String?, buffer : @lib.HexBuffer) -> TuiState {
     results: [],
     result_idx: 0,
     match_len: 0,
+    match_lens: [],
     running: true,
     edit_mode: false,
     edit_off: 0,
@@ -378,6 +380,7 @@ pub fn handle_key(
     if state.edit_off >= buffer.length() && state.edit_off > 0 { state.edit_off = state.edit_off - 1 }
     state.results = []
     state.match_len = 0
+    state.match_lens = []
     state.msg = "Deleted 1 byte\{depth_suffix(state.undo_stack.length(), state.redo_stack.length())}"
 
   } else if state.edit_mode && (key == 'i'.to_int() || key == 'I'.to_int()) {
@@ -482,7 +485,7 @@ pub fn handle_key(
 
   // ====== Normal mode keys ======
   } else if key == 27 {
-    if state.results.length() > 0 { state.results = []; state.match_len = 0; state.msg = "Search cleared" }
+    if state.results.length() > 0 { state.results = []; state.match_len = 0; state.match_lens = []; state.msg = "Search cleared" }
   } else if key == 'q'.to_int() || key == 'Q'.to_int() {
     state.running = false
 
@@ -512,32 +515,37 @@ pub fn handle_key(
   } else if key == '/'.to_int() {
     let pattern = tui_read_line("Hex search: ")
     if pattern != "" {
-      match @lib.parse_hex_string(pattern) {
-        Some(bytes) => {
-          let data = buffer.to_bytes()
-          state.results = @lib.find_all_bytes(data, bytes)
-          if state.results.length() > 0 {
-            state.result_idx = 0; state.match_len = bytes.length()
-            state.offset = scroll_to_show(state.results[0], state.offset, buffer.length(), screen_rows)
-            state.msg = "Hex: \{state.results.length()} matches (n:next)"
-          } else { state.msg = "Not found"; state.results = []; state.match_len = 0 }
+      let data = buffer.to_bytes()
+      match @lib.find_hex_pattern(data, pattern) {
+        Some((offsets, lens)) => {
+          state.results = offsets
+          state.match_lens = lens
+          if offsets.length() > 0 {
+            state.result_idx = 0; state.match_len = lens[0]
+            state.offset = scroll_to_show(offsets[0], state.offset, buffer.length(), screen_rows)
+            state.msg = "Hex: \{offsets.length()} matches (n:next)"
+          } else { state.msg = "Not found"; state.match_len = 0 }
         }
-        None => state.msg = "Invalid hex (FF D8 or FF00)"
+        None => state.msg = "Invalid hex pattern"
       }
     }
 
   } else if key == 'f'.to_int() || key == 'F'.to_int() {
     let pattern = tui_read_line("Text search: ")
     if pattern != "" {
-      let bytes = ascii_to_bytes(pattern)
-      state.match_len = bytes.length()
       let data = buffer.to_bytes()
-      state.results = @lib.find_all_bytes(data, bytes)
-      if state.results.length() > 0 {
-        state.result_idx = 0
-        state.offset = scroll_to_show(state.results[0], state.offset, buffer.length(), screen_rows)
-        state.msg = "Text: \{state.results.length()} matches (n:next)"
-      } else { state.msg = "Not found"; state.results = []; state.match_len = 0 }
+      match @lib.find_text_pattern(data, pattern) {
+        Some((offsets, lens)) => {
+          state.results = offsets
+          state.match_lens = lens
+          if offsets.length() > 0 {
+            state.result_idx = 0; state.match_len = lens[0]
+            state.offset = scroll_to_show(offsets[0], state.offset, buffer.length(), screen_rows)
+            state.msg = "Text: \{offsets.length()} matches (n:next)"
+          } else { state.msg = "Not found"; state.match_len = 0 }
+        }
+        None => state.msg = "Invalid text pattern"
+      }
     }
 
   } else if key == 'n'.to_int() || key == 'N'.to_int() {
