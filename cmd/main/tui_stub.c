@@ -14,6 +14,7 @@
 #include <sys/time.h>
 #include <sys/ioctl.h>
 #include <signal.h>
+#include <dirent.h>
 
 // Saved terminal state for restoration on exit
 static struct termios saved_term;
@@ -61,6 +62,8 @@ static void enable_ansi(void) {
             SetConsoleMode(hOut, dwMode);
         }
     }
+    SetConsoleOutputCP(65001);
+    SetConsoleCP(65001);
     ansi_ok = 1;
 }
 #endif
@@ -325,4 +328,54 @@ int mmap_load(const char* path, unsigned char* buf) {
     memcpy(buf, ptr, size);
     munmap_file(ptr, size);
     return size;
+}
+
+// ====== Directory listing (UTF-8 output) ======
+int tui_get_cwd(char* buf, int buf_size) {
+#ifdef _WIN32
+    wchar_t wbuf[1024];
+    int wlen = GetCurrentDirectoryW(1024, wbuf);
+    if (wlen <= 0) return 0;
+    return WideCharToMultiByte(CP_UTF8, 0, wbuf, wlen, buf, buf_size, NULL, NULL);
+#else
+    if (getcwd(buf, buf_size)) { int i = 0; while(buf[i]) i++; return i; }
+    return 0;
+#endif
+}
+
+int tui_list_dir(const char* path, char* buf, int buf_size) {
+    int pos = 0;
+#ifdef _WIN32
+    // Convert UTF-8 path to wide, append \*
+    wchar_t wpath[1024];
+    MultiByteToWideChar(CP_UTF8, 0, path, -1, wpath, 1000);
+    wcscat(wpath, L"\\*");
+    WIN32_FIND_DATAW fd;
+    HANDLE h = FindFirstFileW(wpath, &fd);
+    if (h == INVALID_HANDLE_VALUE) return 0;
+    do {
+        if (fd.cFileName[0] == L'.' && fd.cFileName[1] == L'\0') continue;
+        char type = (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ? 'D' : 'F';
+        char name[512];
+        int nlen = WideCharToMultiByte(CP_UTF8, 0, fd.cFileName, -1, name, 512, NULL, NULL);
+        if (nlen <= 0) continue;
+        int len = snprintf(buf + pos, buf_size - pos, "%c:%s\n", type, name);
+        if (len < 0 || pos + len >= buf_size) break;
+        pos += len;
+    } while (FindNextFileW(h, &fd));
+    FindClose(h);
+#else
+    DIR* d = opendir(path);
+    if (!d) return 0;
+    struct dirent* e;
+    while ((e = readdir(d)) != NULL) {
+        if (e->d_name[0] == '.' && e->d_name[1] == '\0') continue;
+        char type = (e->d_type == DT_DIR) ? 'D' : 'F';
+        int len = snprintf(buf + pos, buf_size - pos, "%c:%s\n", type, e->d_name);
+        if (len < 0 || pos + len >= buf_size) break;
+        pos += len;
+    }
+    closedir(d);
+#endif
+    return pos;
 }

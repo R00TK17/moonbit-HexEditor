@@ -14,6 +14,7 @@ options(
     "tui_edit.mbt": [ "native" ],
     "tui_key.mbt": [ "native" ],
     "tui_bookmark.mbt": [ "native" ],
+    "tui_files.mbt": [ "native" ],
     "helpers_native.mbt": [ "native" ],
     "helpers.mbt": [ "native" ],
   },

@@ -101,6 +101,16 @@ fn draw_screen(
   codec_encode : Bool,
   codec_input : String,
   codec_result : String,
+  file_list_view : Bool,
+  file_list_sel : Int,
+  file_slots : Array[FileSlot],
+  active_file : Int,
+  browser_view : Bool,
+  browser_path : String,
+  browser_names : Array[String],
+  browser_is_dir : Array[Bool],
+  browser_sel : Int,
+  browser_scroll : Int,
   screen_rows : Int,
   term_cols : Int,
 ) -> Unit {
@@ -116,6 +126,10 @@ fn draw_screen(
     draw_strings_popup(sb, strings_sel, strings_scroll, strings_matches, screen_rows, term_cols)
   } else if codec_view {
     draw_codec_popup(sb, codec_type, codec_encode, codec_input, codec_result, screen_rows, term_cols)
+  } else if browser_view {
+    draw_browser_popup(sb, browser_path, browser_names, browser_is_dir, browser_sel, browser_scroll, screen_rows, term_cols)
+  } else if file_list_view {
+    draw_file_list_popup(sb, file_list_sel, file_slots, active_file, screen_rows)
   } else if bookmark_view {
     draw_bookmark_popup(sb, bookmark_sel, bookmark_scroll, bookmarks, screen_rows)
   } else if struct_view && !buffer.is_empty() {
@@ -253,6 +267,14 @@ fn draw_screen(
     let row = screen_rows + 2
     sb.write_string("\u001b[" + row.to_string() + ";1H")
     sb.write_string("\u001b[47;30m " + clip("LR:type  Tab:mode  Esc:close", w) + " \u001b[0m\u001b[K")
+  } else if browser_view {
+    let row = screen_rows + 2
+    sb.write_string("\u001b[" + row.to_string() + ";1H")
+    sb.write_string("\u001b[47;30m " + clip("q:quit Enter:open/enter o:input Esc:cancel", w) + " \u001b[0m\u001b[K")
+  } else if file_list_view {
+    let row = screen_rows + 2
+    sb.write_string("\u001b[" + row.to_string() + ";1H")
+    sb.write_string("\u001b[47;30m " + clip("q:quit d:close Enter:switch Tab/Esc:back", w) + " \u001b[0m\u001b[K")
   } else if bookmark_view {
     let row = screen_rows + 2
     sb.write_string("\u001b[" + row.to_string() + ";1H")
@@ -267,7 +289,7 @@ fn draw_screen(
     sb.write_string("\u001b[47;30m " + clip("q:quit o:open g:goto e:edit /:hex f:text n/p:match", w) + " \u001b[0m\u001b[K")
     let row2 = screen_rows + 3
     sb.write_string("\u001b[" + row2.to_string() + ";1H")
-    sb.write_string("\u001b[47;30m " + clip("w:scan s:strings h:entropy t:struct b:bookmark c:codec", w) + " \u001b[0m\u001b[K")
+    sb.write_string("\u001b[47;30m " + clip("w:scan s:strings h:entropy t:struct b:bookmark c:codec Tab:files", w) + " \u001b[0m\u001b[K")
   }
 
   // Erase below: clear anything after the help bar
@@ -490,6 +512,71 @@ fn draw_codec_popup(
   }
   if rlines == 0 { sb.write_string("  Result:\u001b[K\r\n"); rlines = 1 }
   for _i = rlines; _i < result_rows; _i = _i + 1 {
+    sb.write_string("  \u001b[K\r\n")
+  }
+}
+
+///|
+/// Draw file list popup.
+fn draw_file_list_popup(
+  sb : StringBuilder,
+  sel : Int,
+  slots : Array[FileSlot],
+  active : Int,
+  screen_rows : Int,
+) -> Unit {
+  sb.write_string("  -- Files --\u001b[K\r\n")
+  let total = slots.length()
+  let max_visible = if screen_rows > 1 { screen_rows - 1 } else { 0 }
+  let end = if sel + max_visible < total { sel + max_visible } else { total }
+  let scroll = if sel > max_visible - 1 { sel - max_visible + 1 } else { 0 }
+  let start = if scroll < end { scroll } else { 0 }
+  for i = start; i < end; i = i + 1 {
+    let marker = if i == active { "*" } else { " " }
+    let name = slots[i].path
+    let size = @lib.format_size(slots[i].buffer.length())
+    if i == sel {
+      sb.write_string("  \u001b[44;37m" + marker + " " + (i + 1).to_string() + ": " + name + " (" + size + ")\u001b[0m\u001b[K\r\n")
+    } else {
+      sb.write_string("  " + marker + " " + (i + 1).to_string() + ": " + name + " (" + size + ")\u001b[K\r\n")
+    }
+  }
+  let displayed = end - start
+  let remaining = if screen_rows > displayed + 1 { screen_rows - displayed - 1 } else { 0 }
+  for _i = 0; _i < remaining; _i = _i + 1 {
+    sb.write_string("  \u001b[K\r\n")
+  }
+}
+
+///|
+/// Draw file browser popup.
+fn draw_browser_popup(
+  sb : StringBuilder,
+  path : String,
+  names : Array[String],
+  is_dir : Array[Bool],
+  sel : Int,
+  scroll : Int,
+  screen_rows : Int,
+  term_cols : Int,
+) -> Unit {
+  let w = if term_cols > 10 { term_cols - 10 } else { 60 }
+  sb.write_string("  -- Open: " + clip(path, w) + " --\u001b[K\r\n")
+  let total = names.length()
+  let max_visible = if screen_rows > 1 { screen_rows - 1 } else { 0 }
+  let end = if scroll + max_visible < total { scroll + max_visible } else { total }
+  for i = scroll; i < end; i = i + 1 {
+    let tag = if i < is_dir.length() && is_dir[i] { "[DIR] " } else { "      " }
+    let name = names[i]
+    if i == sel {
+      sb.write_string("  \u001b[44;37m" + tag + name + "\u001b[0m\u001b[K\r\n")
+    } else {
+      sb.write_string("  " + tag + name + "\u001b[K\r\n")
+    }
+  }
+  let displayed = end - scroll
+  let remaining = if screen_rows > displayed + 1 { screen_rows - displayed - 1 } else { 0 }
+  for _i = 0; _i < remaining; _i = _i + 1 {
     sb.write_string("  \u001b[K\r\n")
   }
 }

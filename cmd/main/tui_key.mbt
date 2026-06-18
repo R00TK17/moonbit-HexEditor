@@ -1,6 +1,14 @@
 // TUI key handlers — bookmark, struct, edit, and normal mode key dispatch
 
 ///|
+/// Per-file state slot for multi-file support.
+pub struct FileSlot {
+  mut buffer : @lib.HexBuffer
+  path : String
+  mut offset : Int
+}
+
+///|
 /// Mutable TUI state passed to key handlers.
 struct TuiState {
   mut offset : Int
@@ -45,6 +53,17 @@ struct TuiState {
   mut codec_encode : Bool
   mut codec_input : String
   mut codec_result : String
+  file_slots : Array[FileSlot]
+  mut active_file : Int
+  mut file_list_view : Bool
+  mut file_list_sel : Int
+  mut pending_switch : Int
+  mut browser_view : Bool
+  mut browser_path : String
+  mut browser_names : Array[String]
+  mut browser_is_dir : Array[Bool]
+  mut browser_sel : Int
+  mut browser_scroll : Int
 }
 
 ///|
@@ -81,6 +100,10 @@ pub fn TuiState::new(file_path : String?, buffer : @lib.HexBuffer) -> TuiState {
     redo_stack: [],
     codec_view: false, codec_type: 0, codec_encode: true,
     codec_input: "", codec_result: "",
+    file_slots: [{ buffer, path: match file_path { Some(p) => p; None => "(new)" }, offset: 0 }],
+    active_file: 0, file_list_view: false, file_list_sel: 0, pending_switch: -1,
+    browser_view: false, browser_path: "", browser_names: [], browser_is_dir: [],
+    browser_sel: 0, browser_scroll: 0,
   }
 }
 
@@ -293,6 +316,10 @@ pub fn handle_key(
     handle_codec_key(state, key)
   // ====== Bookmark popup (in tui_bookmark.mbt) ======
   } else if state.bookmark_view && handle_bookmark_popup_key(state, key, screen_rows) {
+    ()
+  } else if state.file_list_view && handle_file_list_key(state, key, screen_rows) {
+    ()
+  } else if state.browser_view && handle_browser_key(state, key, screen_rows) {
     ()
 
   // ====== Struct view mode ======
@@ -609,6 +636,8 @@ pub fn handle_key(
 
   // Bookmark keys (in tui_bookmark.mbt)
   } else if handle_bookmark_normal_key(state, key) {
+    ()
+  } else if handle_file_list_normal_key(state, key) {
     ()
 
   } else if key == 'w'.to_int() || key == 'W'.to_int() {

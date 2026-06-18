@@ -20,6 +20,10 @@ extern "C" fn mmap_file_size(_path : Bytes) -> Int = "mmap_file_size"
 extern "C" fn mmap_load(_path : Bytes, _buf : Bytes) -> Int = "mmap_load"
 #borrow(_s)
 extern "C" fn raw_print(_s : Bytes) -> Unit = "raw_print"
+#borrow(_path, _buf)
+extern "C" fn tui_list_dir(_path : Bytes, _buf : Bytes, _size : Int) -> Int = "tui_list_dir"
+#borrow(_buf)
+extern "C" fn tui_get_cwd(_buf : Bytes, _size : Int) -> Int = "tui_get_cwd"
 
 ///|
 /// Convert string to UTF-8 bytes for FFI printing.
@@ -112,33 +116,32 @@ pub fn run_tui(file_path : String?) -> Unit {
     let term_rows = tui_get_terminal_rows()
     let term_cols = tui_get_terminal_cols()
     let screen_rows = if term_rows > 6 { term_rows - 3 } else { 32 }
-    draw_screen(buffer, state.offset, state.msg, state.results, state.result_idx, state.match_len, state.match_lens, state.edit_mode, state.edit_off, state.edit_ascii, state.struct_view, state.struct_offset, state.bookmark_view, state.bookmark_sel, state.bookmark_scroll, state.bookmarks, state.scan_view, state.scan_sel, state.scan_scroll, state.scan_offsets, state.scan_names, state.scan_sizes, state.entropy_view, state.entropy_sel, state.entropy_blocks, state.strings_view, state.strings_sel, state.strings_scroll, state.strings_matches, state.codec_view, state.codec_type, state.codec_encode, state.codec_input, state.codec_result, screen_rows, term_cols)
+    draw_screen(buffer, state.offset, state.msg, state.results, state.result_idx, state.match_len, state.match_lens, state.edit_mode, state.edit_off, state.edit_ascii, state.struct_view, state.struct_offset, state.bookmark_view, state.bookmark_sel, state.bookmark_scroll, state.bookmarks, state.scan_view, state.scan_sel, state.scan_scroll, state.scan_offsets, state.scan_names, state.scan_sizes, state.entropy_view, state.entropy_sel, state.entropy_blocks, state.strings_view, state.strings_sel, state.strings_scroll, state.strings_matches, state.codec_view, state.codec_type, state.codec_encode, state.codec_input, state.codec_result, state.file_list_view, state.file_list_sel, state.file_slots, state.active_file, state.browser_view, state.browser_path, state.browser_names, state.browser_is_dir, state.browser_sel, state.browser_scroll, screen_rows, term_cols)
 
     let key = tui_get_key()
 
-    // o/O: open file — handled here to reload buffer
-    if !state.edit_mode && !state.struct_view && !state.bookmark_view && !state.strings_view && !state.codec_view && !state.scan_view && !state.entropy_view && (key == 'o'.to_int() || key == 'O'.to_int()) {
-      let path = tui_read_line("Open file: ")
-      if path != "" {
-        match load_file_best(path) {
-          Ok(b) => {
-            buffer = b
-            state.offset = 0
-            state.msg = "\{path} | \{@lib.format_size(buffer.length())}"
-            state.edit_mode = false
-            state.struct_view = false
-            state.bookmark_view = false
-            state.scan_done = false
-            state.strings_done = false
-            state.entropy_done = false
-            state.undo_stack = []
-            state.redo_stack = []
-          }
-          Err(m) => state.msg = "Error: \{m}"
-        }
-      }
+    // o/O: open file browser
+    if !state.edit_mode && !state.struct_view && !state.bookmark_view && !state.strings_view && !state.codec_view && !state.scan_view && !state.entropy_view && !state.file_list_view && !state.browser_view && (key == 'o'.to_int() || key == 'O'.to_int()) {
+      state.browser_path = get_cwd_string()
+      refresh_browser(state)
+      state.browser_view = true
+      state.msg = state.browser_path
     } else {
       handle_key(state, buffer, key, screen_rows)
+    }
+
+    // Consume pending file switch
+    if state.pending_switch >= 0 && state.pending_switch < state.file_slots.length() {
+      state.file_slots[state.active_file].offset = state.offset
+      state.file_slots[state.active_file].buffer = buffer
+      state.active_file = state.pending_switch
+      buffer = state.file_slots[state.active_file].buffer
+      state.offset = state.file_slots[state.active_file].offset
+      state.scan_done = false; state.strings_done = false; state.entropy_done = false
+      state.results = []; state.match_len = 0; state.match_lens = []
+      state.edit_mode = false; state.undo_stack = []; state.redo_stack = []
+      state.msg = "[\{state.active_file + 1}/\{state.file_slots.length()}] \{state.file_slots[state.active_file].path} | \{@lib.format_size(buffer.length())}"
+      state.pending_switch = -1
     }
   }
 
