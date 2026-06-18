@@ -208,3 +208,134 @@ test "parse_structure PNG" {
   let fields = @hex_editor.parse_structure(png)
   assert_true!(fields.length() >= 2)
 }
+
+// ========== Codec Tests ==========
+
+test "base64 roundtrip" {
+  let data = b"\x00\x01\x02\x48\x65\x6C\x6C\x6F"
+  let encoded = @hex_editor.base64_encode(data)
+  let decoded = @hex_editor.base64_decode(encoded)
+  assert_true!(decoded is Some(_))
+  assert_eq!(decoded.unwrap().length(), data.length())
+}
+
+test "base64 encode known" {
+  assert_eq!(@hex_editor.base64_encode(b"\x48\x65\x6C\x6C\x6F"), "SGVsbG8=")
+  assert_eq!(@hex_editor.base64_encode(b""), "")
+}
+
+test "url_encode" {
+  // Unreserved chars pass through
+  assert_eq!(@hex_editor.url_encode(b"\x41\x42\x43"), "ABC")
+  assert_eq!(@hex_editor.url_encode(b"\x7E"), "~")
+  // Space and special chars get percent-encoded
+  assert_eq!(@hex_editor.url_encode(b"\x20"), "%20")
+  assert_eq!(@hex_editor.url_encode(b"\x00"), "%00")
+  assert_eq!(@hex_editor.url_encode(b"\xFF"), "%FF")
+}
+
+test "url_decode" {
+  let d1 = @hex_editor.url_decode("ABC")
+  assert_true!(d1 is Some(_))
+  assert_eq!(d1.unwrap().length(), 3)
+  assert_eq!(d1.unwrap()[0], b'\x41')
+  // Percent decode
+  let d2 = @hex_editor.url_decode("%20")
+  assert_true!(d2 is Some(_))
+  assert_eq!(d2.unwrap()[0], b'\x20')
+  // Plus → space
+  let d3 = @hex_editor.url_decode("+")
+  assert_true!(d3 is Some(_))
+  assert_eq!(d3.unwrap()[0], b'\x20')
+}
+
+test "url roundtrip" {
+  let data = b"\x00\x20\x41\xFF\x0A"
+  let encoded = @hex_editor.url_encode(data)
+  let decoded = @hex_editor.url_decode(encoded)
+  assert_true!(decoded is Some(_))
+  let dec = decoded.unwrap()
+  assert_eq!(dec.length(), data.length())
+  for i = 0; i < data.length(); i = i + 1 {
+    assert_eq!(dec[i], data[i])
+  }
+}
+
+test "url_decode invalid" {
+  assert_true!(@hex_editor.url_decode("%") is None)
+  assert_true!(@hex_editor.url_decode("%G0") is None)
+  assert_true!(@hex_editor.url_decode("%0") is None)
+}
+
+test "unicode_encode" {
+  assert_eq!(@hex_editor.unicode_encode(b"\x41\x42"), "\\u0041\\u0042")
+  assert_eq!(@hex_editor.unicode_encode(b"\x00"), "\\u0000")
+  assert_eq!(@hex_editor.unicode_encode(b"\xFF"), "\\u00FF")
+  assert_eq!(@hex_editor.unicode_encode(b""), "")
+}
+
+test "unicode_decode" {
+  let d1 = @hex_editor.unicode_decode("\\u0041\\u0042")
+  assert_true!(d1 is Some(_))
+  assert_eq!(d1.unwrap().length(), 2)
+  assert_eq!(d1.unwrap()[0], b'\x41')
+  assert_eq!(d1.unwrap()[1], b'\x42')
+  // Plain ASCII mixed in
+  let d2 = @hex_editor.unicode_decode("A")
+  assert_true!(d2 is Some(_))
+  assert_eq!(d2.unwrap()[0], b'\x41')
+}
+
+test "unicode roundtrip" {
+  let data = b"\x48\x65\x6C\x6C\x6F"
+  let encoded = @hex_editor.unicode_encode(data)
+  let decoded = @hex_editor.unicode_decode(encoded)
+  assert_true!(decoded is Some(_))
+  let dec = decoded.unwrap()
+  assert_eq!(dec.length(), data.length())
+  for i = 0; i < data.length(); i = i + 1 {
+    assert_eq!(dec[i], data[i])
+  }
+}
+
+test "unicode_decode invalid" {
+  assert_true!(@hex_editor.unicode_decode("\\u00G0") is None)
+  assert_true!(@hex_editor.unicode_decode("\\u") is None)
+}
+
+test "hex_encode" {
+  assert_eq!(@hex_editor.hex_encode(b"\x48\x65\x6C"), "48 65 6C")
+  assert_eq!(@hex_editor.hex_encode(b"\x00\xFF"), "00 FF")
+  assert_eq!(@hex_editor.hex_encode(b""), "")
+}
+
+test "hex_decode" {
+  let d1 = @hex_editor.hex_decode("48 65 6C")
+  assert_true!(d1 is Some(_))
+  assert_eq!(d1.unwrap().length(), 3)
+  assert_eq!(d1.unwrap()[0], b'\x48')
+  assert_eq!(d1.unwrap()[1], b'\x65')
+  assert_eq!(d1.unwrap()[2], b'\x6C')
+  // No spaces
+  let d2 = @hex_editor.hex_decode("00FF")
+  assert_true!(d2 is Some(_))
+  assert_eq!(d2.unwrap()[0], b'\x00')
+  assert_eq!(d2.unwrap()[1], b'\xFF')
+}
+
+test "hex roundtrip" {
+  let data = b"\x00\x01\x7F\xFF"
+  let encoded = @hex_editor.hex_encode(data)
+  let decoded = @hex_editor.hex_decode(encoded)
+  assert_true!(decoded is Some(_))
+  let dec = decoded.unwrap()
+  assert_eq!(dec.length(), data.length())
+  for i = 0; i < data.length(); i = i + 1 {
+    assert_eq!(dec[i], data[i])
+  }
+}
+
+test "hex_decode invalid" {
+  assert_true!(@hex_editor.hex_decode("GG") is None)
+  assert_true!(@hex_editor.hex_decode("0") is None)
+}

@@ -35,6 +35,10 @@ moon run --target native cmd/main -- struct <file>    Structure analysis
 moon run --target native cmd/main -- strings <file>   String extraction
 moon run --target native cmd/main -- entropy <file>   Entropy analysis
 moon run --target native cmd/main -- scan <file>      Signature scan
+moon run --target native cmd/main -- encode <type> <f>   Encode (base64/url/unicode/ascii)
+moon run --target native cmd/main -- decode <type> <f>   Decode (base64/url/unicode/ascii)
+moon run --target native cmd/main -- base64 <file>       Base64 encode (alias)
+moon run --target native cmd/main -- unbase64 <file>     Base64 decode (alias)
 ```
 
 ### Structure Parser (16 Formats)
@@ -108,8 +112,10 @@ hex_editor/
 ├── hex_view.mbt                 # Hex dump formatting, size display, hex byte table
 ├── hex_search.mbt               # Boyer-Moore-Horspool search (find_all, parse_hex)
 ├── hex_struct.mbt               # 16+ file format parser (JPEG/PNG/ZIP/PE/ELF...)
-├── hex_scan.mbt                 # Signature scanner (20 formats), entropy, strings
-├── hex_edit.mbt                 # Edit helpers placeholder
+├── hex_scan.mbt                 # Signature scanner (20 formats), Aho-Corasick
+├── hex_strings.mbt              # Printable ASCII string extraction
+├── hex_entropy.mbt              # Shannon entropy analysis (256-byte blocks)
+├── hex_codec.mbt                # Codecs: Base64, URL, Unicode, ASCII encoding/decoding
 ├── hex_editor_test.mbt          # Unit tests
 ├── cmd/main/
 │   ├── main.mbt                 # CLI entry (view/info/struct/strings/entropy/scan)

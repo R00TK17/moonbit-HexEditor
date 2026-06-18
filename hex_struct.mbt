@@ -40,7 +40,7 @@ pub fn parse_structure(bytes : Bytes) -> Array[StructField] {
   if len >= 12 && read_str(bytes, 0, 4) == "RIFF" && read_str(bytes, 8, 4) == "AVI " { return parse_avi(bytes) }
   if magic_be == 0x664C { return parse_flac(bytes) }  // "fL"
   if len >= 4 && read_str(bytes, 0, 4) == "OggS" { return parse_ogg(bytes) }
-  if len >= 8 && read_str(bytes, 0, 4) == "ID3 " { return parse_mp3(bytes) }
+  if len >= 8 && read_str(bytes, 0, 3) == "ID3" { return parse_mp3(bytes) }
   if len >= 8 && (read_u32_be(bytes, 4) == 0x66747970) { return parse_mp4(bytes) }  // "ftyp"
   if read_u32_be(bytes, 0) == 0x1A45DFA3 { return parse_webm(bytes) }
   // ELF

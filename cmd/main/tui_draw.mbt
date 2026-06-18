@@ -90,6 +90,11 @@ fn draw_screen(
   strings_sel : Int,
   strings_scroll : Int,
   strings_matches : Array[@lib.StringMatch],
+  codec_view : Bool,
+  codec_type : Int,
+  codec_encode : Bool,
+  codec_input : String,
+  codec_result : String,
   screen_rows : Int,
   term_cols : Int,
 ) -> Unit {
@@ -103,6 +108,8 @@ fn draw_screen(
     draw_entropy_popup(sb, entropy_sel, entropy_blocks, screen_rows)
   } else if strings_view {
     draw_strings_popup(sb, strings_sel, strings_scroll, strings_matches, screen_rows, term_cols)
+  } else if codec_view {
+    draw_codec_popup(sb, codec_type, codec_encode, codec_input, codec_result, screen_rows, term_cols)
   } else if bookmark_view {
     draw_bookmark_popup(sb, bookmark_sel, bookmark_scroll, bookmarks, screen_rows)
   } else if struct_view && !buffer.is_empty() {
@@ -236,6 +243,10 @@ fn draw_screen(
     let row = screen_rows + 2
     sb.write_string("\u001b[" + row.to_string() + ";1H")
     sb.write_string("\u001b[47;30m " + clip("q:quit  Enter:jump  s:close", w) + " \u001b[0m\u001b[K")
+  } else if codec_view {
+    let row = screen_rows + 2
+    sb.write_string("\u001b[" + row.to_string() + ";1H")
+    sb.write_string("\u001b[47;30m " + clip("LR:type  Tab:mode  Esc:close", w) + " \u001b[0m\u001b[K")
   } else if bookmark_view {
     let row = screen_rows + 2
     sb.write_string("\u001b[" + row.to_string() + ";1H")
@@ -250,7 +261,7 @@ fn draw_screen(
     sb.write_string("\u001b[47;30m " + clip("q:quit o:open g:goto e:edit /:hex f:text n/p:match", w) + " \u001b[0m\u001b[K")
     let row2 = screen_rows + 3
     sb.write_string("\u001b[" + row2.to_string() + ";1H")
-    sb.write_string("\u001b[47;30m " + clip("w:scan s:strings h:entropy t:struct b:bookmark", w) + " \u001b[0m\u001b[K")
+    sb.write_string("\u001b[47;30m " + clip("w:scan s:strings h:entropy t:struct b:bookmark c:codec", w) + " \u001b[0m\u001b[K")
   }
 
   // Erase below: clear anything after the help bar
@@ -393,6 +404,86 @@ fn draw_scan_popup(
   let displayed = end - scroll
   let remaining = if screen_rows > displayed + 1 { screen_rows - displayed - 1 } else { 0 }
   for _i = 0; _i < remaining; _i = _i + 1 {
+    sb.write_string("  \u001b[K\r\n")
+  }
+}
+
+///|
+/// Draw the codec encode/decode popup.
+fn draw_codec_popup(
+  sb : StringBuilder,
+  codec_type : Int,
+  codec_encode : Bool,
+  codec_input : String,
+  codec_result : String,
+  screen_rows : Int,
+  term_cols : Int,
+) -> Unit {
+  let types = ["Base64", "URL", "Unicode", "Hex"]
+  // Header
+  sb.write_string("  -- Codec --\u001b[K\r\n")
+  // Type selector
+  sb.write_string("  ")
+  for i = 0; i < 4; i = i + 1 {
+    if i == codec_type {
+      sb.write_string("\u001b[44;37m " + types[i] + " \u001b[0m")
+    } else {
+      sb.write_string(" " + types[i] + " ")
+    }
+  }
+  sb.write_string("\u001b[K\r\n")
+  // Mode selector
+  sb.write_string("  ")
+  if codec_encode {
+    sb.write_string("\u001b[44;37m Encode \u001b[0m  Decode")
+  } else {
+    sb.write_string("  Encode  \u001b[44;37m Decode \u001b[0m")
+  }
+  sb.write_string("\u001b[K\r\n")
+  // Separator
+  sb.write_string("  ----------------------------------\u001b[K\r\n")
+  // Split remaining rows between Input and Result
+  let avail = screen_rows - 4
+  let input_rows = avail / 2
+  let result_rows = avail - input_rows
+  let rw = if term_cols > 12 { term_cols - 12 } else { 60 }
+  // Input area
+  let mut ipos = 0
+  let ilen = codec_input.length()
+  let mut ilines = 0
+  while ipos < ilen && ilines < input_rows {
+    let iend = if ipos + rw < ilen { ipos + rw } else { ilen }
+    let chunk = codec_input[ipos:iend].to_owned()
+    let cursor = if iend >= ilen { "_" } else { "" }
+    if ilines == 0 {
+      sb.write_string("  Input:  " + chunk + cursor + "\u001b[K\r\n")
+    } else {
+      sb.write_string("          " + chunk + cursor + "\u001b[K\r\n")
+    }
+    ipos = iend
+    ilines = ilines + 1
+  }
+  if ilines == 0 { sb.write_string("  Input:  _\u001b[K\r\n"); ilines = 1 }
+  for _i = ilines; _i < input_rows; _i = _i + 1 {
+    sb.write_string("  \u001b[K\r\n")
+  }
+  // Result area
+  let mut rpos = 0
+  let rlen = codec_result.length()
+  let mut rlines = 0
+  while rpos < rlen && rlines < result_rows {
+    let rend = if rpos + rw < rlen { rpos + rw } else { rlen }
+    let chunk = codec_result[rpos:rend].to_owned()
+    if rlines == 0 {
+      sb.write_string("  Result: " + chunk + "\u001b[K\r\n")
+    } else {
+      sb.write_string("          " + chunk + "\u001b[K\r\n")
+    }
+    rpos = rend
+    rlines = rlines + 1
+  }
+  if rlines == 0 { sb.write_string("  Result:\u001b[K\r\n"); rlines = 1 }
+  for _i = rlines; _i < result_rows; _i = _i + 1 {
     sb.write_string("  \u001b[K\r\n")
   }
 }

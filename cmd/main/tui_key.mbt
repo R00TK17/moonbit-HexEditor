@@ -39,6 +39,11 @@ struct TuiState {
   mut strings_done : Bool
   mut undo_stack : Array[UndoOp]
   mut redo_stack : Array[UndoOp]
+  mut codec_view : Bool
+  mut codec_type : Int
+  mut codec_encode : Bool
+  mut codec_input : String
+  mut codec_result : String
 }
 
 ///|
@@ -72,7 +77,98 @@ pub fn TuiState::new(file_path : String?, buffer : @lib.HexBuffer) -> TuiState {
     strings_view: false, strings_sel: 0, strings_scroll: 0, strings_matches: [], strings_done: false,
     undo_stack: [],
     redo_stack: [],
+    codec_view: false, codec_type: 0, codec_encode: true,
+    codec_input: "", codec_result: "",
   }
+}
+
+///|
+/// Recompute codec result from current input, type, and mode.
+fn codec_recompute(state : TuiState) -> Unit {
+  let input = state.codec_input
+  if input == "" { state.codec_result = ""; return }
+  if state.codec_encode {
+    let data = ascii_to_bytes(input)
+    state.codec_result = match state.codec_type {
+      0 => @lib.base64_encode(data)
+      1 => @lib.url_encode(data)
+      2 => @lib.unicode_encode(data)
+      _ => {
+        // Hex: bytes → "48 65 6C"
+        let sb = StringBuilder()
+        for i = 0; i < data.length(); i = i + 1 {
+          if i > 0 { sb.write_char(' ') }
+          sb.write_string(@lib.format_byte_hex(data[i], uppercase=true))
+        }
+        sb.to_string()
+      }
+    }
+  } else {
+    if state.codec_type == 3 {
+      // Hex → Text
+      match @lib.parse_hex_string(input) {
+        Some(bytes) => {
+          let sb = StringBuilder()
+          for i = 0; i < bytes.length(); i = i + 1 {
+            let b = bytes[i].to_int()
+            if b >= 0x20 && b <= 0x7E { sb.write_char(b.to_char().unwrap()) }
+            else { sb.write_char('.') }
+          }
+          state.codec_result = sb.to_string()
+        }
+        None => state.codec_result = "(invalid hex)"
+      }
+    } else {
+      let decoded : Bytes? = match state.codec_type {
+        0 => @lib.base64_decode(input)
+        1 => @lib.url_decode(input)
+        _ => @lib.unicode_decode(input)
+      }
+      match decoded {
+        Some(bytes) => {
+          let sb = StringBuilder()
+          for i = 0; i < bytes.length(); i = i + 1 {
+            let b = bytes[i].to_int()
+            if b >= 0x20 && b <= 0x7E { sb.write_char(b.to_char().unwrap()) }
+            else { sb.write_char('.') }
+          }
+          state.codec_result = sb.to_string()
+        }
+        None => state.codec_result = "(invalid)"
+      }
+    }
+  }
+}
+
+///|
+/// Handle keys in codec popup. All printable chars are input.
+fn handle_codec_key(state : TuiState, key : Int) -> Unit {
+  if key == -3 { // left: prev type
+    state.codec_type = (state.codec_type + 3) % 4
+    codec_recompute(state)
+  } else if key == -4 { // right: next type
+    state.codec_type = (state.codec_type + 1) % 4
+    codec_recompute(state)
+  } else if key == 9 { // tab: toggle encode/decode
+    state.codec_encode = !state.codec_encode
+    codec_recompute(state)
+  } else if key == 8 || key == 127 { // backspace
+    let len = state.codec_input.length()
+    if len > 0 {
+      state.codec_input = state.codec_input[:len - 1].to_owned()
+      codec_recompute(state)
+    }
+  } else if key == 27 { // esc: close
+    state.codec_view = false
+    state.msg = "Hex view"
+  } else if key >= 32 && key <= 126 { // printable: append to input
+    let sb = StringBuilder()
+    sb.write_string(state.codec_input)
+    sb.write_char(key.to_char().unwrap())
+    state.codec_input = sb.to_string()
+    codec_recompute(state)
+  }
+  // else: swallow other keys
 }
 
 ///|
@@ -190,6 +286,9 @@ pub fn handle_key(
   } else if state.strings_view && (key == 'q'.to_int() || key == 'Q'.to_int()) {
     state.running = false
   } else if state.strings_view { ()
+  // ====== Codec popup ======
+  } else if state.codec_view {
+    handle_codec_key(state, key)
   // ====== Bookmark popup (in tui_bookmark.mbt) ======
   } else if state.bookmark_view && handle_bookmark_popup_key(state, key, screen_rows) {
     ()
@@ -540,6 +639,11 @@ pub fn handle_key(
     state.strings_view = true
     let n = state.strings_matches.length()
     state.msg = if n > 0 { "\{n} strings (cached)" } else { "No strings found" }
+  } else if key == 'c'.to_int() || key == 'C'.to_int() {
+    state.codec_view = true
+    state.codec_input = ""
+    state.codec_result = ""
+    state.msg = "Codec"
   } else if key == '?'.to_int() {
     state.msg = "q:quit g:goto /:hex f:text n/p:match e:edit t:struct b:bookmark h:entropy"
   }

@@ -18,6 +18,10 @@ fn main {
     "strings" => cmd_strings(argv)
     "entropy" => cmd_entropy(argv)
     "scan" => cmd_scan(argv)
+    "base64" => cmd_base64(argv)
+    "unbase64" => cmd_unbase64(argv)
+    "encode" => cmd_encode(argv)
+    "decode" => cmd_decode(argv)
     "help" => cmd_help()
     "interactive" | "tui" => run_tui(find_file_arg(argv, cmd))
     _ => {
@@ -105,13 +109,7 @@ fn cmd_search(argv : Array[String]) -> Unit {
     Ok(buf) => {
       let data = buf.to_bytes()
       let (label, sb) = if force_text {
-        let l = "Text: \"" + pattern_str + "\""
-        let b = Bytes::makei(pattern_str.length(), i => {
-          let ch = pattern_str.get_char(i).unwrap()
-          let code = ch.to_int()
-          if code >= 0 && code <= 127 { code.to_byte() } else { b'?' }
-        })
-        (l, b)
+        ("Text: \"" + pattern_str + "\"", ascii_to_bytes(pattern_str))
       } else if force_hex {
         match @lib.parse_hex_string(pattern_str) {
           Some(b) => ("Hex: " + pattern_str, b)
@@ -120,15 +118,7 @@ fn cmd_search(argv : Array[String]) -> Unit {
       } else {
         match @lib.parse_hex_string(pattern_str) {
           Some(b) => ("Hex: " + pattern_str, b)
-          None => {
-            let l = "Text: \"" + pattern_str + "\""
-            let b = Bytes::makei(pattern_str.length(), i => {
-              let ch = pattern_str.get_char(i).unwrap()
-              let code = ch.to_int()
-              if code >= 0 && code <= 127 { code.to_byte() } else { b'?' }
-            })
-            (l, b)
-          }
+          None => ("Text: \"" + pattern_str + "\"", ascii_to_bytes(pattern_str))
         }
       }
       println(label)
@@ -275,6 +265,129 @@ fn hl_print_hex(buf : @lib.HexBuffer, ctx : Int, clen : Int, match_off : Int, ma
 }
 
 ///|
+/// Base64 encode file.
+fn cmd_base64(argv : Array[String]) -> Unit {
+  let path = match find_file_arg(argv, "base64") { Some(p) => p; None => { println("Usage: base64 <file>"); return } }
+  match load_file(path) {
+    Err(m) => { println("Error: \{m}"); return }
+    Ok(buf) => { println(@lib.base64_encode(buf.to_bytes())) }
+  }
+}
+
+///|
+/// Base64 decode file/string.
+fn cmd_unbase64(argv : Array[String]) -> Unit {
+  let path = match find_file_arg(argv, "unbase64") { Some(p) => p; None => { println("Usage: unbase64 <file>"); return } }
+  match load_file(path) {
+    Err(m) => { println("Error: \{m}"); return }
+    Ok(buf) => {
+      let text = buf.to_bytes()
+      let sb = StringBuilder()
+      for i = 0; i < text.length(); i = i + 1 {
+        let b = text[i].to_int()
+        if b != 0x0A && b != 0x0D { match b.to_char() { Some(c) => sb.write_char(c); None => () } }
+      }
+      match @lib.base64_decode(sb.to_string()) {
+        Some(decoded) => {
+          try { @fs.write_bytes_to_file(path + ".decoded", decoded); println("Saved: " + path + ".decoded") }
+          catch { @fs.IOError::IOError(_) => println("Write error") }
+        }
+        None => println("Invalid Base64")
+      }
+    }
+  }
+}
+
+///|
+/// Unified encode command: encode <type> <file|string>
+fn cmd_encode(argv : Array[String]) -> Unit {
+  let enc_type = match find_file_arg(argv, "encode") {
+    Some(t) => t
+    None => { println("Usage: encode <base64|url|unicode|hex> <file|string>"); return }
+  }
+  let input = match find_second_arg(argv, "encode") {
+    Some(p) => p
+    None => { println("Usage: encode <base64|url|unicode|hex> <file|string>"); return }
+  }
+  let data = if @fs.path_exists(input) {
+    match load_file(input) {
+      Err(m) => { println("Error: \{m}"); return }
+      Ok(buf) => buf.to_bytes()
+    }
+  } else {
+    ascii_to_bytes(input)
+  }
+  let result = match enc_type {
+    "base64" => @lib.base64_encode(data)
+    "url" => @lib.url_encode(data)
+    "unicode" => @lib.unicode_encode(data)
+    "hex" => @lib.hex_encode(data)
+    _ => { println("Unknown type: \{enc_type}. Supported: base64, url, unicode, hex"); return }
+  }
+  println(result)
+}
+
+///|
+/// Unified decode command: decode <type> <file|string>
+fn cmd_decode(argv : Array[String]) -> Unit {
+  let dec_type = match find_file_arg(argv, "decode") {
+    Some(t) => t
+    None => { println("Usage: decode <base64|url|unicode|hex> <file|string>"); return }
+  }
+  let input = match find_second_arg(argv, "decode") {
+    Some(p) => p
+    None => { println("Usage: decode <base64|url|unicode|hex> <file|string>"); return }
+  }
+  let is_file = @fs.path_exists(input)
+  let text = if is_file {
+    match load_file(input) {
+      Err(m) => { println("Error: \{m}"); return }
+      Ok(buf) => {
+        let raw = buf.to_bytes()
+        let sb = StringBuilder()
+        for i = 0; i < raw.length(); i = i + 1 {
+          let b = raw[i].to_int()
+          if b != 0x0A && b != 0x0D {
+            match b.to_char() { Some(c) => sb.write_char(c); None => () }
+          }
+        }
+        sb.to_string()
+      }
+    }
+  } else {
+    input
+  }
+  let decoded : Bytes? = match dec_type {
+    "base64" => @lib.base64_decode(text)
+    "url" => @lib.url_decode(text)
+    "unicode" => @lib.unicode_decode(text)
+    "hex" => @lib.hex_decode(text)
+    _ => { println("Unknown type: \{dec_type}. Supported: base64, url, unicode, hex"); return }
+  }
+  match decoded {
+    Some(bytes) => {
+      if is_file {
+        try { @fs.write_bytes_to_file(input + ".decoded", bytes); println("Saved: " + input + ".decoded (\{bytes.length()} bytes)") }
+        catch { @fs.IOError::IOError(_) => println("Write error") }
+      } else {
+        let sb = StringBuilder()
+        for i = 0; i < bytes.length(); i = i + 1 {
+          let b = bytes[i].to_int()
+          if b >= 0x20 && b <= 0x7E {
+            sb.write_char(b.to_char().unwrap())
+          } else {
+            sb.write_string("\\x")
+            sb.write_string(@lib.format_byte_hex(bytes[i], uppercase=true))
+          }
+        }
+        println(sb.to_string())
+      }
+    }
+    None => println("Invalid \{dec_type} input")
+  }
+}
+
+///|
 /// Help.
 fn cmd_help() -> Unit {
   println("Hex Editor — TUI & CLI")
@@ -284,6 +397,12 @@ fn cmd_help() -> Unit {
   println("  moon run --target native cmd/main -- view <f>  Quick hex dump")
   println("  moon run --target native cmd/main -- info <f>  File info")
   println("  moon run --target native cmd/main -- search <f> <p>  Search")
+  println("")
+  println("Codec Commands:")
+  println("  encode <type> <file>   Encode file (base64/url/unicode/ascii)")
+  println("  decode <type> <file>   Decode file (base64/url/unicode/ascii)")
+  println("  base64 <file>          Shorthand: encode base64")
+  println("  unbase64 <file>        Shorthand: decode base64")
   println("")
   println("TUI Keys:")
   println("  UD/arrows   Scroll       g     Goto offset")

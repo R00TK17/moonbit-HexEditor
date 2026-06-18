@@ -3,6 +3,7 @@
 // Linux:   termios raw mode (persistent) + alternate screen
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #ifdef _WIN32
 #include <conio.h>
@@ -153,7 +154,7 @@ int tui_get_key(void) {
         FD_ZERO(&fds); FD_SET(STDIN_FILENO, &fds);
         tv.tv_sec = 0; tv.tv_usec = 50000;  // 50ms for sequence
         if (select(1, &fds, NULL, NULL, &tv) > 0) {
-            char seq[8];
+            char seq[16];
             ssize_t nseq = read(STDIN_FILENO, seq, sizeof(seq));
             if (nseq < 0) nseq = 0;
             if (nseq >= 1) {
@@ -308,22 +309,10 @@ void munmap_file(void* ptr, int size) {
 
 // Get file size via mmap (0 on failure)
 int mmap_file_size(const char* path) {
-    void* ptr = mmap_file(path, &(int){0});
+    int size = 0;
+    void* ptr = mmap_file(path, &size);
     if (!ptr) return 0;
-    int size;
-    // Re-read to get size
-    #ifdef _WIN32
-        HANDLE hFile = CreateFileA(path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-        if (hFile == INVALID_HANDLE_VALUE) { munmap_file(ptr, 0); return 0; }
-        size = (int)GetFileSize(hFile, NULL);
-        CloseHandle(hFile);
-    #else
-        struct stat st;
-        int fd = open(path, O_RDONLY);
-        fstat(fd, &st); close(fd);
-        size = (int)st.st_size;
-    #endif
-    munmap_file(ptr, 0);
+    munmap_file(ptr, size);
     return size;
 }
 
@@ -332,16 +321,8 @@ int mmap_file_size(const char* path) {
 int mmap_load(const char* path, unsigned char* buf) {
     int size = 0;
     void* ptr = mmap_file(path, &size);
-    if (!ptr || size <= 0) return 0;
-    #ifdef _WIN32
-        // Get actual size
-        HANDLE hFile = CreateFileA(path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-        if (hFile != INVALID_HANDLE_VALUE) { size = (int)GetFileSize(hFile, NULL); CloseHandle(hFile); }
-    #endif
-    // Copy from mmap into buffer
-    for (int i = 0; i < size && buf != NULL; i++) {
-        buf[i] = ((unsigned char*)ptr)[i];
-    }
+    if (!ptr || size <= 0 || !buf) return 0;
+    memcpy(buf, ptr, size);
     munmap_file(ptr, size);
     return size;
 }

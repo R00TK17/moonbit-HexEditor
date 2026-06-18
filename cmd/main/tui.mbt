@@ -112,12 +112,12 @@ pub fn run_tui(file_path : String?) -> Unit {
     let term_rows = tui_get_terminal_rows()
     let term_cols = tui_get_terminal_cols()
     let screen_rows = if term_rows > 6 { term_rows - 3 } else { 32 }
-    draw_screen(buffer, state.offset, state.msg, state.results, state.result_idx, state.match_len, state.edit_mode, state.edit_off, state.edit_ascii, state.struct_view, state.struct_offset, state.bookmark_view, state.bookmark_sel, state.bookmark_scroll, state.bookmarks, state.scan_view, state.scan_sel, state.scan_scroll, state.scan_offsets, state.scan_names, state.scan_sizes, state.entropy_view, state.entropy_sel, state.entropy_blocks, state.strings_view, state.strings_sel, state.strings_scroll, state.strings_matches, screen_rows, term_cols)
+    draw_screen(buffer, state.offset, state.msg, state.results, state.result_idx, state.match_len, state.edit_mode, state.edit_off, state.edit_ascii, state.struct_view, state.struct_offset, state.bookmark_view, state.bookmark_sel, state.bookmark_scroll, state.bookmarks, state.scan_view, state.scan_sel, state.scan_scroll, state.scan_offsets, state.scan_names, state.scan_sizes, state.entropy_view, state.entropy_sel, state.entropy_blocks, state.strings_view, state.strings_sel, state.strings_scroll, state.strings_matches, state.codec_view, state.codec_type, state.codec_encode, state.codec_input, state.codec_result, screen_rows, term_cols)
 
     let key = tui_get_key()
 
     // o/O: open file — handled here to reload buffer
-    if !state.edit_mode && !state.struct_view && !state.bookmark_view && !state.strings_view && (key == 'o'.to_int() || key == 'O'.to_int()) {
+    if !state.edit_mode && !state.struct_view && !state.bookmark_view && !state.strings_view && !state.codec_view && !state.scan_view && !state.entropy_view && (key == 'o'.to_int() || key == 'O'.to_int()) {
       let path = tui_read_line("Open file: ")
       if path != "" {
         match load_file_best(path) {

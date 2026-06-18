@@ -36,6 +36,10 @@ moon run --target native cmd/main -- struct <文件>    结构解析
 moon run --target native cmd/main -- strings <文件>   字符串提取
 moon run --target native cmd/main -- entropy <文件>   熵分析
 moon run --target native cmd/main -- scan <文件>      签名扫描
+moon run --target native cmd/main -- encode <类型> <文件>   编码 (base64/url/unicode/ascii)
+moon run --target native cmd/main -- decode <类型> <文件>   解码 (base64/url/unicode/ascii)
+moon run --target native cmd/main -- base64 <文件>          Base64 编码（别名）
+moon run --target native cmd/main -- unbase64 <文件>        Base64 解码（别名）
 ```
 
 ### 文件结构解析（16种格式）
@@ -109,8 +113,10 @@ hex_editor/
 ├── hex_view.mbt                 # 十六进制格式化、尺寸显示
 ├── hex_search.mbt               # Boyer-Moore-Horspool 搜索（find_all、parse_hex）
 ├── hex_struct.mbt               # 16+ 种文件格式解析器（JPEG/PNG/ZIP/PE/ELF...）
-├── hex_scan.mbt                 # 签名扫描（20 种格式）、熵分析、字符串提取
-├── hex_edit.mbt                 # 编辑辅助占位
+├── hex_scan.mbt                 # 签名扫描（20 种格式）、Aho-Corasick 自动机
+├── hex_strings.mbt              # 可打印 ASCII 字符串提取
+├── hex_entropy.mbt              # 香农熵分析（256 字节块）
+├── hex_codec.mbt                # 编解码：Base64、URL、Unicode、ASCII
 ├── hex_editor_test.mbt          # 单元测试
 ├── cmd/main/
 │   ├── main.mbt                 # CLI 入口（view/info/struct/strings/entropy/scan）

@@ -9,19 +9,6 @@ pub struct ScanMatch {
 } derive(Debug)
 
 ///|
-pub struct EntropyBlock {
-  start : Int
-  end : Int
-  entropy : Double
-} derive(Debug)
-
-///|
-pub struct StringMatch {
-  offset : Int
-  text : String
-} derive(Debug)
-
-///|
 /// Aho-Corasick automaton for multi-pattern matching
 priv struct AcNode {
   next : FixedArray[Int]    // transition to child node
@@ -154,7 +141,7 @@ pub fn scan_signatures(bytes : Bytes) -> Array[ScanMatch] {
       if trusted[i].name.contains("PNG image") && trusted[i].confidence < 3 { trusted[i].confidence = 3 }
     }
   }
-  if len >= 1 && read_str_at(bytes, 0, 3) == "GIF" && bytes[len-1].to_int() == 0x3B {
+  if len >= 3 && read_str_at(bytes, 0, 3) == "GIF" && bytes[len-1].to_int() == 0x3B {
     for i = 0; i < trusted.length(); i = i + 1 {
       if trusted[i].name.contains("GIF image") && trusted[i].confidence < 3 { trusted[i].confidence = 3 }
     }
@@ -382,51 +369,4 @@ fn guess_ext(name : String) -> String {
   else if name.contains("PE") { "exe" } else if name.contains("ELF") { "elf" }
   else if name.contains("PDF") { "pdf" } else if name.contains("SQLite") { "db" }
   else { "bin" }
-}
-
-pub fn find_strings(bytes : Bytes) -> Array[StringMatch] {
-  let len = bytes.length()
-  let results : Array[StringMatch] = []
-  let mut i = 0
-  while i < len {
-    while i < len {
-      let b = bytes[i].to_int()
-      if b >= 0x20 && b <= 0x7E { break }
-      i = i + 1
-    }
-    if i >= len { break }
-    let start = i
-    let sb = StringBuilder()
-    while i < len {
-      let b = bytes[i].to_int()
-      if b < 0x20 || b > 0x7E { break }
-      match b.to_char() { Some(c) => sb.write_char(c); None => () }
-      i = i + 1
-    }
-    let text = sb.to_string()
-    if text.length() >= 4 { results.push({ offset: start, text: text }) }
-  }
-  results
-}
-
-pub fn entropy_scan(bytes : Bytes) -> Array[EntropyBlock] {
-  let len = bytes.length(); let block_size = 256
-  let results : Array[EntropyBlock] = []; let mut off = 0
-  while off < len {
-    let end = if off + block_size < len { off + block_size } else { len }
-    let counts = FixedArray::make(256, 0)
-    for j = off; j < end; j = j + 1 { let idx = bytes[j].to_int(); counts[idx] = counts[idx] + 1 }
-    let n = (end - off).to_double(); let mut h = 0.0
-    for k = 0; k < 256; k = k + 1 { if counts[k] > 0 { let p = counts[k].to_double() / n; h = h - p * log2(p) } }
-    results.push({ start: off, end: end, entropy: h }); off = end
-  }
-  results
-}
-
-fn log2(x : Double) -> Double {
-  if x <= 0.0 || x >= 1.0 { 0.0 } else {
-    let y = (x - 1.0) / (x + 1.0); let y2 = y * y
-    let ln_x = 2.0 * y * (1.0 + y2 / 3.0 + y2 * y2 / 5.0 + y2 * y2 * y2 / 7.0)
-    ln_x / 0.69314718056
-  }
 }
