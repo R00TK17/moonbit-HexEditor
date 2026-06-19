@@ -33,3 +33,14 @@ pub fn find_strings(bytes : Bytes) -> Array[StringMatch] {
   }
   results
 }
+
+///|
+/// Format strings matches as plain text for export.
+pub fn format_strings_export(matches : Array[StringMatch]) -> String {
+  let sb = StringBuilder()
+  for i = 0; i < matches.length(); i = i + 1 {
+    sb.write_string("0x\{to_hex_string(matches[i].offset, width=8)}  \{matches[i].text}\n")
+  }
+  sb.write_string("\{matches.length()} strings found\n")
+  sb.to_string()
+}

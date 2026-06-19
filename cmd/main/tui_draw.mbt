@@ -1,4 +1,4 @@
-﻿// TUI screen rendering — draw_screen and highlight helpers
+// TUI screen rendering — draw_screen and highlight helpers
 
 ///|
 /// Split text into lines by newline.
@@ -86,6 +86,7 @@ fn draw_screen(
   edit_mode : Bool,
   edit_off : Int,
   edit_ascii : Bool,
+  insert_mode : Bool,
   select_mode : Bool,
   select_start : Int,
   struct_view : Bool,
@@ -259,10 +260,11 @@ fn draw_screen(
   // Help bar — 2 lines for long modes, 1 line for short ones
   let w = if term_cols > 4 { term_cols - 2 } else { 78 }
   if edit_mode {
-    let mode = if edit_ascii { "ASCII" } else { "Hex" }
+    let ins = if insert_mode { "Ins:ins" } else { "Ins:ovr" }
+    let tab = if edit_ascii { "Tab:ASCII" } else { "Tab:Hex" }
     let row1 = screen_rows + 2
     sb.write_string("\u001b[" + row1.to_string() + ";1H")
-    sb.write_string("\u001b[47;30m " + clip("Esc:exit Ins:ins/ovr Ctrl+Y:sel Tab:\{mode}  Del:delete", w) + " \u001b[0m\u001b[K")
+    sb.write_string("\u001b[47;30m " + clip("Esc:exit " + ins + " " + tab + " Ctrl+Y:sel Del:delete", w) + " \u001b[0m\u001b[K")
     let row2 = screen_rows + 3
     sb.write_string("\u001b[" + row2.to_string() + ";1H")
     sb.write_string("\u001b[47;30m " + clip("Ctrl+Z:undo Ctrl+R:redo Ctrl+N:copy Ctrl+L:paste Ctrl+X:save", w) + " \u001b[0m\u001b[K")
@@ -277,7 +279,7 @@ fn draw_screen(
   } else if strings_view {
     let row = screen_rows + 2
     sb.write_string("\u001b[" + row.to_string() + ";1H")
-    sb.write_string("\u001b[47;30m " + clip("q:quit  Enter:jump  s:close", w) + " \u001b[0m\u001b[K")
+    sb.write_string("\u001b[47;30m " + clip("q:quit Enter:jump e:export s:close", w) + " \u001b[0m\u001b[K")
   } else if codec_view {
     let row = screen_rows + 2
     sb.write_string("\u001b[" + row.to_string() + ";1H")
@@ -297,7 +299,7 @@ fn draw_screen(
   } else if struct_view {
     let row = screen_rows + 2
     sb.write_string("\u001b[" + row.to_string() + ";1H")
-    sb.write_string("\u001b[47;30m " + clip("q:quit  UD:scroll  LR:page  t:hex", w) + " \u001b[0m\u001b[K")
+    sb.write_string("\u001b[47;30m " + clip("q:quit UD:scroll LR:page e:export t:hex", w) + " \u001b[0m\u001b[K")
   } else {
     let row1 = screen_rows + 2
     sb.write_string("\u001b[" + row1.to_string() + ";1H")

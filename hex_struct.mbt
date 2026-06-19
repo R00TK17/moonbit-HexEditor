@@ -1065,3 +1065,62 @@ fn format_fields(fields : Array[StructField], indent : Int) -> String {
   }
   sb.to_string()
 }
+
+///|
+/// Escape a string for JSON output.
+fn json_escape(s : String) -> String {
+  let sb = StringBuilder()
+  for i = 0; i < s.length(); i = i + 1 {
+    let ch = s.get_char(i).unwrap()
+    if ch == '"' { sb.write_string("\\\"") }
+    else if ch == '\\' { sb.write_string("\\\\") }
+    else if ch == '\n' { sb.write_string("\\n") }
+    else if ch == '\r' { sb.write_string("\\r") }
+    else if ch == '\t' { sb.write_string("\\t") }
+    else { sb.write_char(ch) }
+  }
+  sb.to_string()
+}
+
+///|
+/// Format StructField array as JSON string.
+pub fn format_structure_json(fields : Array[StructField]) -> String {
+  let sb = StringBuilder()
+  sb.write_string("[\n")
+  format_fields_json(fields, sb, 1)
+  sb.write_string("]\n")
+  sb.to_string()
+}
+
+fn format_fields_json(fields : Array[StructField], sb : StringBuilder, depth : Int) -> Unit {
+  let pad = "  "
+  for i = 0; i < fields.length(); i = i + 1 {
+    let f = fields[i]
+    for _d = 0; _d < depth; _d = _d + 1 { sb.write_string(pad) }
+    sb.write_string("{\n")
+    for _d = 0; _d <= depth; _d = _d + 1 { sb.write_string(pad) }
+    sb.write_string("\"offset\": \"0x\{to_hex_string(f.offset, width=8)}\",\n")
+    for _d = 0; _d <= depth; _d = _d + 1 { sb.write_string(pad) }
+    sb.write_string("\"size\": \{f.size},\n")
+    for _d = 0; _d <= depth; _d = _d + 1 { sb.write_string(pad) }
+    sb.write_string("\"name\": \"\{json_escape(f.name)}\",\n")
+    for _d = 0; _d <= depth; _d = _d + 1 { sb.write_string(pad) }
+    sb.write_string("\"value\": \"\{json_escape(f.value)}\",\n")
+    for _d = 0; _d <= depth; _d = _d + 1 { sb.write_string(pad) }
+    sb.write_string("\"description\": \"\{json_escape(f.description)}\"")
+    if f.children.length() > 0 {
+      sb.write_string(",\n")
+      for _d = 0; _d <= depth; _d = _d + 1 { sb.write_string(pad) }
+      sb.write_string("\"children\": [\n")
+      format_fields_json(f.children, sb, depth + 2)
+      for _d = 0; _d <= depth; _d = _d + 1 { sb.write_string(pad) }
+      sb.write_string("]\n")
+    } else {
+      sb.write_string("\n")
+    }
+    for _d = 0; _d < depth; _d = _d + 1 { sb.write_string(pad) }
+    sb.write_string("}")
+    if i + 1 < fields.length() { sb.write_string(",") }
+    sb.write_string("\n")
+  }
+}

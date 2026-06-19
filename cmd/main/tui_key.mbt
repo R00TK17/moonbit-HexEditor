@@ -316,6 +316,13 @@ pub fn handle_key(
       state.strings_view = false
       state.msg = "String at 0x" + @lib.to_hex_string(m.offset, width=8)
     }
+  } else if state.strings_view && (key == 'e'.to_int() || key == 'E'.to_int()) {
+    let text = @lib.format_strings_export(state.strings_matches)
+    let base = match buffer.get_file_path() { Some(p) => p; None => "output" }
+    let path = base + ".strings.txt"
+    try { @fs.write_bytes_to_file(path, ascii_to_bytes(text)) }
+    catch { @fs.IOError::IOError(_) => () }
+    state.msg = "Exported: \{basename(path)}"
   } else if state.strings_view && (key == 's'.to_int() || key == 'S'.to_int() || key == 27) {
     state.strings_view = false; state.msg = "Hex view"
   } else if state.strings_view && (key == 'q'.to_int() || key == 'Q'.to_int()) {
@@ -354,6 +361,15 @@ pub fn handle_key(
     }
   } else if state.struct_view && key == -7 {
     state.struct_offset = 0
+  } else if state.struct_view && (key == 'e'.to_int() || key == 'E'.to_int()) {
+    let bytes = buffer.to_bytes()
+    let fields = @lib.parse_structure(bytes)
+    let json = @lib.format_structure_json(fields)
+    let base = match buffer.get_file_path() { Some(p) => p; None => "output" }
+    let path = base + ".struct.json"
+    try { @fs.write_bytes_to_file(path, ascii_to_bytes(json)) }
+    catch { @fs.IOError::IOError(_) => () }
+    state.msg = "Exported: \{basename(path)}"
   } else if state.struct_view && (key == 't'.to_int() || key == 'T'.to_int() || key == 27) {
     state.struct_view = false
     state.msg = "Hex view"
