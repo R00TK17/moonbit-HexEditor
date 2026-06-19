@@ -157,6 +157,9 @@ pub fn refresh_browser(state : TuiState) -> Unit {
   }
   state.browser_sel = 0
   state.browser_scroll = 0
+  if state.browser_names.length() <= 1 && n == 0 {
+    state.msg = "Cannot read directory: \{state.browser_path}"
+  }
 }
 
 ///|

@@ -96,7 +96,9 @@ fn hex(n : Int, width : Int) -> String {
 
 fn read_str(bytes : Bytes, off : Int, max : Int) -> String {
   let result = StringBuilder()
+  let len = bytes.length()
   for i = 0; i < max; i = i + 1 {
+    if off + i >= len { break }
     let b = bytes[off + i]
     if b == b'\x00' { break }
     if b.to_int() >= 32 && b.to_int() < 127 {

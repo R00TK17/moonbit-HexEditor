@@ -321,7 +321,7 @@ pub fn handle_key(
     let base = match buffer.get_file_path() { Some(p) => p; None => "output" }
     let path = base + ".strings.txt"
     try { @fs.write_bytes_to_file(path, ascii_to_bytes(text)) }
-    catch { @fs.IOError::IOError(_) => () }
+    catch { @fs.IOError::IOError(e) => { state.msg = "Export failed: \{e}"; return } }
     state.msg = "Exported: \{basename(path)}"
   } else if state.strings_view && (key == 's'.to_int() || key == 'S'.to_int() || key == 27) {
     state.strings_view = false; state.msg = "Hex view"
@@ -368,7 +368,7 @@ pub fn handle_key(
     let base = match buffer.get_file_path() { Some(p) => p; None => "output" }
     let path = base + ".struct.json"
     try { @fs.write_bytes_to_file(path, ascii_to_bytes(json)) }
-    catch { @fs.IOError::IOError(_) => () }
+    catch { @fs.IOError::IOError(e) => { state.msg = "Export failed: \{e}"; return } }
     state.msg = "Exported: \{basename(path)}"
   } else if state.struct_view && (key == 't'.to_int() || key == 'T'.to_int() || key == 27) {
     state.struct_view = false
