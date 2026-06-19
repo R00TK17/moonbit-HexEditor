@@ -11,7 +11,9 @@ A terminal-based hex editor and binary file analyzer written in MoonBit, featuri
   - Hex wildcards: `??` any byte, `*` any length, `*N` skip N bytes (e.g. `FF ?? 00`, `89 *3 0D 0A`)
   - Text wildcards: `?` any char, `*` any length, `*N` skip N chars, `\` escape (e.g. `He*ld`, `\?`)
 - Highlighting: current match (green), other matches (yellow), edit cursor (inverse)
-- Edit mode: hex/ASCII input, insert, delete, undo/redo (`Ctrl+Z`/`Ctrl+Y`) with depth display, save (`Ctrl+X`)
+- Edit mode: hex/ASCII input, `Ins` toggle insert/overwrite, delete, undo/redo (`Ctrl+Z`/`Ctrl+R`), save (`Ctrl+X`)
+  - Visual selection: `Ctrl+Y` start/cancel, `Ctrl+N` copy, `Ctrl+L` paste (compound undo)
+  - Gap Buffer: O(1) insert/delete at cursor, gap = file allocation / 16
 - Structure view: parsed file structure with scrollable display
 - Bookmarks: 21 slots (0-20), popup list with auto-scroll, `Ctrl+B` set, `#N` goto, **persistent** (auto save/load to `~/.hexedit/`)
 - Signature scan: `w` key, 20 formats with per-signature validation, confidence filtering, cached results
@@ -85,12 +87,12 @@ moon run --target native cmd/main                  # empty start
 | `g` | Goto / #N bookmark | `Ins` | Insert/Overwrite toggle |
 | `/` | Hex search | `Del` | Delete byte |
 | `f` | Text search | `Ctrl+Z` | Undo |
-| `n` | Next match | `Ctrl+Y` | Redo |
+| `n` | Next match | `Ctrl+R` | Redo |
 | `p` | Prev match | `Ctrl+X` | Save |
-| `e` | Edit mode | | |
-| `t` | Struct view | `Ctrl+B` | Set bookmark |
-| `b` | Bookmark list | | |
-| `w` | Signature scan | | |
+| `e` | Edit mode | `Ctrl+Y` | Select |
+| `t` | Struct view | `Ctrl+N` | Copy |
+| `b` | Bookmark list | `Ctrl+L` | Paste |
+| `w` | Signature scan | `Ctrl+B` | Set bookmark |
 | `h` | Entropy analysis | | |
 | `s` | Strings extraction | | |
 | `c` | Codec (encode/decode) | | |

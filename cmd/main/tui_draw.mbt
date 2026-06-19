@@ -86,6 +86,8 @@ fn draw_screen(
   edit_mode : Bool,
   edit_off : Int,
   edit_ascii : Bool,
+  select_mode : Bool,
+  select_start : Int,
   struct_view : Bool,
   struct_offset : Int,
   bookmark_view : Bool,
@@ -175,6 +177,9 @@ fn draw_screen(
       build_match_bitmap(search_results[search_idx], match_len, match_lens, search_idx, offset, vis_size, len)
     } else { FixedArray::make(vis_size, false) }
 
+    let sel_lo = if select_mode && edit_mode { if select_start < edit_off { select_start } else { edit_off } } else { -1 }
+    let sel_hi = if select_mode && edit_mode { if select_start > edit_off { select_start } else { edit_off } } else { -1 }
+
     for row = 0; row < display_rows; row = row + 1 {
       let row_off = offset + row * 16
       if row_off >= len { break }
@@ -196,12 +201,14 @@ fn draw_screen(
           let is_edit = edit_mode && byte_off == edit_off
           let is_cur = !is_edit && bi < vis_size && highlight_cur[bi]
           let is_hl = !is_edit && !is_cur && bi < vis_size && highlight_all[bi]
+          let is_sel = !is_edit && !is_cur && !is_hl && byte_off >= sel_lo && byte_off <= sel_hi
           if is_edit { sb.write_string("\u001b[7m") }
           else if is_cur { sb.write_string("\u001b[42;30m") }
           else if is_hl { sb.write_string("\u001b[43;30m") }
+          else if is_sel { sb.write_string("\u001b[45;37m") }
           let hex = @lib.format_byte_hex(byte, uppercase=true)
           sb.write_string(hex)
-          if is_edit || is_cur || is_hl { sb.write_string("\u001b[0m") }
+          if is_edit || is_cur || is_hl || is_sel { sb.write_string("\u001b[0m") }
           sb.write_string(" ")
         } else {
           sb.write_string("   ")
@@ -217,14 +224,16 @@ fn draw_screen(
           let is_edit = edit_mode && byte_off == edit_off
           let is_cur = !is_edit && bi < vis_size && highlight_cur[bi]
           let is_hl = !is_edit && !is_cur && bi < vis_size && highlight_all[bi]
+          let is_sel = !is_edit && !is_cur && !is_hl && byte_off >= sel_lo && byte_off <= sel_hi
           if is_edit { sb.write_string("\u001b[7m") }
           else if is_cur { sb.write_string("\u001b[42;30m") }
           else if is_hl { sb.write_string("\u001b[43;30m") }
+          else if is_sel { sb.write_string("\u001b[45;37m") }
           let a = @lib.format_ascii(byte)
           let s = StringBuilder()
           s.write_char(a)
           sb.write_string(s.to_string())
-          if is_edit || is_cur || is_hl { sb.write_string("\u001b[0m") }
+          if is_edit || is_cur || is_hl || is_sel { sb.write_string("\u001b[0m") }
         } else {
           sb.write_string(" ")
         }
@@ -258,10 +267,10 @@ fn draw_screen(
     let mode = if edit_ascii { "ASCII" } else { "Hex" }
     let row1 = screen_rows + 2
     sb.write_string("\u001b[" + row1.to_string() + ";1H")
-    sb.write_string("\u001b[47;30m " + clip("Esc:exit Ins:ins/ovr Tab:\{mode}  Del:delete", w) + " \u001b[0m\u001b[K")
+    sb.write_string("\u001b[47;30m " + clip("Esc:exit Ins:ins/ovr Ctrl+Y:sel Tab:\{mode}  Del:delete", w) + " \u001b[0m\u001b[K")
     let row2 = screen_rows + 3
     sb.write_string("\u001b[" + row2.to_string() + ";1H")
-    sb.write_string("\u001b[47;30m " + clip("Ctrl+Z:undo Ctrl+Y:redo  Ctrl+X:save", w) + " \u001b[0m\u001b[K")
+    sb.write_string("\u001b[47;30m " + clip("Ctrl+Z:undo Ctrl+R:redo Ctrl+N:copy Ctrl+L:paste Ctrl+X:save", w) + " \u001b[0m\u001b[K")
   } else if scan_view {
     let row = screen_rows + 2
     sb.write_string("\u001b[" + row.to_string() + ";1H")

@@ -24,6 +24,9 @@ struct TuiState {
   mut edit_ascii : Bool
   mut edit_modified : Bool
   mut insert_mode : Bool
+  mut select_mode : Bool
+  mut select_start : Int
+  clipboard : Array[Byte]
   mut esc_pending : Bool
   mut struct_view : Bool
   mut struct_offset : Int
@@ -87,6 +90,8 @@ pub fn TuiState::new(file_path : String?, buffer : @lib.HexBuffer) -> TuiState {
     edit_ascii: false,
     edit_modified: false,
     insert_mode: false,
+    select_mode: false, select_start: 0,
+    clipboard: [],
     esc_pending: false,
     struct_view: false,
     struct_offset: 0,
@@ -367,6 +372,7 @@ pub fn handle_key(
       state.edit_mode = false
       state.edit_modified = false
       state.insert_mode = false
+      state.select_mode = false
       state.esc_pending = false
       state.undo_stack = []
       state.redo_stack = []
@@ -404,7 +410,7 @@ pub fn handle_key(
     state.edit_modified = true
     state.esc_pending = false
     let old = match buffer.get_byte(state.edit_off) { Some(b) => b; None => b'\x00' }
-    state.undo_stack.push({ kind: 2, offset: state.edit_off, old_byte: old })
+    state.undo_stack.push(undo_op(2, state.edit_off, old))
     state.redo_stack = []; state.scan_done = false; state.strings_done = false; state.entropy_done = false
     buffer.delete_byte(state.edit_off) |> ignore
     if state.edit_off >= buffer.length() && state.edit_off > 0 { state.edit_off = state.edit_off - 1 }
@@ -417,11 +423,15 @@ pub fn handle_key(
     state.insert_mode = !state.insert_mode
     state.msg = if state.insert_mode { "Insert mode" } else { "Overwrite mode" }
 
+  } else if state.edit_mode && key == 25 { // Ctrl+Y: toggle selection
+    if state.select_mode { state.select_mode = false; state.msg = "Selection cancelled" }
+    else { state.select_mode = true; state.select_start = state.edit_off; state.msg = "Selection started (Ctrl+N to copy)" }
+
   } else if state.edit_mode && !state.edit_ascii && key >= '0'.to_int() && key <= '9'.to_int() {
     state.edit_modified = true; state.esc_pending = false; state.redo_stack = []; state.scan_done = false; state.strings_done = false; state.entropy_done = false
     if state.insert_mode && state.edit_nibble is None {
       buffer.insert_byte(state.edit_off, b'\x00') |> ignore
-      state.undo_stack.push({ kind: 1, offset: state.edit_off, old_byte: b'\x00' })
+      state.undo_stack.push(undo_op(1, state.edit_off, b'\x00'))
     }
     let (new_off, new_nib, new_msg, undo) = handle_hex_input(buffer, state.edit_off, state.edit_nibble, key)
     state.edit_off = new_off; state.edit_nibble = new_nib
@@ -432,7 +442,7 @@ pub fn handle_key(
     state.edit_modified = true; state.esc_pending = false; state.redo_stack = []; state.scan_done = false; state.strings_done = false; state.entropy_done = false
     if state.insert_mode && state.edit_nibble is None {
       buffer.insert_byte(state.edit_off, b'\x00') |> ignore
-      state.undo_stack.push({ kind: 1, offset: state.edit_off, old_byte: b'\x00' })
+      state.undo_stack.push(undo_op(1, state.edit_off, b'\x00'))
     }
     let (new_off, new_nib, new_msg, undo) = handle_hex_input(buffer, state.edit_off, state.edit_nibble, key)
     state.edit_off = new_off; state.edit_nibble = new_nib
@@ -443,7 +453,7 @@ pub fn handle_key(
     state.edit_modified = true; state.esc_pending = false; state.redo_stack = []; state.scan_done = false; state.strings_done = false; state.entropy_done = false
     if state.insert_mode && state.edit_nibble is None {
       buffer.insert_byte(state.edit_off, b'\x00') |> ignore
-      state.undo_stack.push({ kind: 1, offset: state.edit_off, old_byte: b'\x00' })
+      state.undo_stack.push(undo_op(1, state.edit_off, b'\x00'))
     }
     let lower = key + ('a'.to_int() - 'A'.to_int())
     let (new_off, new_nib, new_msg, undo) = handle_hex_input(buffer, state.edit_off, state.edit_nibble, lower)
@@ -455,10 +465,10 @@ pub fn handle_key(
     state.edit_modified = true; state.esc_pending = false; state.edit_nibble = None; state.redo_stack = []; state.scan_done = false; state.strings_done = false; state.entropy_done = false
     if state.insert_mode {
       buffer.insert_byte(state.edit_off, b'\x00') |> ignore
-      state.undo_stack.push({ kind: 1, offset: state.edit_off, old_byte: b'\x00' })
+      state.undo_stack.push(undo_op(1, state.edit_off, b'\x00'))
     }
     let old = match buffer.get_byte(state.edit_off) { Some(b) => b; None => b'\x00' }
-    state.undo_stack.push({ kind: 0, offset: state.edit_off, old_byte: old })
+    state.undo_stack.push(undo_op(0, state.edit_off, old))
     let ch = key.to_char().unwrap()
     buffer.set_byte(state.edit_off, ch.to_int().to_byte()) |> ignore
     state.msg = "Set '\{ch}' (0x\{@lib.format_byte_hex(ch.to_int().to_byte())})\{depth_suffix(state.undo_stack.length(), state.redo_stack.length())}"
@@ -478,16 +488,74 @@ pub fn handle_key(
           state.msg = "Undo: restored 0x\{@lib.format_byte_hex(op.old_byte)}\{depth}"
         } else if op.kind == 1 {
           state.msg = "Undo: removed insertion\{depth}"
-        } else {
+        } else if op.kind == 2 {
           state.msg = "Undo: restored deleted byte\{depth}"
+        } else {
+          state.msg = "Undo: paste reverted (\{op.count} bytes)\{depth}"
         }
         state.edit_off = op.offset
         state.edit_modified = state.undo_stack.length() > 0
       }
     }
 
-  // Ctrl+Y: Redo
-  } else if state.edit_mode && key == 25 {
+  // Ctrl+N: Copy selection
+  } else if state.edit_mode && key == 14 {
+    if state.select_mode {
+      let s = if state.select_start < state.edit_off { state.select_start } else { state.edit_off }
+      let e = if state.select_start > state.edit_off { state.select_start } else { state.edit_off }
+      state.clipboard.clear()
+      for i = s; i <= e; i = i + 1 {
+        match buffer.get_byte(i) { Some(b) => state.clipboard.push(b); None => () }
+      }
+      let n = state.clipboard.length()
+      state.select_mode = false
+      if state.edit_ascii {
+        let sb = StringBuilder()
+        for i = 0; i < n && i < 20; i = i + 1 {
+          let b = state.clipboard[i].to_int()
+          if b >= 0x20 && b <= 0x7E { sb.write_char(b.to_char().unwrap()) } else { sb.write_char('.') }
+        }
+        state.msg = "Copied \{n} bytes: \{sb.to_string()}"
+      } else {
+        let sb = StringBuilder()
+        for i = 0; i < n && i < 8; i = i + 1 {
+          if i > 0 { sb.write_char(' ') }
+          sb.write_string(@lib.format_byte_hex(state.clipboard[i], uppercase=true))
+        }
+        if n > 8 { sb.write_string(" ...") }
+        state.msg = "Copied \{n} bytes: \{sb.to_string()}"
+      }
+    } else {
+      state.msg = "No selection (Ctrl+Y to select)"
+    }
+
+  // Ctrl+L: Paste (single compound undo op)
+  } else if state.edit_mode && key == 12 {
+    let n = state.clipboard.length()
+    if n > 0 {
+      state.edit_modified = true; state.esc_pending = false
+      state.redo_stack = []; state.scan_done = false; state.strings_done = false; state.entropy_done = false
+      if state.insert_mode {
+        for i = 0; i < n; i = i + 1 {
+          buffer.insert_byte(state.edit_off + i, state.clipboard[i]) |> ignore
+        }
+        state.undo_stack.push({ kind: 4, offset: state.edit_off, old_byte: b'\x00', old_bytes: [], count: n })
+      } else {
+        let old_bytes : Array[Byte] = []
+        for i = 0; i < n; i = i + 1 {
+          if state.edit_off + i < buffer.length() {
+            let old = match buffer.get_byte(state.edit_off + i) { Some(b) => b; None => b'\x00' }
+            old_bytes.push(old)
+            buffer.set_byte(state.edit_off + i, state.clipboard[i]) |> ignore
+          }
+        }
+        state.undo_stack.push({ kind: 3, offset: state.edit_off, old_byte: b'\x00', old_bytes, count: old_bytes.length() })
+      }
+      state.msg = "Pasted \{n} bytes\{depth_suffix(state.undo_stack.length(), state.redo_stack.length())}"
+    } else { state.msg = "Clipboard empty" }
+
+  // Ctrl+R: Redo
+  } else if state.edit_mode && key == 18 {
     let (new_redo, popped) = pop_last(state.redo_stack)
     match popped {
       None => state.msg = "Nothing to redo (undo:\{state.undo_stack.length()} redo:0)"
