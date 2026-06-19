@@ -67,6 +67,16 @@ static void enable_ansi(void) {
     SetConsoleCP(65001);
     ansi_ok = 1;
 }
+
+// Init console for CLI (UTF-8 output without full TUI setup)
+void tui_init_console(void) {
+    enable_ansi();
+}
+#endif
+
+// Linux: no-op console init
+#ifndef _WIN32
+void tui_init_console(void) {}
 #endif
 
 // ====== Alternate screen buffer ======
@@ -132,6 +142,7 @@ int tui_get_key(void) {
                     case 73: return -5; case 81: return -6;
                     case 71: return -7; case 79: return -8;
                     case 83: return -9;
+                    case 82: return -11;
                     default: break;
                 }
             }
@@ -180,7 +191,7 @@ int tui_get_key(void) {
                         if (pos < nseq && seq[pos] == '~') {
                             switch (num) {
                                 case 1: case 7: return -7;
-                                case 2: case 3: return -9;
+                                case 2: return -11; case 3: return -9;
                                 case 4: case 8: return -8;
                                 case 5: return -5; case 6: return -6;
                                 default: break;

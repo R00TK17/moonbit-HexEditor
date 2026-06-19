@@ -82,7 +82,7 @@ moon run --target native cmd/main                  # empty start
 | `↑↓` | Line scroll | `↑↓←→` | Move cursor |
 | `←→` | Page up/down | `0-9 a-f` | Hex input |
 | `Home/End` | Start/end | `Tab` | Hex/ASCII mode |
-| `g` | Goto / #N bookmark | `i` | Insert byte |
+| `g` | Goto / #N bookmark | `Ins` | Insert/Overwrite toggle |
 | `/` | Hex search | `Del` | Delete byte |
 | `f` | Text search | `Ctrl+Z` | Undo |
 | `n` | Next match | `Ctrl+Y` | Redo |

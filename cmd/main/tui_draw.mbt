@@ -259,7 +259,7 @@ fn draw_screen(
     let mode = if edit_ascii { "ASCII" } else { "Hex" }
     let row1 = screen_rows + 2
     sb.write_string("\u001b[" + row1.to_string() + ";1H")
-    sb.write_string("\u001b[47;30m " + clip("Esc:exit Tab:\{mode}  i:insert Del:delete", w) + " \u001b[0m\u001b[K")
+    sb.write_string("\u001b[47;30m " + clip("Esc:exit Ins:ins/ovr Tab:\{mode}  Del:delete", w) + " \u001b[0m\u001b[K")
     let row2 = screen_rows + 3
     sb.write_string("\u001b[" + row2.to_string() + ";1H")
     sb.write_string("\u001b[47;30m " + clip("Ctrl+Z:undo Ctrl+Y:redo  Ctrl+X:save", w) + " \u001b[0m\u001b[K")

@@ -3,6 +3,7 @@
 /// Shared helpers in helpers.mbt, TUI in tui.mbt + tui_draw.mbt + tui_edit.mbt
 
 fn main {
+  tui_init_console()
   let argv = get_argv()
   if argv.length() == 0 {
     run_tui(None)

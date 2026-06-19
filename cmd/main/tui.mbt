@@ -5,6 +5,7 @@
 ///|
 /// FFI declarations
 extern "C" fn tui_get_key() -> Int = "tui_get_key"
+extern "C" fn tui_init_console() -> Unit = "tui_init_console"
 extern "C" fn tui_clear_screen() -> Unit = "tui_clear_screen"
 extern "C" fn tui_hide_cursor() -> Unit = "tui_hide_cursor"
 extern "C" fn tui_show_cursor() -> Unit = "tui_show_cursor"

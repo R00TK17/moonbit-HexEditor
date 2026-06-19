@@ -195,9 +195,33 @@ fn search_with_tokens(data : Bytes, tokens : Array[Int]) -> (Array[Int], Array[I
     let pat_len = tokens.length()
     let offsets : Array[Int] = []
     let dlen = data.length()
-    for i = 0; i <= dlen - pat_len; i = i + 1 {
-      if match_seg(data, i, tokens) { offsets.push(i) }
-      if offsets.length() >= 2000 { break }
+    if pat_len <= 62 {
+      // Shift-Or bit-parallel: O(n) for wildcard patterns
+      let mask = FixedArray::make(256, -1) // all bits 1 = no match
+      for i = 0; i < pat_len; i = i + 1 {
+        let clear = (-1) ^ (1 << i)
+        if tokens[i] == -1 {
+          // ?? wildcard: accept all byte values at this position
+          for c = 0; c < 256; c = c + 1 { mask[c] = mask[c] & clear }
+        } else {
+          mask[tokens[i]] = mask[tokens[i]] & clear
+        }
+      }
+      let accept = 1 << (pat_len - 1)
+      let mut state = -1
+      for i = 0; i < dlen; i = i + 1 {
+        state = (state << 1) | mask[data[i].to_int()]
+        if (state & accept) == 0 {
+          offsets.push(i - pat_len + 1)
+          if offsets.length() >= 2000 { break }
+        }
+      }
+    } else {
+      // Fallback: sliding window for patterns > 62 bytes
+      for i = 0; i <= dlen - pat_len; i = i + 1 {
+        if match_seg(data, i, tokens) { offsets.push(i) }
+        if offsets.length() >= 2000 { break }
+      }
     }
     let lens : Array[Int] = []
     for _i = 0; _i < offsets.length(); _i = _i + 1 { lens.push(pat_len) }
