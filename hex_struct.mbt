@@ -47,6 +47,12 @@ pub fn parse_structure(bytes : Bytes) -> Array[StructField] {
   if len >= 4 && bytes[0] == b'\x7F' && bytes[1] == b'E' && bytes[2] == b'L' && bytes[3] == b'F' {
     return parse_elf(bytes)
   }
+  // GZip
+  if len >= 10 && bytes[0].to_int() == 0x1F && bytes[1].to_int() == 0x8B { return parse_gzip(bytes) }
+  // 7z
+  if len >= 12 && bytes[0].to_int() == 0x37 && bytes[1].to_int() == 0x7A && bytes[2].to_int() == 0xBC { return parse_7z(bytes) }
+  // BZip2
+  if len >= 10 && bytes[0].to_int() == 0x42 && bytes[1].to_int() == 0x5A && bytes[2].to_int() == 0x68 { return parse_bzip2(bytes) }
   return []
 }
 
@@ -1123,4 +1129,62 @@ fn format_fields_json(fields : Array[StructField], sb : StringBuilder, depth : I
     if i + 1 < fields.length() { sb.write_string(",") }
     sb.write_string("\n")
   }
+}
+
+// ========== Additional Format Parsers ==========
+
+fn parse_gzip(bytes : Bytes) -> Array[StructField] {
+  let len = bytes.length()
+  let fields : Array[StructField] = []
+  fields.push(field(0, 2, "GZip Magic", "1F 8B", "GZip signature"))
+  let cm = bytes[2].to_int()
+  fields.push(field(2, 1, "Method", "\{cm}", if cm == 8 { "Deflate" } else { "Unknown" }))
+  let flags = bytes[3].to_int()
+  let mut flag_str = ""
+  if (flags & 0x01) != 0 { flag_str = flag_str + "TEXT " }
+  if (flags & 0x04) != 0 { flag_str = flag_str + "EXTRA " }
+  if (flags & 0x08) != 0 { flag_str = flag_str + "NAME " }
+  if (flags & 0x10) != 0 { flag_str = flag_str + "COMMENT " }
+  if flag_str == "" { flag_str = "None" }
+  fields.push(field(3, 1, "Flags", "0x\{hex(flags, 2)}", flag_str))
+  let mtime = read_u32_le(bytes, 4)
+  fields.push(field(4, 4, "Modification Time", "\{mtime}", "Unix timestamp"))
+  let os = bytes[9].to_int()
+  let os_name = match os { 0 => "FAT"; 3 => "Unix"; 7 => "Macintosh"; 11 => "NTFS"; 255 => "Unknown"; _ => "OS \{os}" }
+  fields.push(field(9, 1, "OS", "\{os}", os_name))
+  if (flags & 0x08) != 0 && len > 10 {
+    let name = read_str(bytes, 10, 256)
+    fields.push(field(10, name.length(), "Original Name", name, "Original filename"))
+  }
+  if len >= 8 {
+    let orig_size = read_u32_le(bytes, len - 4)
+    fields.push(field(len - 4, 4, "Original Size", "\{orig_size} bytes", format_size(orig_size)))
+  }
+  fields.push(field(0, len, "Compressed Size", "\{len} bytes", format_size(len)))
+  fields
+}
+
+fn parse_7z(bytes : Bytes) -> Array[StructField] {
+  let fields : Array[StructField] = []
+  fields.push(field(0, 6, "7z Signature", "37 7A BC AF 27 1C", "7-Zip archive"))
+  let major = bytes[6].to_int()
+  let minor = bytes[7].to_int()
+  fields.push(field(6, 2, "Version", "\{major}.\{minor}", "Archive version"))
+  let header_crc = read_u32_le(bytes, 8)
+  fields.push(field(8, 4, "Header CRC", "0x\{hex(header_crc, 8)}", "Start header CRC32"))
+  let next_offset = read_u32_le(bytes, 12)
+  fields.push(field(12, 8, "Next Header Offset", "0x\{hex(next_offset, 8)}", "Offset to main header"))
+  fields.push(field(0, bytes.length(), "File Size", "\{bytes.length()} bytes", format_size(bytes.length())))
+  fields
+}
+
+fn parse_bzip2(bytes : Bytes) -> Array[StructField] {
+  let fields : Array[StructField] = []
+  fields.push(field(0, 2, "BZip2 Magic", "BZ", "BZip2 signature"))
+  let ver = bytes[2].to_int()
+  fields.push(field(2, 1, "Version", "h", if ver == 0x68 { "Huffman coding" } else { "Unknown" }))
+  let block = bytes[3].to_int() - 0x30
+  fields.push(field(3, 1, "Block Size", "\{block * 100} KB", "100K x \{block}"))
+  fields.push(field(0, bytes.length(), "File Size", "\{bytes.length()} bytes", format_size(bytes.length())))
+  fields
 }

@@ -16,14 +16,11 @@ A terminal-based hex editor and binary file analyzer written in MoonBit, featuri
   - Gap Buffer: O(1) insert/delete at cursor, gap = file allocation / 16
 - Structure view: parsed file structure with scrollable display
 - Bookmarks: 21 slots (0-20), popup list with auto-scroll, `Ctrl+B` set, `#N` goto, **persistent** (auto save/load to `~/.hexedit/`)
-- Signature scan: `w` key, 20 formats with per-signature validation, confidence filtering, cached results
+- Signature scan: `w` key, 14 formats with per-signature validation, confidence filtering, cached results
   - **Image:** JPEG, PNG, GIF, BMP
-  - **Archive:** ZIP, RAR, 7z, GZip, Zlib, BZip2
+  - **Archive:** ZIP, RAR, 7z, GZip, Zlib, BZip2, TAR
   - **Executable:** PE (exe/dll), ELF
-  - **Document:** PDF, XML
-  - **Crypto:** OpenSSL, PEM, LUKS, GPG
   - **Audio:** WAV
-  - **Database:** SQLite3
 - Scan result caching: `w`/`s`/`h` save position when re-opened, auto-clear on edits
 - Entropy analysis: `h` key, 256-byte blocks, Shannon entropy with color-coded bars
 - Strings extraction: `s` key, printable ASCII sequences >= 4 chars, with caching, jump-to-offset and highlight
@@ -50,14 +47,14 @@ moon run --target native cmd/main -- base64 <file>       Base64 encode (alias)
 moon run --target native cmd/main -- unbase64 <file>     Base64 decode (alias)
 ```
 
-### Structure Parser (16 Formats)
+### Structure Parser (19 Formats)
 
 | Category | Formats |
 |----------|---------|
 | Image | JPEG, PNG, GIF, BMP |
 | Audio | WAV, FLAC, MP3, OGG |
 | Video | AVI, MP4, WebM/MKV |
-| Archive | ZIP, RAR, TAR, ZLIB |
+| Archive | ZIP, RAR, TAR, ZLIB, GZip, 7z, BZip2 |
 | Executable | PE, ELF |
 
 Parsed details: dimensions (image/video), sample rate/channels (audio), compression method & filenames (archive), section tables (executable), encryption detection (ZIP/RAR).

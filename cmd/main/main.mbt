@@ -97,11 +97,11 @@ fn cmd_info(argv : Array[String]) -> Unit {
 fn cmd_search(argv : Array[String]) -> Unit {
   let path = match find_file_arg(argv, "search") {
     Some(p) => p
-    None => { println("Usage: search [-x|-a] <file> <pattern>"); return }
+    None => { println("Usage: search [-x|-a] <file> <pattern>  (hex: ?? * *N | text: ? * \\)"); return }
   }
   let pattern_str = match find_second_arg(argv, "search") {
     Some(p) => p
-    None => { println("Usage: search [-x|-a] <file> <pattern>"); return }
+    None => { println("Usage: search [-x|-a] <file> <pattern>  (hex: ?? * *N | text: ? * \\)"); return }
   }
   let force_hex = has_flag(argv, "-x") || has_flag(argv, "--hex")
   let force_text = has_flag(argv, "-a") || has_flag(argv, "--text")
@@ -398,22 +398,25 @@ fn cmd_decode(argv : Array[String]) -> Unit {
 fn cmd_help() -> Unit {
   println("Hex Editor — TUI & CLI")
   println("")
-  println("  moon run --target native cmd/main              Start TUI mode")
-  println("  moon run --target native cmd/main -- <file>    Open file in TUI")
-  println("  moon run --target native cmd/main -- view <f>  Quick hex dump")
-  println("  moon run --target native cmd/main -- info <f>  File info")
-  println("  moon run --target native cmd/main -- search <f> <p>  Search")
+  println("Commands:")
+  println("  view [-b 8|16] <file>         Hex dump")
+  println("  info <file>                   File info + type detection")
+  println("  search [-x|-a] <file> <pat>   Search (wildcards: ?? * *N ? \\)")
+  println("  struct <file>                 Structure analysis")
+  println("  strings <file>                String extraction")
+  println("  entropy <file>                Entropy analysis")
+  println("  scan <file>                   Signature scan")
+  println("  encode <type> <file|string>   Encode (base64/url/unicode/hex)")
+  println("  decode <type> <file|string>   Decode (base64/url/unicode/hex)")
+  println("  help                          This help")
   println("")
-  println("Codec Commands:")
-  println("  encode <type> <file>   Encode file (base64/url/unicode/ascii)")
-  println("  decode <type> <file>   Decode file (base64/url/unicode/ascii)")
-  println("  base64 <file>          Shorthand: encode base64")
-  println("  unbase64 <file>        Shorthand: decode base64")
+  println("Search Wildcards:")
+  println("  Hex (/):  ?? any byte, * any length, *N skip N bytes")
+  println("  Text (f): ?  any char, * any length, *N skip N, \\\\ escape")
   println("")
   println("TUI Keys:")
-  println("  UD/arrows   Scroll       g     Goto offset")
-  println("  LR          Page U/D     /     Hex search")
-  println("  f           Text search  n/N   Next/prev match")
-  println("  e           Edit mode    Esc   Exit edit")
-  println("  q           Quit")
+  println("  q:quit  o:open  g:goto  e:edit  /:hex  f:text  n/p:match")
+  println("  t:struct  w:scan  s:strings  h:entropy  c:codec  Tab:files")
+  println("  Edit: Ins:ins/ovr  Ctrl+Y:sel  Ctrl+N:copy  Ctrl+L:paste")
+  println("        Ctrl+Z:undo  Ctrl+R:redo  Ctrl+X:save  Del:delete")
 }

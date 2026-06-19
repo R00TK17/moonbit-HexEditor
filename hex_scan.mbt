@@ -82,13 +82,6 @@ pub fn scan_signatures(bytes : Bytes) -> Array[ScanMatch] {
     b"\x42\x5A\x68",                         // BZip2
     b"\x4D\x5A",                             // PE (exe/dll)
     b"\x7F\x45\x4C\x46",                     // ELF
-    b"\x25\x50\x44\x46",                     // PDF
-    b"\x3C\x3F\x78\x6D",                     // XML
-    b"\x2D\x2D\x2D\x2D",                     // PEM
-    b"\x53\x61\x6C\x74\x65\x64\x5F\x5F",     // OpenSSL
-    b"\x53\x51\x4C\x69",                     // SQLite
-    b"\x4C\x55\x4B\x53",                     // LUKS
-    b"\xA3\x01",                             // GPG
     b"\x75\x73\x74\x61\x72",                 // TAR (ustar)
   ]
   let (nodes, ac_pats) = build_ac(magics)
@@ -242,43 +235,11 @@ fn validate_elf(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
   Some({ offset: off, name: "ELF executable", size: 0, confidence: 3 })
 }
 
-fn validate_pdf(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
-  guard off + 9 <= _len && read_str_at(bytes, off, 5) == "%PDF-" else { None }
-  let minor = bytes[off + 5].to_int()
-  if minor >= 0x30 && minor <= 0x39 && (bytes[off + 6].to_int() == 0x0A || bytes[off + 6].to_int() == 0x0D) {
-    Some({ offset: off, name: "PDF document, version 1." + (minor - 0x30).to_string(), size: 0, confidence: 3 })
-  } else { Some({ offset: off, name: "PDF document", size: 0, confidence: 1 }) }
-}
-fn validate_xml(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
-  guard off + 5 <= _len && read_str_at(bytes, off, 5) == "<?xml" else { None }
-  Some({ offset: off, name: "XML document", size: 0, confidence: 2 })
-}
-fn validate_openssl(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
-  guard off + 8 <= _len && read_str_at(bytes, off, 8) == "Salted__" else { None }
-  Some({ offset: off, name: "OpenSSL encrypted", size: 0, confidence: 2 })
-}
-fn validate_pem(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
-  guard off + 11 <= _len && read_str_at(bytes, off, 11) == "-----BEGIN " else { None }
-  Some({ offset: off, name: "PEM certificate/key", size: 0, confidence: 3 })
-}
-fn validate_luks(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
-  guard off + 6 <= _len && read_str_at(bytes, off, 4) == "LUKS" && bytes[off + 4].to_int() == 0xBA && bytes[off + 5].to_int() == 0xBE else { None }
-  Some({ offset: off, name: "LUKS encryption header", size: 0, confidence: 3 })
-}
 fn validate_tar(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
   // ustar magic at offset 257 from block start; check alignment + full magic
   guard off >= 257 && (off - 257) % 512 == 0 && off + 6 <= _len else { None }
   guard read_str_at(bytes, off, 5) == "ustar" && (bytes[off+5].to_int() == 0x00 || bytes[off+5].to_int() == 0x20) else { None }
   Some({ offset: off - 257, name: "TAR archive", size: 0, confidence: 3 })
-}
-
-fn validate_gpg(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
-  guard off == 0 && off + 2 <= _len && bytes[off].to_int() == 0xA3 && bytes[off + 1].to_int() == 0x01 else { None }
-  Some({ offset: off, name: "GPG signed data", size: 0, confidence: 2 })
-}
-fn validate_sqlite(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
-  guard off + 16 <= _len && read_str_at(bytes, off, 15) == "SQLite format 3" && bytes[off + 15].to_int() == 0x00 else { None }
-  Some({ offset: off, name: "SQLite3 database", size: 0, confidence: 3 })
 }
 
 fn check_sigs(bytes : Bytes, off : Int, len : Int, results : Array[ScanMatch]) -> Unit {
@@ -288,9 +249,7 @@ fn check_sigs(bytes : Bytes, off : Int, len : Int, results : Array[ScanMatch]) -
     validate_zip, validate_rar, validate_7z,
     validate_gzip, validate_zlib, validate_bzip2,
     validate_pe, validate_elf,
-    validate_pdf, validate_xml,
-    validate_openssl, validate_pem, validate_luks, validate_gpg, validate_tar,
-    validate_sqlite,
+    validate_tar,
   ]
   for i = 0; i < parsers.length(); i = i + 1 {
     match parsers[i](bytes, off, len) { Some(m) => results.push(m); None => () }
