@@ -30,6 +30,8 @@ struct TuiState {
   mut esc_pending : Bool
   mut struct_view : Bool
   mut struct_offset : Int
+  mut struct_lines : Array[String]
+  mut struct_done : Bool
   mut bookmark_view : Bool
   mut bookmark_sel : Int
   mut bookmark_scroll : Int
@@ -95,6 +97,7 @@ pub fn TuiState::new(file_path : String?, buffer : @lib.HexBuffer) -> TuiState {
     esc_pending: false,
     struct_view: false,
     struct_offset: 0,
+    struct_lines: [], struct_done: false,
     bookmark_view: false,
     bookmark_sel: 0,
     bookmark_scroll: 0,
@@ -411,7 +414,7 @@ pub fn handle_key(
     state.esc_pending = false
     let old = match buffer.get_byte(state.edit_off) { Some(b) => b; None => b'\x00' }
     state.undo_stack.push(undo_op(2, state.edit_off, old))
-    state.redo_stack = []; state.scan_done = false; state.strings_done = false; state.entropy_done = false
+    state.redo_stack = []; state.scan_done = false; state.strings_done = false; state.entropy_done = false; state.struct_done = false
     buffer.delete_byte(state.edit_off) |> ignore
     if state.edit_off >= buffer.length() && state.edit_off > 0 { state.edit_off = state.edit_off - 1 }
     state.results = []
@@ -428,7 +431,7 @@ pub fn handle_key(
     else { state.select_mode = true; state.select_start = state.edit_off; state.msg = "Selection started (Ctrl+N to copy)" }
 
   } else if state.edit_mode && !state.edit_ascii && key >= '0'.to_int() && key <= '9'.to_int() {
-    state.edit_modified = true; state.esc_pending = false; state.redo_stack = []; state.scan_done = false; state.strings_done = false; state.entropy_done = false
+    state.edit_modified = true; state.esc_pending = false; state.redo_stack = []; state.scan_done = false; state.strings_done = false; state.entropy_done = false; state.struct_done = false
     if state.insert_mode && state.edit_nibble is None {
       buffer.insert_byte(state.edit_off, b'\x00') |> ignore
       state.undo_stack.push(undo_op(1, state.edit_off, b'\x00'))
@@ -439,7 +442,7 @@ pub fn handle_key(
     state.msg = "\{new_msg}\{depth_suffix(state.undo_stack.length(), state.redo_stack.length())}"
 
   } else if state.edit_mode && !state.edit_ascii && key >= 'a'.to_int() && key <= 'f'.to_int() {
-    state.edit_modified = true; state.esc_pending = false; state.redo_stack = []; state.scan_done = false; state.strings_done = false; state.entropy_done = false
+    state.edit_modified = true; state.esc_pending = false; state.redo_stack = []; state.scan_done = false; state.strings_done = false; state.entropy_done = false; state.struct_done = false
     if state.insert_mode && state.edit_nibble is None {
       buffer.insert_byte(state.edit_off, b'\x00') |> ignore
       state.undo_stack.push(undo_op(1, state.edit_off, b'\x00'))
@@ -450,7 +453,7 @@ pub fn handle_key(
     state.msg = "\{new_msg}\{depth_suffix(state.undo_stack.length(), state.redo_stack.length())}"
 
   } else if state.edit_mode && !state.edit_ascii && key >= 'A'.to_int() && key <= 'F'.to_int() {
-    state.edit_modified = true; state.esc_pending = false; state.redo_stack = []; state.scan_done = false; state.strings_done = false; state.entropy_done = false
+    state.edit_modified = true; state.esc_pending = false; state.redo_stack = []; state.scan_done = false; state.strings_done = false; state.entropy_done = false; state.struct_done = false
     if state.insert_mode && state.edit_nibble is None {
       buffer.insert_byte(state.edit_off, b'\x00') |> ignore
       state.undo_stack.push(undo_op(1, state.edit_off, b'\x00'))
@@ -462,7 +465,7 @@ pub fn handle_key(
     state.msg = "\{new_msg}\{depth_suffix(state.undo_stack.length(), state.redo_stack.length())}"
 
   } else if state.edit_mode && state.edit_ascii && key >= 32 && key <= 126 {
-    state.edit_modified = true; state.esc_pending = false; state.edit_nibble = None; state.redo_stack = []; state.scan_done = false; state.strings_done = false; state.entropy_done = false
+    state.edit_modified = true; state.esc_pending = false; state.edit_nibble = None; state.redo_stack = []; state.scan_done = false; state.strings_done = false; state.entropy_done = false; state.struct_done = false
     if state.insert_mode {
       buffer.insert_byte(state.edit_off, b'\x00') |> ignore
       state.undo_stack.push(undo_op(1, state.edit_off, b'\x00'))
@@ -495,6 +498,12 @@ pub fn handle_key(
         }
         state.edit_off = op.offset
         state.edit_modified = state.undo_stack.length() > 0
+        if !state.edit_modified {
+          if state.scan_offsets.length() > 0 { state.scan_done = true }
+          if state.strings_matches.length() > 0 { state.strings_done = true }
+          if state.entropy_blocks.length() > 0 { state.entropy_done = true }
+          if state.struct_lines.length() > 0 { state.struct_done = true }
+        }
       }
     }
 
@@ -534,7 +543,7 @@ pub fn handle_key(
     let n = state.clipboard.length()
     if n > 0 {
       state.edit_modified = true; state.esc_pending = false
-      state.redo_stack = []; state.scan_done = false; state.strings_done = false; state.entropy_done = false
+      state.redo_stack = []; state.scan_done = false; state.strings_done = false; state.entropy_done = false; state.struct_done = false
       if state.insert_mode {
         for i = 0; i < n; i = i + 1 {
           buffer.insert_byte(state.edit_off + i, state.clipboard[i]) |> ignore
@@ -714,8 +723,24 @@ pub fn handle_key(
     } else { state.msg = "Nothing to edit" }
 
   } else if key == 't'.to_int() || key == 'T'.to_int() {
-    state.struct_view = !state.struct_view
-    state.msg = if state.struct_view { "Structure view" } else { "Hex view" }
+    if state.struct_view {
+      state.struct_view = false
+      state.msg = "Hex view"
+    } else {
+      let was_cached = state.struct_done
+      if !state.struct_done && !buffer.is_empty() {
+        let bytes = buffer.to_bytes()
+        let fields = @lib.parse_structure(bytes)
+        if fields.length() > 0 {
+          state.struct_lines = split_text_lines(@lib.format_structure(fields))
+        } else { state.struct_lines = [] }
+        state.struct_done = true
+      }
+      state.struct_view = true
+      state.struct_offset = 0
+      let suffix = if was_cached { " (cached)" } else { "" }
+      state.msg = "Structure view\{suffix}"
+    }
 
   // Bookmark keys (in tui_bookmark.mbt)
   } else if handle_bookmark_normal_key(state, key) {
@@ -743,14 +768,17 @@ pub fn handle_key(
       state.results = state.scan_offsets; state.match_len = 8; state.result_idx = 0
     }
   } else if key == 'h'.to_int() || key == 'H'.to_int() {
+    let was_cached = state.entropy_done
     if !state.entropy_done {
       state.entropy_blocks = @lib.entropy_scan(buffer.to_bytes())
       state.entropy_done = true
       state.entropy_sel = 0
     }
     state.entropy_view = true
-    state.msg = "Entropy analysis"
+    let suffix = if was_cached { " (cached)" } else { "" }
+    state.msg = "Entropy analysis\{suffix}"
   } else if key == 's'.to_int() || key == 'S'.to_int() {
+    let was_cached = state.strings_done
     if !state.strings_done {
       state.strings_matches = @lib.find_strings(buffer.to_bytes())
       state.strings_done = true
@@ -758,7 +786,8 @@ pub fn handle_key(
     }
     state.strings_view = true
     let n = state.strings_matches.length()
-    state.msg = if n > 0 { "\{n} strings (cached)" } else { "No strings found" }
+    let suffix = if was_cached { " (cached)" } else { "" }
+    state.msg = if n > 0 { "\{n} strings\{suffix}" } else { "No strings found" }
   } else if key == 'c'.to_int() || key == 'C'.to_int() {
     state.codec_view = true
     state.codec_input = ""

@@ -1,4 +1,4 @@
-// TUI screen rendering — draw_screen and highlight helpers
+﻿// TUI screen rendering — draw_screen and highlight helpers
 
 ///|
 /// Split text into lines by newline.
@@ -90,6 +90,7 @@ fn draw_screen(
   select_start : Int,
   struct_view : Bool,
   struct_offset : Int,
+  struct_lines : Array[String],
   bookmark_view : Bool,
   bookmark_sel : Int,
   bookmark_scroll : Int,
@@ -143,27 +144,21 @@ fn draw_screen(
     draw_file_list_popup(sb, file_list_sel, file_slots, active_file, screen_rows)
   } else if bookmark_view {
     draw_bookmark_popup(sb, bookmark_sel, bookmark_scroll, bookmarks, screen_rows)
-  } else if struct_view && !buffer.is_empty() {
-    let bytes = buffer.to_bytes()
-    let fields = @lib.parse_structure(bytes)
-    if fields.length() > 0 {
-      let text = @lib.format_structure(fields)
-      let lines = split_text_lines(text)
-      let total = lines.length()
-      let off = if struct_offset < 0 { 0 } else { struct_offset }
-      let off = if off >= total { total - 1 } else { off }
-      let off = if off < 0 { 0 } else { off }
-      let end = if off + screen_rows < total { off + screen_rows } else { total }
-      for i = off; i < end; i = i + 1 {
-        sb.write_string("  \{lines[i]}\u001b[K\r\n")
-      }
-      for i = end; i < off + screen_rows; i = i + 1 {
-        sb.write_string("  \u001b[K\r\n")
-      }
-    } else {
-      sb.write_string("  No structure detected.\u001b[K\r\n")
-      for i = 0; i < screen_rows - 1; i = i + 1 { sb.write_string("  \u001b[K\r\n") }
+  } else if struct_view && struct_lines.length() > 0 {
+    let total = struct_lines.length()
+    let off = if struct_offset < 0 { 0 } else { struct_offset }
+    let off = if off >= total { total - 1 } else { off }
+    let off = if off < 0 { 0 } else { off }
+    let end = if off + screen_rows < total { off + screen_rows } else { total }
+    for i = off; i < end; i = i + 1 {
+      sb.write_string("  " + struct_lines[i] + "\u001b[K\r\n")
     }
+    for i = end; i < off + screen_rows; i = i + 1 {
+      sb.write_string("  \u001b[K\r\n")
+    }
+  } else if struct_view {
+    sb.write_string("  No structure detected.\u001b[K\r\n")
+    for i = 0; i < screen_rows - 1; i = i + 1 { sb.write_string("  \u001b[K\r\n") }
   } else if buffer.is_empty() {
     sb.write_string("\r\n  [Empty]  o:open  q:quit\u001b[K\r\n")
   } else {
