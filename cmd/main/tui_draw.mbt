@@ -149,7 +149,6 @@ fn draw_screen(
     let total = struct_lines.length()
     let off = if struct_offset < 0 { 0 } else { struct_offset }
     let off = if off >= total { total - 1 } else { off }
-    let off = if off < 0 { 0 } else { off }
     let end = if off + screen_rows < total { off + screen_rows } else { total }
     for i = off; i < end; i = i + 1 {
       sb.write_string("  " + struct_lines[i] + "\u001b[K\r\n")
@@ -226,9 +225,7 @@ fn draw_screen(
           else if is_hl { sb.write_string("\u001b[43;30m") }
           else if is_sel { sb.write_string("\u001b[45;37m") }
           let a = @lib.format_ascii(byte)
-          let s = StringBuilder()
-          s.write_char(a)
-          sb.write_string(s.to_string())
+          sb.write_char(a)
           if is_edit || is_cur || is_hl || is_sel { sb.write_string("\u001b[0m") }
         } else {
           sb.write_string(" ")

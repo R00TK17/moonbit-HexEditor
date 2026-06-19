@@ -750,7 +750,7 @@ pub fn handle_key(
         if fields.length() > 0 {
           state.struct_lines = split_text_lines(@lib.format_structure(fields))
         } else { state.struct_lines = [] }
-        state.struct_done = true
+        state.struct_done = true // always mark done, even if empty
       }
       state.struct_view = true
       state.struct_offset = 0

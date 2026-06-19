@@ -1,4 +1,10 @@
-// Binary signature scanner — CTF steganography focused
+// Hex Editor — Signature Scanner
+// Multi-pattern matching using Aho-Corasick automaton O(n + m + z).
+//
+// Algorithm: builds a trie from all magic byte patterns, adds failure
+// links via BFS, then walks the automaton over input in a single pass.
+// Each match triggers per-format validators with confidence scoring.
+// Results filtered for false positives inside container formats.
 
 ///|
 pub struct ScanMatch {
@@ -134,7 +140,7 @@ pub fn scan_signatures(bytes : Bytes) -> Array[ScanMatch] {
       if trusted[i].name.contains("PNG image") && trusted[i].confidence < 3 { trusted[i].confidence = 3 }
     }
   }
-  if len >= 3 && read_str_at(bytes, 0, 3) == "GIF" && bytes[len-1].to_int() == 0x3B {
+  if len >= 3 && read_str(bytes, 0, 3) == "GIF" && bytes[len-1].to_int() == 0x3B {
     for i = 0; i < trusted.length(); i = i + 1 {
       if trusted[i].name.contains("GIF image") && trusted[i].confidence < 3 { trusted[i].confidence = 3 }
     }
@@ -159,12 +165,12 @@ fn validate_jpeg(bytes : Bytes, off : Int, len : Int) -> ScanMatch? {
 }
 fn validate_png(bytes : Bytes, off : Int, len : Int) -> ScanMatch? {
   guard off + 25 <= len && bytes[off].to_int() == 0x89 && bytes[off + 1].to_int() == 0x50 && bytes[off + 2].to_int() == 0x4E && bytes[off + 3].to_int() == 0x47 && bytes[off + 4].to_int() == 0x0D && bytes[off + 5].to_int() == 0x0A && bytes[off + 6].to_int() == 0x1A && bytes[off + 7].to_int() == 0x0A else { None }
-  guard read_u32_be_at(bytes, off + 8) == 0x0D && read_str_at(bytes, off + 12, 4) == "IHDR" else { None }
-  let w = read_u32_be_at(bytes, off + 16); let h = read_u32_be_at(bytes, off + 20)
+  guard read_u32_be(bytes, off + 8) == 0x0D && read_str(bytes, off + 12, 4) == "IHDR" else { None }
+  let w = read_u32_be(bytes, off + 16); let h = read_u32_be(bytes, off + 20)
   Some({ offset: off, name: "PNG image, " + w.to_string() + " x " + h.to_string(), size: 0, confidence: 3 })
 }
 fn validate_gif(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
-  guard off + 6 <= _len && (read_str_at(bytes, off, 6) == "GIF87a" || read_str_at(bytes, off, 6) == "GIF89a") else { None }
+  guard off + 6 <= _len && (read_str(bytes, off, 6) == "GIF87a" || read_str(bytes, off, 6) == "GIF89a") else { None }
   Some({ offset: off, name: "GIF image", size: 0, confidence: 3 })
 }
 fn validate_bmp(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
@@ -177,7 +183,7 @@ fn validate_bmp(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
   Some({ offset: off, name: "BMP image", size: 0, confidence: 3 })
 }
 fn validate_wav(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
-  guard off + 12 <= _len && read_str_at(bytes, off, 4) == "RIFF" && read_str_at(bytes, off + 8, 4) == "WAVE" else { None }
+  guard off + 12 <= _len && read_str(bytes, off, 4) == "RIFF" && read_str(bytes, off + 8, 4) == "WAVE" else { None }
   Some({ offset: off, name: "WAV audio", size: 0, confidence: 2 })
 }
 
@@ -193,7 +199,7 @@ fn validate_zip(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
   } else { Some({ offset: off, name: "ZIP archive (unverified)", size: 0, confidence: 1 }) }
 }
 fn validate_rar(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
-  guard off + 7 <= _len && read_str_at(bytes, off, 4) == "Rar!" else { None }
+  guard off + 7 <= _len && read_str(bytes, off, 4) == "Rar!" else { None }
   Some({ offset: off, name: "RAR archive", size: 0, confidence: 3 })
 }
 fn validate_7z(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
@@ -238,7 +244,7 @@ fn validate_elf(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
 fn validate_tar(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
   // ustar magic at offset 257 from block start; check alignment + full magic
   guard off >= 257 && (off - 257) % 512 == 0 && off + 6 <= _len else { None }
-  guard read_str_at(bytes, off, 5) == "ustar" && (bytes[off+5].to_int() == 0x00 || bytes[off+5].to_int() == 0x20) else { None }
+  guard read_str(bytes, off, 5) == "ustar" && (bytes[off+5].to_int() == 0x00 || bytes[off+5].to_int() == 0x20) else { None }
   Some({ offset: off - 257, name: "TAR archive", size: 0, confidence: 3 })
 }
 
@@ -265,9 +271,9 @@ fn filter_false_positives(bytes : Bytes, matches : Array[ScanMatch]) -> Array[Sc
     (bytes[0].to_int() == 0x89 && bytes[1].to_int() == 0x50) ||  // PNG
     (bytes[0].to_int() == 0x1F && bytes[1].to_int() == 0x8B) ||  // GZip
     (bytes[0].to_int() == 0x4D && bytes[1].to_int() == 0x5A) ||  // PE
-    (read_str_at(bytes, 0, 4) == "Rar!") ||                        // RAR
+    (read_str(bytes, 0, 4) == "Rar!") ||                        // RAR
     (bytes[0].to_int() == 0x37 && bytes[1].to_int() == 0x7A) ||     // 7z
-    (read_str_at(bytes, 257, 5) == "ustar")                          // TAR
+    (read_str(bytes, 257, 5) == "ustar")                          // TAR
   )
   fn is_fp(m : ScanMatch) -> Bool {
     m.confidence <= 1 ||
@@ -280,25 +286,6 @@ fn filter_false_positives(bytes : Bytes, matches : Array[ScanMatch]) -> Array[Sc
     if !(has_container && m.offset > 0 && is_fp(m)) { filtered.push(m) }
   }
   filtered
-}
-
-// === Utilities ===
-fn read_str_at(bytes : Bytes, off : Int, max : Int) -> String {
-  let result = StringBuilder()
-  for i = 0; i < max; i = i + 1 {
-    if off + i >= bytes.length() { break }
-    let b = bytes[off + i]
-    if b == b'\x00' { break }
-    if b.to_int() >= 32 && b.to_int() < 127 { match b.to_int().to_char() { Some(c) => result.write_char(c); None => () } }
-  }
-  result.to_string()
-}
-
-fn read_u32_be_at(bytes : Bytes, off : Int) -> Int {
-  guard off + 4 <= bytes.length() else { 0 }
-  let mut r = 0
-  for i = 0; i < 4; i = i + 1 { r = r * 256 + bytes[off + i].to_int() }
-  r
 }
 
 fn estimate_sizes(bytes : Bytes, matches : Array[ScanMatch]) -> Unit {

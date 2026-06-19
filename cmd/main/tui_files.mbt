@@ -25,7 +25,6 @@ pub fn handle_file_list_key(
       if state.active_file == removing {
         let new_active = if removing >= state.file_slots.length() { state.file_slots.length() - 1 } else { removing }
         state.pending_switch = new_active
-        state.active_file = new_active
       } else if state.active_file > removing {
         state.active_file = state.active_file - 1
       }

@@ -1,3 +1,5 @@
+**English** | [中文](README_CN.md)
+
 # MoonBit Hex Editor
 
 A terminal-based hex editor and binary file analyzer written in MoonBit, featuring an interactive TUI, structure parsing for 16+ file formats, search, and editing capabilities. Runs on Windows and Linux.
@@ -25,6 +27,7 @@ A terminal-based hex editor and binary file analyzer written in MoonBit, featuri
 - Entropy analysis: `h` key, 256-byte blocks, Shannon entropy with color-coded bars
 - Strings extraction: `s` key, printable ASCII sequences >= 4 chars, with caching, jump-to-offset and highlight
 - Extraction: `x` key to dump selected match, trailing data detection
+- Export: `e` key in struct/strings views — structure as JSON, strings as text
 - Codec popup: `c` key, interactive Base64/URL/Unicode/Hex encode/decode with live preview
 - Multi-file: open multiple files, `Tab` file list popup, switch/close files independently
 - File browser: `o` key opens directory browser with navigation, `Enter` open/enter, `o` type path directly
@@ -66,7 +69,7 @@ Parsed details: dimensions (image/video), sample rate/channels (audio), compress
 moon build --target native
 
 # Run tests
-moon test
+moon test --target native
 
 # Start TUI
 moon run --target native cmd/main -- file.bin
@@ -131,7 +134,7 @@ hex_editor/
 ├── hex_strings.mbt              # Printable ASCII string extraction
 ├── hex_entropy.mbt              # Shannon entropy analysis (256-byte blocks)
 ├── hex_codec.mbt                # Codecs: Base64, URL, Unicode, Hex encoding/decoding
-├── hex_editor_test.mbt          # Unit tests
+├── hex_editor_test.mbt          # 85 unit + integration tests
 ├── cmd/main/
 │   ├── main.mbt                 # CLI entry (view/info/struct/strings/entropy/scan)
 │   ├── helpers.mbt              # CLI argument parsing, file loading, type detection

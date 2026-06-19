@@ -1,5 +1,14 @@
 // TUI edit mode — hex/ASCII input, undo, redo
-// Supports compound undo for paste operations (kind 3/4).
+//
+// UndoOp kinds:
+//   0 = single byte modify (stores old_byte for restore)
+//   1 = single byte insert (undo = delete at offset)
+//   2 = single byte delete (undo = re-insert old_byte)
+//   3 = paste overwrite (stores old_bytes[] for batch restore)
+//   4 = paste insert (stores count for batch delete)
+//
+// Paste operations push ONE compound UndoOp instead of N individual ops.
+// Ctrl+Z undoes the entire paste in one step.
 
 ///|
 /// Undo operation record.

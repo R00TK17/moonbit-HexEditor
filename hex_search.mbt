@@ -1,5 +1,10 @@
 // Hex Editor — Search Functionality
-// Uses Boyer-Moore-Horspool for O(n/m) average case search.
+// Three-tier search strategy:
+//   1. Exact match: Boyer-Moore-Horspool O(n/m) average
+//   2. Wildcard (??) patterns ≤62 bytes: Shift-Or bit-parallel O(n)
+//   3. Multi-segment (*) patterns: greedy segment matching with 4KB gap limit
+//
+// Supports hex patterns (FF ?? 00 * AB) and text patterns (He?lo, He*ld, \?).
 
 ///|
 /// Build BMH bad-character skip table. pattern.length() bytes.
@@ -191,6 +196,18 @@ fn search_with_tokens(data : Bytes, tokens : Array[Int]) -> (Array[Int], Array[I
     return (offsets, lens)
   }
 
+  // Patterns with ?? wildcards only (no *): Shift-Or bit-parallel O(n)
+  //
+  // Shift-Or algorithm:
+  //   - mask[byte]: bit i is 0 if pattern[i] matches this byte value
+  //   - state register: bit i is 0 if first i+1 chars of pattern match
+  //   - Per byte: state = (state << 1) | mask[byte]
+  //   - Match when bit (m-1) is 0
+  //
+  // For ?? wildcards: mask[c] has bit i cleared for ALL 256 byte values
+  // For concrete bytes: mask[c] has bit i cleared only for that byte
+  //
+  // Complexity: O(n) for patterns ≤ 62 bytes, fallback to O(n×m) sliding window
   if !has_star {
     let pat_len = tokens.length()
     let offsets : Array[Int] = []

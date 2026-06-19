@@ -1,6 +1,11 @@
 // Hex Editor — Entropy Analysis
-// Shannon entropy calculation on 256-byte blocks.
-// Uses precomputed lookup table for O(1) per-byte entropy contribution.
+// Shannon entropy on 256-byte blocks with precomputed lookup table.
+//
+// Optimization: for full 256-byte blocks, entropy contribution for each
+// byte count k is precomputed as table[k] = -(k/256)*log2(k/256).
+// This eliminates all log2 calls for full blocks (vast majority).
+// Partial blocks (last block < 256 bytes) use accurate log2 with
+// range reduction + 6-term Taylor series.
 
 ///|
 pub struct EntropyBlock {

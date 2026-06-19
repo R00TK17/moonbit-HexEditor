@@ -86,7 +86,7 @@ fn detect_type(magic : Int, size : Int) -> String? {
     0xCAFE => Some("Java class")
     0xFEFF => Some("UTF-16 BE BOM")
     0xFFFE => Some("UTF-16 LE BOM")
-    _ => if magic >> 8 == 0x7F && size >= 4 { Some("ELF executable") } else { None }
+    _ => if magic == 0x7F45 && size >= 4 { Some("ELF executable") } else { None }
   }
 }
 
