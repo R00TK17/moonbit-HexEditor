@@ -143,13 +143,12 @@ test "parse_hex_string invalid" {
 }
 
 ///|
-/// Test: data_ref zero-copy access
-test "data_ref" {
+/// Test: byte_at fast access
+test "byte_at" {
   let buf = @hex_editor.HexBuffer::from_bytes(b"\x01\x02\x03")
-  let data = buf.data_ref()
-  assert_eq!(data.length(), 3)
-  assert_eq!(data[0], b'\x01')
-  assert_eq!(data[2], b'\x03')
+  assert_eq!(buf.byte_at(0), b'\x01')
+  assert_eq!(buf.byte_at(1), b'\x02')
+  assert_eq!(buf.byte_at(2), b'\x03')
 }
 
 ///|

@@ -169,7 +169,6 @@ fn draw_screen(
     let rows_from_offset = if offset < len { (len - offset + 15) / 16 } else { 0 }
     let display_rows = if screen_rows < rows_from_offset { screen_rows } else { rows_from_offset }
 
-    let data = buffer.data_ref()
     let vis_size = display_rows * 16
     let highlight_all = build_highlight_bitmap(search_results, match_len, match_lens, offset, vis_size, len)
     let highlight_cur = if search_results.length() > 0 && search_idx >= 0 && search_idx < search_results.length() {
@@ -192,7 +191,7 @@ fn draw_screen(
         if col > 0 && col == 8 { sb.write_string(" ") }
         if col < row_len {
           let byte_off = row_off + col
-          let byte = data[byte_off]
+          let byte = buffer.byte_at(byte_off)
           let bi = byte_off - offset
           let is_edit = edit_mode && byte_off == edit_off
           let is_cur = !is_edit && bi < vis_size && highlight_cur[bi]
@@ -213,7 +212,7 @@ fn draw_screen(
       for col = 0; col < 16; col = col + 1 {
         if col < row_len {
           let byte_off = row_off + col
-          let byte = data[byte_off]
+          let byte = buffer.byte_at(byte_off)
           let bi = byte_off - offset
           let is_edit = edit_mode && byte_off == edit_off
           let is_cur = !is_edit && bi < vis_size && highlight_cur[bi]

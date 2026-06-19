@@ -1,42 +1,44 @@
 // Hex Editor — Core Library
-// Provides the HexBuffer data structure for viewing and editing binary data.
+// HexBuffer with Gap Buffer for O(1) insert/delete at cursor.
+// Gap size = file allocation size (rounded to 4KB cluster) / 16.
 
 ///|
-/// A mutable buffer for hex editing operations.
-///
-/// HexBuffer holds the binary data being edited and tracks whether
-/// modifications have been made. It supports reading, writing, inserting,
-/// and deleting bytes at arbitrary offsets.
+/// A mutable buffer for hex editing with Gap Buffer optimization.
+/// The internal array has a "gap" at the edit position.
+/// Insert/delete at the gap is O(1); moving the gap is O(distance).
 struct HexBuffer {
-  mut data : FixedArray[Byte] // mutable byte buffer
-  mut len : Int               // current data length
-  mut modified : Bool         // dirty flag
-  mut file_path : String?       // associated file path
+  mut data : FixedArray[Byte]
+  mut gap_start : Int
+  mut gap_end : Int
+  mut len : Int
+  mut modified : Bool
+  mut file_path : String?
+}
+
+///|
+/// Calculate gap size: allocation_size / 16, min 256.
+fn calc_gap_size(file_size : Int) -> Int {
+  let alloc = ((file_size + 4095) / 4096) * 4096
+  let g = alloc / 16
+  if g < 256 { 256 } else { g }
 }
 
 ///|
 /// Creates a new empty HexBuffer.
 pub fn HexBuffer::new() -> HexBuffer {
-  {
-    data: FixedArray::make(0, Byte::default()),
-    len: 0,
-    modified: false,
-    file_path: None,
-  }
+  { data: FixedArray::make(256, Byte::default()), gap_start: 0, gap_end: 256, len: 0, modified: false, file_path: None }
 }
 
 ///|
-/// Creates a HexBuffer from a Bytes sequence.
+/// Creates a HexBuffer from a Bytes sequence with gap buffer.
 pub fn HexBuffer::from_bytes(bytes : Bytes) -> HexBuffer {
-  let len = bytes.length()
-  let data = FixedArray::make(len, Byte::default())
-  data.blit_from_bytes(0, bytes, 0, len)
-  {
-    data,
-    len,
-    modified: false,
-    file_path: None,
-  }
+  let file_size = bytes.length()
+  let gap = calc_gap_size(file_size)
+  let total = file_size + gap
+  let data = FixedArray::make(total, Byte::default())
+  // Copy all bytes, gap at end
+  data.blit_from_bytes(0, bytes, 0, file_size)
+  { data, gap_start: file_size, gap_end: total, len: file_size, modified: false, file_path: None }
 }
 
 ///|
@@ -47,23 +49,15 @@ pub fn HexBuffer::set_file_path(self : HexBuffer, path : String) -> Unit {
 
 ///|
 /// Loads a HexBuffer from a file.
-///
-/// Raises `@fs.IOError` if the file cannot be read.
 pub fn HexBuffer::from_file(path : String) -> HexBuffer raise {
   let bytes = @fs.read_file_to_bytes(path)
-  let len = bytes.length()
-  let data = FixedArray::make(len, Byte::default())
-  data.blit_from_bytes(0, bytes, 0, len)
-  {
-    data,
-    len,
-    modified: false,
-    file_path: Some(path),
-  }
+  let buf = HexBuffer::from_bytes(bytes)
+  buf.file_path = Some(path)
+  buf
 }
 
 ///|
-/// Returns the current length of the buffer in bytes.
+/// Returns the current logical length of the buffer.
 pub fn HexBuffer::length(self : HexBuffer) -> Int {
   self.len
 }
@@ -75,65 +69,140 @@ pub fn HexBuffer::is_empty(self : HexBuffer) -> Bool {
 }
 
 ///|
-/// Returns whether the buffer has been modified since creation or last save.
+/// Returns whether the buffer has been modified.
 pub fn HexBuffer::is_modified(self : HexBuffer) -> Bool {
   self.modified
 }
 
 ///|
-/// Gets the file path associated with this buffer, if any.
+/// Gets the file path associated with this buffer.
 pub fn HexBuffer::get_file_path(self : HexBuffer) -> String? {
   self.file_path
 }
 
 ///|
-/// Gets the byte at the specified offset.
-pub fn HexBuffer::get_byte(self : HexBuffer, offset : Int) -> Byte? {
-  guard offset >= 0 && offset < self.len else { None }
-  Some(self.data[offset])
+/// Convert logical index to physical index (accounting for gap).
+fn HexBuffer::to_physical(self : HexBuffer, idx : Int) -> Int {
+  if idx < self.gap_start { idx } else { idx + self.gap_end - self.gap_start }
 }
 
 ///|
-/// Sets the byte at the specified offset. Marks the buffer as modified.
-pub fn HexBuffer::set_byte(
-  self : HexBuffer,
-  offset : Int,
-  value : Byte,
-) -> Bool {
+/// Gets the byte at the specified logical offset.
+pub fn HexBuffer::get_byte(self : HexBuffer, offset : Int) -> Byte? {
+  guard offset >= 0 && offset < self.len else { None }
+  Some(self.data[self.to_physical(offset)])
+}
+
+///|
+/// Fast byte access for rendering — no bounds check, no Option.
+pub fn HexBuffer::byte_at(self : HexBuffer, idx : Int) -> Byte {
+  self.data[self.to_physical(idx)]
+}
+
+///|
+/// Sets the byte at the specified logical offset.
+pub fn HexBuffer::set_byte(self : HexBuffer, offset : Int, value : Byte) -> Bool {
   guard offset >= 0 && offset < self.len else { false }
-  self.data[offset] = value
+  self.data[self.to_physical(offset)] = value
   self.modified = true
   true
 }
 
 ///|
-/// Converts the buffer contents to a Bytes sequence.
-pub fn HexBuffer::to_bytes(self : HexBuffer) -> Bytes {
-  if self.len == 0 {
-    return b""
+/// Move the gap to the specified logical position.
+fn HexBuffer::move_gap(self : HexBuffer, pos : Int) -> Unit {
+  if pos == self.gap_start { return }
+  let gap_size = self.gap_end - self.gap_start
+  if pos < self.gap_start {
+    // Move bytes [pos, gap_start) to end of gap
+    let n = self.gap_start - pos
+    for i = n - 1; i >= 0; i = i - 1 {
+      self.data[self.gap_end - n + i] = self.data[pos + i]
+    }
+    self.gap_start = pos
+    self.gap_end = pos + gap_size
+  } else {
+    // Move bytes [gap_end, gap_end + (pos - gap_start)) to start of gap
+    let n = pos - self.gap_start
+    for i = 0; i < n; i = i + 1 {
+      self.data[self.gap_start + i] = self.data[self.gap_end + i]
+    }
+    self.gap_start = pos
+    self.gap_end = pos + gap_size
   }
-  Bytes::makei(self.len, i => self.data[i])
 }
 
 ///|
-/// Returns internal data without copying — zero-copy for rendering.
+/// Grow the gap when exhausted.
+fn HexBuffer::grow_gap(self : HexBuffer) -> Unit {
+  let new_gap = calc_gap_size(self.len)
+  let new_total = self.len + new_gap
+  let new_data = FixedArray::make(new_total, Byte::default())
+  // Copy before gap
+  new_data.unsafe_blit(0, self.data, 0, self.gap_start)
+  // Copy after gap
+  let after_len = self.len - self.gap_start
+  let new_gap_end = self.gap_start + new_gap
+  if after_len > 0 {
+    new_data.unsafe_blit(new_gap_end, self.data, self.gap_end, after_len)
+  }
+  self.data = new_data
+  self.gap_end = new_gap_end
+}
+
+///|
+/// Inserts a byte at the specified logical offset. O(1) at gap, O(d) otherwise.
+pub fn HexBuffer::insert_byte(self : HexBuffer, offset : Int, value : Byte) -> Bool {
+  guard offset >= 0 && offset <= self.len else { false }
+  if self.gap_start == self.gap_end { self.grow_gap() }
+  self.move_gap(offset)
+  self.data[self.gap_start] = value
+  self.gap_start = self.gap_start + 1
+  self.len = self.len + 1
+  self.modified = true
+  true
+}
+
+///|
+/// Deletes a byte at the specified logical offset. O(1) at gap, O(d) otherwise.
+pub fn HexBuffer::delete_byte(self : HexBuffer, offset : Int) -> Bool {
+  guard offset >= 0 && offset < self.len else { false }
+  self.move_gap(offset)
+  // Byte to delete is at physical position gap_end
+  self.gap_end = self.gap_end + 1
+  self.len = self.len - 1
+  self.modified = true
+  true
+}
+
+///|
+/// Converts the buffer contents to a Bytes sequence (compact copy).
+pub fn HexBuffer::to_bytes(self : HexBuffer) -> Bytes {
+  if self.len == 0 { return b"" }
+  Bytes::makei(self.len, fn(i) { self.data[self.to_physical(i)] })
+}
+
+///|
+/// Returns a compact copy as FixedArray (no gap).
+pub fn HexBuffer::to_fixedarray(self : HexBuffer) -> FixedArray[Byte] {
+  if self.len == 0 { return [] }
+  let arr = FixedArray::make(self.len, Byte::default())
+  // Before gap
+  if self.gap_start > 0 { arr.unsafe_blit(0, self.data, 0, self.gap_start) }
+  // After gap
+  let after = self.len - self.gap_start
+  if after > 0 { arr.unsafe_blit(self.gap_start, self.data, self.gap_end, after) }
+  arr
+}
+
+///|
+/// Returns internal data — NOTE: with gap buffer, use byte_at() for correct access.
 pub fn HexBuffer::data_ref(self : HexBuffer) -> FixedArray[Byte] {
   self.data
 }
 
 ///|
-/// Converts the buffer contents to a FixedArray of bytes (copy).
-pub fn HexBuffer::to_fixedarray(self : HexBuffer) -> FixedArray[Byte] {
-  if self.len == 0 {
-    return []
-  }
-  let arr = FixedArray::make(self.len, Byte::default())
-  arr.unsafe_blit(0, self.data, 0, self.len)
-  arr
-}
-
-///|
-/// Saves the buffer contents to a file. Raises IOError on failure.
+/// Saves the buffer contents to a file.
 pub fn HexBuffer::save(self : HexBuffer, path? : String) -> Unit raise {
   let save_path = match path {
     Some(p) => p
@@ -142,60 +211,8 @@ pub fn HexBuffer::save(self : HexBuffer, path? : String) -> Unit raise {
       None => raise @fs.IOError::IOError("No file path specified for save")
     }
   }
-  if self.len == 0 {
-    @fs.write_bytes_to_file(save_path, [])
-  } else {
-    let bytes = Bytes::makei(self.len, i => self.data[i])
-    @fs.write_bytes_to_file(save_path, bytes)
-  }
+  let bytes = self.to_bytes()
+  @fs.write_bytes_to_file(save_path, bytes)
   self.modified = false
   self.file_path = Some(save_path)
 }
-
-///|
-/// Inserts a byte at the specified offset, shifting subsequent bytes.
-pub fn HexBuffer::insert_byte(
-  self : HexBuffer,
-  offset : Int,
-  value : Byte,
-) -> Bool {
-  guard offset >= 0 && offset <= self.len else { false }
-  self.ensure_capacity(self.len + 1)
-  for i = self.len; i > offset; i = i - 1 {
-    self.data[i] = self.data[i - 1]
-  }
-  self.data[offset] = value
-  self.len = self.len + 1
-  self.modified = true
-  true
-}
-
-///|
-/// Deletes a byte at the specified offset, shifting subsequent bytes left.
-pub fn HexBuffer::delete_byte(self : HexBuffer, offset : Int) -> Bool {
-  guard offset >= 0 && offset < self.len else { false }
-  for i = offset; i < self.len - 1; i = i + 1 {
-    self.data[i] = self.data[i + 1]
-  }
-  self.len = self.len - 1
-  self.modified = true
-  true
-}
-
-///|
-/// Ensures the internal buffer has at least the specified capacity.
-fn HexBuffer::ensure_capacity(self : HexBuffer, required : Int) -> Unit {
-  let current_cap = self.data.length()
-  if current_cap >= required {
-    return
-  }
-  let start_cap = if current_cap <= 0 { 1 } else { current_cap }
-  let mut new_cap = start_cap
-  for _i = 0; new_cap < required; _i = _i + 1 {
-    new_cap = new_cap * 2
-  }
-  let new_data = FixedArray::make(new_cap, Byte::default())
-  new_data.unsafe_blit(0, self.data, 0, self.len)
-  self.data = new_data
-}
-
