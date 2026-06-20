@@ -307,7 +307,7 @@ hex_editor/
 ├── .github/workflows/ci.yml     # CI：检查 → 构建 (native+wasm) → 测试 (Linux+Win)
 ├── setup.sh / setup.ps1         # 一键搭建脚本
 ├── demo.sh / demo.ps1           # 运行 6 个 CLI 演示命令
-└── TECHNICAL_REPORT.md          # 初赛技术说明文档
+└── 技术文档.md          # 初赛技术说明文档
 ```
 
 ## 依赖
