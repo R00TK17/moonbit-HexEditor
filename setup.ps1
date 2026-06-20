@@ -49,8 +49,7 @@ if ($moon) {
 Write-Host ""
 Write-Host "[3/5] Installing dependencies..." -ForegroundColor Yellow
 & moon update 2>$null
-& moon install
-Write-Host "  √ Dependencies installed" -ForegroundColor Green
+
 
 # 4. Build
 Write-Host ""

@@ -25,7 +25,7 @@ static int alt_screen_active = 0;
 // Restore terminal to original settings (signal-safe)
 static void restore_terminal(void) {
     if (alt_screen_active) {
-        if (write(STDOUT_FILENO, "\033[?1049l", 8)) {}
+        if (write(STDOUT_FILENO, "\033[?1000l\033[?1006l\033[?1049l", 24)) {}
         alt_screen_active = 0;
     }
     if (write(STDOUT_FILENO, "\033[?25h", 6)) {} // show cursor
@@ -85,7 +85,7 @@ void tui_enter_alt_screen(void) {
     enable_ansi();
     printf("\033[?1049h");
 #else
-    if (write(STDOUT_FILENO, "\033[?1049h", 8) < 0) {}
+    if (write(STDOUT_FILENO, "\033[?1049h\033[?1000h\033[?1006h", 24) < 0) {}
     alt_screen_active = 1;
 #endif
     fflush(stdout);
@@ -95,7 +95,7 @@ void tui_exit_alt_screen(void) {
 #ifdef _WIN32
     printf("\033[?1049l");
 #else
-    if (write(STDOUT_FILENO, "\033[?1049l", 8) < 0) {}
+    if (write(STDOUT_FILENO, "\033[?1000l\033[?1006l\033[?1049l", 24) < 0) {}
     alt_screen_active = 0;
 #endif
     fflush(stdout);
@@ -174,6 +174,16 @@ int tui_get_key(void) {
             if (nseq < 0) nseq = 0;
             if (nseq >= 1) {
                 if (seq[0] == '[' && nseq >= 2) {
+                    // SGR mouse: ESC [ < button ; x ; y M/m
+                    if (seq[1] == '<') {
+                        int btn = 0, pos = 2;
+                        while (pos < nseq && seq[pos] >= '0' && seq[pos] <= '9') {
+                            btn = btn * 10 + (seq[pos] - '0'); pos++;
+                        }
+                        if (btn == 64) return -1;  // scroll up
+                        if (btn == 65) return -2;  // scroll down
+                        return -10;  // ignore other mouse events
+                    }
                     if (nseq == 2 && seq[1] >= 'A' && seq[1] <= 'Z') {
                         switch (seq[1]) {
                             case 'A': return -1; case 'B': return -2;
@@ -207,7 +217,7 @@ int tui_get_key(void) {
                     }
                 }
             }
-            return 27;
+            return -10; // unrecognized escape sequence: ignore (don't emit ESC)
         }
     }
 

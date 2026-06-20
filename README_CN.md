@@ -19,7 +19,7 @@
 | 工具 | 版本 | 用途 |
 |------|------|------|
 | [MoonBit](https://www.moonbitlang.com/download/) | 0.1.20260529+ | 编译器与构建工具 |
-| GCC / Clang | 任意近期版本 | C FFI 编译 |
+| GCC | 任意近期版本 | C FFI 编译 |
 | Git | 任意 | 克隆仓库 |
 
 ## 快速开始
@@ -35,7 +35,7 @@ chmod +x setup.sh && ./setup.sh
 .\setup.ps1
 
 # 或手动操作:
-moon update && moon install        # 安装依赖
+moon update       				   # 安装依赖
 moon build --target native         # 构建
 moon test --target native          # 85 个测试
 moon run --target native cmd/main -- testfile/test.png  # 启动 TUI

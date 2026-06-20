@@ -51,8 +51,6 @@ fi
 echo ""
 echo "[3/5] Installing dependencies..."
 moon update 2>/dev/null || true
-moon install
-echo "  ✓ Dependencies installed"
 
 # 4. Build
 echo ""
