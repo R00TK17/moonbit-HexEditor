@@ -169,7 +169,7 @@ int tui_get_key(void) {
         FD_ZERO(&fds); FD_SET(STDIN_FILENO, &fds);
         tv.tv_sec = 0; tv.tv_usec = 50000;  // 50ms for sequence
         if (select(1, &fds, NULL, NULL, &tv) > 0) {
-            char seq[16];
+            char seq[64];
             ssize_t nseq = read(STDIN_FILENO, seq, sizeof(seq));
             if (nseq < 0) nseq = 0;
             if (nseq >= 1) {
@@ -179,6 +179,16 @@ int tui_get_key(void) {
                         int btn = 0, pos = 2;
                         while (pos < nseq && seq[pos] >= '0' && seq[pos] <= '9') {
                             btn = btn * 10 + (seq[pos] - '0'); pos++;
+                        }
+                        // Drain any remaining mouse bytes from stdin
+                        fd_set dfds; struct timeval dtv;
+                        FD_ZERO(&dfds); FD_SET(STDIN_FILENO, &dfds);
+                        dtv.tv_sec = 0; dtv.tv_usec = 5000; // 5ms
+                        while (select(1, &dfds, NULL, NULL, &dtv) > 0) {
+                            char discard[64];
+                            if (read(STDIN_FILENO, discard, sizeof(discard)) <= 0) break;
+                            FD_ZERO(&dfds); FD_SET(STDIN_FILENO, &dfds);
+                            dtv.tv_sec = 0; dtv.tv_usec = 5000;
                         }
                         if (btn == 64) return -1;  // scroll up
                         if (btn == 65) return -2;  // scroll down
