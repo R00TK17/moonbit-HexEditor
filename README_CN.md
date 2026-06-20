@@ -27,18 +27,77 @@
 ```bash
 git clone https://github.com/R00TK17/moonbit-HexEditor.git
 cd moonbit-HexEditor
+```
 
-# 一键搭建（自动安装 MoonBit、构建、测试）
-# Linux/macOS:
-chmod +x setup.sh && ./setup.sh
-# Windows PowerShell:
-.\setup.ps1
+### 一键搭建
 
-# 或手动操作:
-moon update       				   # 安装依赖
-moon build --target native         # 构建
+搭建脚本自动处理全部流程：GCC → MoonBit → 依赖 → 构建 → 测试。
+
+| 平台 | 命令 |
+|------|------|
+| Linux | `chmod +x setup.sh && ./setup.sh` |
+| Windows (PowerShell) | `PowerShell -ExecutionPolicy Bypass -File .\setup.ps1` |
+
+### 手动搭建
+
+如果一键脚本无法使用，按以下步骤手动操作。
+
+**1. 安装 GCC**
+
+| 平台 | 说明 |
+|------|------|
+| Linux | `sudo apt install gcc`（或 `yum` / `pacman`） |
+| Windows | 安装 [MinGW-w64](https://github.com/niXman/mingw-builds-binaries/releases)，将其配置到系统变量，保证能在shell中识别到路径 |
+
+**2. 安装 MoonBit**
+
+```bash
+# Linux
+curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+export PATH="$HOME/.moon/bin:$PATH"
+
+# Windows PowerShell
+Set-ExecutionPolicy RemoteSigned -Scope CurrentUser; irm https://cli.moonbitlang.com/install/powershell.ps1 | iex
+$env:PATH = "$env:USERPROFILE\.moon\bin;$env:PATH"
+```
+
+验证安装：`moon version`
+
+如果没有立即生效，重启终端再次输入验证
+
+**3. 安装依赖**
+
+```bash
+moon update
+```
+
+**4. 构建（两个目标）**
+
+```bash
+moon build --target native
+moon build --target wasm-gc cmd/wasm
+```
+
+**5. 运行测试**
+
+```bash
 moon test --target native          # 85 个测试
-moon run --target native cmd/main -- testfile/test.png  # 启动 TUI
+```
+
+**6. 启动**
+
+```bash
+# TUI 模式
+moon run --target native cmd/main -- testfile/test.png
+
+# CLI 命令
+moon run --target native cmd/main -- view <文件>
+moon run --target native cmd/main -- struct <文件>
+moon run --target native cmd/main -- scan <文件>
+moon run --target native cmd/main -- help
+
+# Wasm-GC CLI（轻量，无 TUI）
+moon run --target wasm-gc cmd/wasm -- struct <文件>
 ```
 
 ## 功能特性
@@ -133,10 +192,12 @@ SGVsbG8=
 
 解析详情：图像/视频尺寸、音频采样率/声道、压缩方法与文件名、可执行文件段表、ZIP/RAR加密检测。
 
-## 构建与使用
+## 日常使用
+
+构建完成后，日常开发可使用以下命令：
 
 ```bash
-# 构建
+# 代码修改后重新构建
 moon build --target native
 
 # 运行测试
@@ -144,7 +205,12 @@ moon test --target native
 
 # 启动 TUI
 moon run --target native cmd/main -- 文件.bin
-moon run --target native cmd/main                  # 空启动
+moon run --target native cmd/main                  # 空编辑器
+
+# CLI 一次性命令（不进入 TUI）
+moon run --target native cmd/main -- view 文件.bin
+moon run --target native cmd/main -- struct 文件.bin
+moon run --target native cmd/main -- scan 文件.bin
 ```
 
 ### TUI 快捷键

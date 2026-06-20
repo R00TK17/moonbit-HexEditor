@@ -27,18 +27,77 @@ A terminal-based hex editor and binary file analyzer written in MoonBit, featuri
 ```bash
 git clone https://github.com/R00TK17/moonbit-HexEditor.git
 cd moonbit-HexEditor
+```
 
-# One-click setup (auto-installs MoonBit if needed, builds, tests)
-# Linux/macOS:
-chmod +x setup.sh && ./setup.sh
-# Windows PowerShell:
-.\setup.ps1
+### One-Click Setup
 
-# Or manually:
-moon update && moon install        # Install dependencies
-moon build --target native         # Build
+The setup scripts handle everything automatically: GCC → MoonBit → dependencies → build → tests.
+
+| Platform | Command |
+|----------|---------|
+| Linux | `chmod +x setup.sh && ./setup.sh` |
+| Windows (PowerShell) | `PowerShell -ExecutionPolicy Bypass -File .\setup.ps1` |
+
+### Manual Setup
+
+Follow these steps if the one-click script doesn't suit your environment.
+
+**1. Install GCC**
+
+| Platform | Instructions |
+|----------|-------------|
+| Linux | `sudo apt install gcc` (or `yum`/`pacman`) |
+| Windows | Install [MinGW-w64](https://github.com/niXman/mingw-builds-binaries/releases) and ensure it's on your system PATH so the shell can find `gcc` |
+
+**2. Install MoonBit**
+
+```bash
+# Linux
+curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+export PATH="$HOME/.moon/bin:$PATH"
+
+# Windows PowerShell
+Set-ExecutionPolicy RemoteSigned -Scope CurrentUser; irm https://cli.moonbitlang.com/install/powershell.ps1 | iex
+$env:PATH = "$env:USERPROFILE\.moon\bin;$env:PATH"
+```
+
+Verify: `moon version`
+
+If the command is not recognized right away, restart your terminal and try again.
+
+**3. Install dependencies**
+
+```bash
+moon update
+```
+
+**4. Build (both targets)**
+
+```bash
+moon build --target native
+moon build --target wasm-gc cmd/wasm
+```
+
+**5. Run tests**
+
+```bash
 moon test --target native          # 85 tests
-moon run --target native cmd/main -- testfile/test.png  # Launch TUI
+```
+
+**6. Launch**
+
+```bash
+# TUI mode
+moon run --target native cmd/main -- testfile/test.png
+
+# CLI commands
+moon run --target native cmd/main -- view <file>
+moon run --target native cmd/main -- struct <file>
+moon run --target native cmd/main -- scan <file>
+moon run --target native cmd/main -- help
+
+# Wasm-GC CLI (lightweight, no TUI)
+moon run --target wasm-gc cmd/wasm -- struct <file>
 ```
 
 ## Features
@@ -132,18 +191,25 @@ SGVsbG8=
 
 Parsed details: dimensions (image/video), sample rate/channels (audio), compression method & filenames (archive), section tables (executable), encryption detection (ZIP/RAR).
 
-## Build & Usage
+## Usage
+
+Once built, use these commands for day-to-day work:
 
 ```bash
-# Build
+# Rebuild after code changes
 moon build --target native
 
 # Run tests
 moon test --target native
 
-# Start TUI
+# Launch TUI
 moon run --target native cmd/main -- file.bin
-moon run --target native cmd/main                  # empty start
+moon run --target native cmd/main                  # empty editor
+
+# CLI one-off commands (no TUI)
+moon run --target native cmd/main -- view file.bin
+moon run --target native cmd/main -- struct file.bin
+moon run --target native cmd/main -- scan file.bin
 ```
 
 ### TUI Keys

@@ -1,5 +1,5 @@
 #!/bin/bash
-# MoonBit Hex Editor — Linux/macOS 一键搭建脚本
+# MoonBit Hex Editor — Linux 一键搭建脚本
 set -e
 
 echo "========================================="
@@ -11,8 +11,6 @@ echo ""
 echo "[1/5] Checking C compiler..."
 if command -v gcc &>/dev/null; then
     echo "  ✓ gcc $(gcc --version | head -1)"
-elif command -v clang &>/dev/null; then
-    echo "  ✓ clang $(clang --version | head -1)"
 else
     echo "  ✗ No C compiler found. Installing gcc..."
     if command -v apt &>/dev/null; then
@@ -24,7 +22,7 @@ else
     elif command -v brew &>/dev/null; then
         brew install gcc
     else
-        echo "  Please install gcc or clang manually."
+        echo "  Please install gcc manually."
         exit 1
     fi
 fi
@@ -36,6 +34,10 @@ if command -v moon &>/dev/null; then
     echo "  ✓ $(moon version 2>&1 | head -1)"
 else
     echo "  Installing MoonBit..."
+    if ! command -v curl &>/dev/null; then
+        echo "  ✗ curl installation failed, install curl manually and retry"
+        exit 1
+    fi
     curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
     export PATH="$HOME/.moon/bin:$PATH"
     if command -v moon &>/dev/null; then
