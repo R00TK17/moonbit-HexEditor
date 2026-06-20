@@ -2,7 +2,44 @@
 
 # MoonBit Hex Editor
 
-A terminal-based hex editor and binary file analyzer written in MoonBit, featuring an interactive TUI, structure parsing for 16+ file formats, search, and editing capabilities. Runs on Windows and Linux.
+A terminal-based hex editor and binary file analyzer written in MoonBit, featuring an interactive TUI, structure parsing for 20 file formats, wildcard search, and full editing capabilities. Runs on Windows and Linux, compiles to both Native and Wasm-GC targets.
+
+> **Project Goal**
+> 
+> Build a practical, feature-rich hex editor entirely in MoonBit from scratch, covering binary viewing, editing, searching, multi-format parsing, steganography detection, and encoding/decoding — all in one tool.
+> 
+> **Why this project**: Hex editors sit at the intersection of systems programming, binary analysis, and interactive UI — an ideal domain to stress-test a new language's real-world capabilities. This project proves MoonBit can handle C FFI interop, raw terminal control, multi-platform adaptation, algorithmic optimization, and multi-target compilation (Native + Wasm-GC) in a single cohesive codebase.
+> 
+> **Use cases**: Binary File Structure Analysis,CTF steganography challenges, security forensics,  and general-purpose hex editing.
+> 
+> **Technical highlights**: Gap Buffer for O(1) editing, Aho-Corasick multi-pattern scanning, Shift-Or bit-parallel wildcard search, Shannon entropy with precomputed lookup table, 20 file format parsers, persistent bookmarks, compound undo system, and one codebase compiling to both Native TUI and Wasm-GC CLI.
+
+## Prerequisites
+
+| Tool | Version | Purpose |
+|------|---------|---------|
+| [MoonBit](https://www.moonbitlang.com/download/) | 0.1.20260529+ | Compiler & build tool |
+| GCC / Clang | Any recent | C FFI compilation |
+| Git | Any | Clone repository |
+
+## Quick Start
+
+```bash
+git clone https://github.com/R00TK17/moonbit-HexEditor.git
+cd moonbit-HexEditor
+
+# One-click setup (auto-installs MoonBit if needed, builds, tests)
+# Linux/macOS:
+chmod +x setup.sh && ./setup.sh
+# Windows PowerShell:
+.\setup.ps1
+
+# Or manually:
+moon update && moon install        # Install dependencies
+moon build --target native         # Build
+moon test --target native          # 85 tests
+moon run --target native cmd/main -- testfile/test.png  # Launch TUI
+```
 
 ## Features
 
@@ -50,7 +87,40 @@ moon run --target native cmd/main -- base64 <file>       Base64 encode (alias)
 moon run --target native cmd/main -- unbase64 <file>     Base64 decode (alias)
 ```
 
-### Structure Parser (19 Formats)
+### Wasm-GC CLI (lightweight, no TUI, no FFI)
+```
+moon run --target wasm-gc cmd/wasm -- view <file>            Hex dump (first 256 bytes)
+moon run --target wasm-gc cmd/wasm -- struct <file>           Structure analysis
+moon run --target wasm-gc cmd/wasm -- scan <file>             Signature scan
+moon run --target wasm-gc cmd/wasm -- search <file> <pattern> Search
+moon run --target wasm-gc cmd/wasm -- strings <file>          Strings
+moon run --target wasm-gc cmd/wasm -- entropy <file>          Entropy
+moon run --target wasm-gc cmd/wasm -- encode <type> <input>   Encode
+moon run --target wasm-gc cmd/wasm -- decode <type> <input>   Decode
+```
+
+### Example Output
+
+```
+$ moon run --target native cmd/main -- struct testfile/test.png
+File: testfile/test.png (1.8 MB)
+
+0x00000000  Signature = 89 50 4E 47 0D 0A 1A 0A  -- PNG signature
+0x00000008  IHDR = 13 bytes  -- Image Header: 3178x1334, 8bpp
+0x00000021  pHYs = 9 bytes  -- Physical dimensions
+0x00000530  IDAT = 1048576 bytes  -- Image data block
+0x001D0E32  IEND = 0 bytes  -- Image end
+
+$ moon run --target native cmd/main -- scan testfile/hidden.jpg
+0x00000000  JPEG image (83.8 KB)
+0x0000A41A  Trailing data (82 B)
+2 signatures found
+
+$ moon run --target native cmd/main -- encode base64 Hello
+SGVsbG8=
+```
+
+### Structure Parser (20 Formats)
 
 | Category | Formats |
 |----------|---------|
@@ -129,8 +199,8 @@ hex_editor/
 ├── hex_editor.mbt                # HexBuffer data model, file I/O, edit primitives
 ├── hex_view.mbt                 # Hex dump formatting, size display, hex byte table
 ├── hex_search.mbt               # Search: BMH exact, wildcard (?? * *N), text pattern (? * \)
-├── hex_struct.mbt               # 16+ file format parser (JPEG/PNG/ZIP/PE/ELF...)
-├── hex_scan.mbt                 # Signature scanner (20 formats), Aho-Corasick
+├── hex_struct.mbt               # 20 file format parsers + JSON export
+├── hex_scan.mbt                 # Signature scanner (14 formats), Aho-Corasick
 ├── hex_strings.mbt              # Printable ASCII string extraction
 ├── hex_entropy.mbt              # Shannon entropy analysis (256-byte blocks)
 ├── hex_codec.mbt                # Codecs: Base64, URL, Unicode, Hex encoding/decoding
@@ -146,6 +216,10 @@ hex_editor/
 │   ├── tui_draw.mbt             # Screen rendering (hex dump, popups, status/help bars)
 │   ├── tui_edit.mbt             # TUI edit mode, UndoOp-based undo/redo
 │   └── tui_stub.c               # C stubs (terminal, mmap, directory listing, UTF-8)
+├── cmd/wasm/
+│   └── main.mbt                 # Wasm-GC CLI entry (lightweight, no FFI)
+├── testfile/                    # 24 test files (all supported formats)
+├── setup.sh / setup.ps1         # One-click setup scripts
 ```
 
 ## Dependencies
