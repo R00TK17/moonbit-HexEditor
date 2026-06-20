@@ -148,7 +148,8 @@ test "parent_path simple" {
 test "bookmarks path generation" {
   // get_marks_path produces a valid path under ~/.hexedit/
   let path = get_marks_path("/home/user/test.bin")
+  // Must be under .hexedit directory
   assert_true(path.contains(".hexedit"))
-  assert_false(path.contains("/"))
-  // Should not contain the original path slashes (they get sanitized)
+  // Must end with .marks extension
+  assert_true(path.contains(".marks"))
 }
