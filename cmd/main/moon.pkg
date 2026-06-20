@@ -1,5 +1,5 @@
 import {
-  "username/hex_editor" @lib,
+  "R00TK17/hex_editor" @lib,
   "moonbitlang/x/fs",
   "moonbitlang/x/sys",
 }
