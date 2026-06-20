@@ -6,6 +6,7 @@ import {
 
 options(
   "is-main": true,
+  "supported-targets": "native",
   "native-stub": [ "tui_stub.c" ],
   targets: {
     "main.mbt": [ "native" ],
