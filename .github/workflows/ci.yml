@@ -40,7 +40,7 @@ jobs:
     runs-on: windows-latest
     defaults:
       run:
-        shell: msys2 {0}
+        shell: bash
     steps:
       - uses: actions/checkout@v5
 
@@ -48,6 +48,10 @@ jobs:
         with:
           msystem: MINGW64
           install: mingw-w64-x86_64-gcc
+          location: C:\msys64
+
+      - name: Add GCC to PATH
+        run: echo "C:/msys64/mingw64/bin" >> $GITHUB_PATH
 
       - name: Install MoonBit
         shell: powershell
