@@ -2,6 +2,8 @@
 
 # MoonBit 十六进制编辑器
 
+[![CI](https://github.com/R00TK17/moonbit-HexEditor/actions/workflows/ci.yml/badge.svg)](https://github.com/R00TK17/moonbit-HexEditor/actions/workflows/ci.yml)
+
 基于 MoonBit 的终端十六进制编辑器与二进制文件分析工具，支持交互式 TUI 界面、20 种文件格式解析、通配符搜索与完整编辑功能。支持 Windows、Linux，同时编译为 Native 和 Wasm-GC 目标。
 
 > **项目目标**
@@ -81,7 +83,7 @@ moon build --target wasm-gc cmd/wasm
 **5. 运行测试**
 
 ```bash
-moon test --target native          # 85 个测试
+moon test --target native          # 164 个测试
 ```
 
 **6. 启动**
@@ -98,6 +100,19 @@ moon run --target native cmd/main -- help
 
 # Wasm-GC CLI（轻量，无 TUI）
 moon run --target wasm-gc cmd/wasm -- struct <文件>
+```
+
+**7. 运行演示**
+
+```bash
+# Linux / macOS
+chmod +x demo.sh && ./demo.sh
+
+# Windows PowerShell
+.\demo.ps1
+```
+
+自动运行 6 个代表性命令（struct、scan、view、entropy、encode、search），使用项目自带的测试文件。
 ```
 
 ## 功能特性
@@ -271,22 +286,28 @@ hex_editor/
 ├── hex_strings.mbt              # 可打印 ASCII 字符串提取
 ├── hex_entropy.mbt              # 香农熵分析（256 字节块）
 ├── hex_codec.mbt                # 编解码：Base64、URL、Unicode、Hex
-├── hex_editor_test.mbt          # 85 个单元 + 集成测试
+├── hex_editor_test.mbt          # 164 个单元 + 集成测试
 ├── cmd/main/
 │   ├── main.mbt                 # CLI 入口（view/info/struct/strings/entropy/scan）
 │   ├── helpers.mbt              # CLI 参数解析、文件加载、类型检测
+│   ├── helpers_wbtest.mbt       # 白盒测试：parse_int、detect_type、CLI 辅助函数
 │   ├── helpers_native.mbt       # Native 平台辅助函数（hex/ASCII 转换）
 │   ├── tui.mbt                  # TUI 主循环、FFI 声明、mmap 加载
 │   ├── tui_key.mbt              # 所有模式的按键分发、TuiState 结构体
 │   ├── tui_bookmark.mbt         # 书签功能（21 槽位）、设置/跳转/删除
 │   ├── tui_files.mbt            # 文件浏览器、多文件管理、书签持久化
+│   ├── tui_files_wbtest.mbt     # 白盒测试：UTF-8 解码器、路径辅助函数
 │   ├── tui_draw.mbt             # 屏幕渲染（hex dump、弹窗、状态栏/帮助栏）
 │   ├── tui_edit.mbt             # TUI 编辑模式、基于 UndoOp 的撤销/重做
+│   ├── tui_edit_wbtest.mbt      # 白盒测试：撤销/重做全部 5 种操作类型
 │   └── tui_stub.c               # C 桩（终端、mmap、目录列表、UTF-8）
 ├── cmd/wasm/
 │   └── main.mbt                 # Wasm-GC CLI 入口（轻量版，无 FFI）
 ├── testfile/                    # 24 个测试文件（覆盖所有支持格式）
+├── .github/workflows/ci.yml     # CI：检查 → 构建 (native+wasm) → 测试 (Linux+Win)
 ├── setup.sh / setup.ps1         # 一键搭建脚本
+├── demo.sh / demo.ps1           # 运行 6 个 CLI 演示命令
+└── TECHNICAL_REPORT.md          # 初赛技术说明文档
 ```
 
 ## 依赖

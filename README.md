@@ -2,6 +2,8 @@
 
 # MoonBit Hex Editor
 
+[![CI](https://github.com/R00TK17/moonbit-HexEditor/actions/workflows/ci.yml/badge.svg)](https://github.com/R00TK17/moonbit-HexEditor/actions/workflows/ci.yml)
+
 A terminal-based hex editor and binary file analyzer written in MoonBit, featuring an interactive TUI, structure parsing for 20 file formats, wildcard search, and full editing capabilities. Runs on Windows and Linux, compiles to both Native and Wasm-GC targets.
 
 > **Project Goal**
@@ -81,7 +83,7 @@ moon build --target wasm-gc cmd/wasm
 **5. Run tests**
 
 ```bash
-moon test --target native          # 85 tests
+moon test --target native          # 164 tests
 ```
 
 **6. Launch**
@@ -99,6 +101,18 @@ moon run --target native cmd/main -- help
 # Wasm-GC CLI (lightweight, no TUI)
 moon run --target wasm-gc cmd/wasm -- struct <file>
 ```
+
+**7. Run the demo**
+
+```bash
+# Linux / macOS
+chmod +x demo.sh && ./demo.sh
+
+# Windows PowerShell
+.\demo.ps1
+```
+
+This runs 6 representative commands (struct, scan, view, entropy, encode, search) against the bundled test files.
 
 ## Features
 
@@ -270,22 +284,28 @@ hex_editor/
 ├── hex_strings.mbt              # Printable ASCII string extraction
 ├── hex_entropy.mbt              # Shannon entropy analysis (256-byte blocks)
 ├── hex_codec.mbt                # Codecs: Base64, URL, Unicode, Hex encoding/decoding
-├── hex_editor_test.mbt          # 85 unit + integration tests
+├── hex_editor_test.mbt          # 164 unit + integration tests
 ├── cmd/main/
 │   ├── main.mbt                 # CLI entry (view/info/struct/strings/entropy/scan)
 │   ├── helpers.mbt              # CLI argument parsing, file loading, type detection
+│   ├── helpers_wbtest.mbt       # Whitebox tests: parse_int, detect_type, CLI helpers
 │   ├── helpers_native.mbt       # Native target helpers (hex/ASCII conversion)
 │   ├── tui.mbt                  # TUI main loop, FFI declarations, mmap loading
 │   ├── tui_key.mbt              # Key dispatch for all modes, TuiState struct
 │   ├── tui_bookmark.mbt         # Bookmark popup (21 slots), set/jump/delete
 │   ├── tui_files.mbt            # File browser, multi-file management, bookmark persistence
+│   ├── tui_files_wbtest.mbt     # Whitebox tests: UTF-8 decoder, path helpers
 │   ├── tui_draw.mbt             # Screen rendering (hex dump, popups, status/help bars)
 │   ├── tui_edit.mbt             # TUI edit mode, UndoOp-based undo/redo
+│   ├── tui_edit_wbtest.mbt      # Whitebox tests: undo/redo all 5 kinds, roundtrip
 │   └── tui_stub.c               # C stubs (terminal, mmap, directory listing, UTF-8)
 ├── cmd/wasm/
 │   └── main.mbt                 # Wasm-GC CLI entry (lightweight, no FFI)
 ├── testfile/                    # 24 test files (all supported formats)
+├── .github/workflows/ci.yml     # CI: check → build (native+wasm) → test (Linux+Win)
 ├── setup.sh / setup.ps1         # One-click setup scripts
+├── demo.sh / demo.ps1           # Run 6 CLI demos against bundled test files
+└── TECHNICAL_REPORT.md          # Technical documentation (Chinese)
 ```
 
 ## Dependencies

@@ -705,3 +705,194 @@ test "empty input safety" {
   assert_eq(@hex_editor.unicode_encode(empty), "")
   assert_eq(@hex_editor.hex_encode(empty), "")
 }
+
+// ========== Supplementary Tests — Strings, Entropy, Search ==========
+
+///|
+/// Test: string extraction minimum length boundary
+test "find_strings min length 4" {
+  // "ABC" (3 chars) should NOT be extracted; "ABCD" (4 chars) should
+  let data = b"\x00ABC\x00ABCD\x00"
+  let matches = @hex_editor.find_strings(data)
+  // Only "ABCD" should appear (length >= 4)
+  let mut found_abc = false
+  let mut found_abcd = false
+  for i = 0; i < matches.length(); i = i + 1 {
+    if matches[i].text == "ABC" { found_abc = true }
+    if matches[i].text == "ABCD" { found_abcd = true }
+  }
+  assert_false(found_abc)
+  assert_true(found_abcd)
+}
+
+///|
+/// Test: string extraction offset correctness
+test "find_strings offset" {
+  // "Test" at offset 4
+  let data = b"\x00\x00\x00\x00Test\x00"
+  let matches = @hex_editor.find_strings(data)
+  assert_eq(matches.length(), 1)
+  assert_eq(matches[0].offset, 4)
+  assert_eq(matches[0].text, "Test")
+}
+
+///|
+/// Test: entropy partial block < 256 bytes
+test "entropy partial block" {
+  // 100 bytes of all 0x41 → entropy should be 0
+  let data = Bytes::make(100, b'\x41')
+  let blocks = @hex_editor.entropy_scan(data)
+  assert_eq(blocks.length(), 1)
+  assert_true(blocks[0].entropy < 0.01)
+}
+
+///|
+/// Test: entropy on 512 bytes (2 full blocks)
+test "entropy two full blocks" {
+  // 512 bytes → 2 blocks of 256
+  let data = Bytes::make(512, b'\x00')
+  let blocks = @hex_editor.entropy_scan(data)
+  assert_eq(blocks.length(), 2)
+  assert_true(blocks[0].entropy < 0.01)
+  assert_true(blocks[1].entropy < 0.01)
+}
+
+///|
+/// Test: entropy on single byte
+test "entropy single byte" {
+  let data = b"\x42"
+  let blocks = @hex_editor.entropy_scan(data)
+  assert_eq(blocks.length(), 1)
+  assert_true(blocks[0].entropy < 0.01)
+}
+
+///|
+/// Test: search BMH exact match positions
+test "find_all_bytes exact positions" {
+  // Pattern "AB" at positions 0, 5, 10
+  let data = b"\x41\x42\x00\x00\x00\x41\x42\x00\x00\x00\x41\x42"
+  let results = @hex_editor.find_all_bytes(data, b"\x41\x42")
+  assert_eq(results.length(), 3)
+  assert_eq(results[0], 0)
+  assert_eq(results[1], 5)
+  assert_eq(results[2], 10)
+}
+
+///|
+/// Test: search no match returns empty
+test "find_all_bytes no match" {
+  let data = b"\x00\x01\x02\x03"
+  let results = @hex_editor.find_all_bytes(data, b"\xFF\xFE")
+  assert_eq(results.length(), 0)
+}
+
+///|
+/// Test: search single byte pattern
+test "find_all_bytes single byte" {
+  let data = b"\x00\xFF\x00\xFF\x00"
+  let results = @hex_editor.find_all_bytes(data, b"\xFF")
+  assert_eq(results.length(), 2)
+  assert_eq(results[0], 1)
+  assert_eq(results[1], 3)
+}
+
+///|
+/// Test: hex pattern with repeated wildcards
+test "find_hex_pattern multiple ?? wildcards" {
+  // Pattern: FF ?? ?? EE → matches FF AA BB EE
+  let data = b"\xFF\xAA\xBB\xEE"
+  let r = @hex_editor.find_hex_pattern(data, "FF ?? ?? EE")
+  assert_true(r is Some(_))
+  let (off, _) = r.unwrap()
+  assert_eq(off.length(), 1)
+  assert_eq(off[0], 0)
+}
+
+///|
+/// Test: format_hex_dump with specific content check
+test "format_hex_dump content check" {
+  let buf = @hex_editor.HexBuffer::from_bytes(b"\xDE\xAD\xBE\xEF")
+  let dump = @hex_editor.format_hex_dump(buf, length=4)
+  // First row should contain the offset and hex bytes
+  assert_true(dump.contains("DE AD BE EF"))
+  // ASCII sidebar should show printable or '.' chars
+  assert_true(dump.contains("|"))
+}
+
+///|
+/// Test: format_size with known values
+test "format_size known values" {
+  assert_eq(@hex_editor.format_size(0), "0 B")
+  assert_true(@hex_editor.format_size(1024).contains("KB"))
+  assert_true(@hex_editor.format_size(1048576).contains("MB"))
+}
+
+///|
+/// Test: parse_structure on known PNG fields
+test "parse_structure PNG field names" {
+  let png = b"\x89PNG\x0D\x0A\x1A\x0A\x00\x00\x00\x0D\x49\x48\x44\x52\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90\x77\x53\xDE\x00\x00\x00\x0A\x49\x44\x41\x54\x08\xD7\x63\xF8\xCF\xC0\x00\x00\x00\x00\x49\x45\x4E\x44\xAE\x42\x60\x82"
+  let formatted = @hex_editor.format_structure_json(@hex_editor.parse_structure(png))
+  // Should mention PNG signature + IHDR
+  assert_true(formatted.contains("PNG"))
+  assert_true(formatted.contains("IHDR"))
+}
+
+///|
+/// Test: format_structure_json valid JSON structure
+test "format_structure_json structure" {
+  let fields = @hex_editor.parse_structure(b"\x89PNG\x0D\x0A\x1A\x0A\x00\x00\x00\x0D\x49\x48\x44\x52\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90\x77\x53\xDE")
+  let json = @hex_editor.format_structure_json(fields)
+  // Valid JSON structure markers
+  assert_true(json.contains("["))
+  assert_true(json.contains("]"))
+  assert_true(json.contains("{"))
+  assert_true(json.contains("}"))
+}
+
+///|
+/// Test: HexBuffer is_empty after insert and delete
+test "HexBuffer is_empty after edit" {
+  let buf = @hex_editor.HexBuffer::from_bytes(b"\x01")
+  assert_false(buf.is_empty())
+  buf.delete_byte(0) |> ignore
+  assert_true(buf.is_empty())
+}
+
+///|
+/// Test: HexBuffer length after multiple deletes
+test "HexBuffer delete multiple" {
+  let buf = @hex_editor.HexBuffer::from_bytes(b"\x01\x02\x03\x04\x05")
+  // Delete from end to avoid gap movement issues
+  buf.delete_byte(4) |> ignore
+  buf.delete_byte(3) |> ignore
+  buf.delete_byte(2) |> ignore
+  assert_eq(buf.length(), 2)
+  assert_eq(buf.byte_at(0), b'\x01')
+  assert_eq(buf.byte_at(1), b'\x02')
+}
+
+///|
+/// Test: HexBuffer set_byte then to_bytes roundtrip
+test "HexBuffer edit roundtrip" {
+  let buf = @hex_editor.HexBuffer::from_bytes(b"\x0A\x0B\x0C")
+  buf.set_byte(0, b'\xFF') |> ignore
+  buf.insert_byte(1, b'\xEE') |> ignore
+  buf.delete_byte(2) |> ignore
+  let result = buf.to_bytes()
+  // Expected: [FF, EE, 0C] – 0x0A→0xFF, insert EE after FF, delete 0x0B
+  assert_eq(result.length(), 3)
+  assert_eq(result[0], b'\xFF')
+  assert_eq(result[1], b'\xEE')
+  assert_eq(result[2], b'\x0C')
+}
+
+///|
+/// Test: HexBuffer insert at offset 0 on empty buffer
+test "HexBuffer insert into empty" {
+  let buf = @hex_editor.HexBuffer::new()
+  assert_true(buf.is_empty())
+  buf.insert_byte(0, b'\x42') |> ignore
+  assert_eq(buf.length(), 1)
+  assert_eq(buf.byte_at(0), b'\x42')
+  assert_false(buf.is_empty())
+}
