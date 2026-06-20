@@ -17,5 +17,8 @@ options(
     "tui_files.mbt": [ "native" ],
     "helpers_native.mbt": [ "native" ],
     "helpers.mbt": [ "native" ],
+    "helpers_wbtest.mbt": [ "native" ],
+    "tui_edit_wbtest.mbt": [ "native" ],
+    "tui_files_wbtest.mbt": [ "native" ],
   },
 )
