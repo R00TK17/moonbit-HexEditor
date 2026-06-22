@@ -90,6 +90,20 @@ fn read_u32_le(bytes : Bytes, off : Int) -> Int {
   r
 }
 
+fn read_u64_le(bytes : Bytes, off : Int) -> Int {
+  guard off + 8 <= bytes.length() else { 0 }
+  let mut r = 0
+  for i = 7; i >= 0; i = i - 1 { r = r * 256 + bytes[off + i].to_int() }
+  r
+}
+
+fn read_u64_be(bytes : Bytes, off : Int) -> Int {
+  guard off + 8 <= bytes.length() else { 0 }
+  let mut r = 0
+  for i = 0; i < 8; i = i + 1 { r = r * 256 + bytes[off + i].to_int() }
+  r
+}
+
 fn hex(n : Int, width : Int) -> String {
   format_offset(n, width=width)
 }
@@ -1013,6 +1027,7 @@ fn parse_elf(bytes : Bytes) -> Array[StructField] {
 
   let r16 = if isle { fn(b, o) { read_u16_le(b, o) } } else { fn(b, o) { read_u16_be(b, o) } }
   let r32 = if isle { fn(b, o) { read_u32_le(b, o) } } else { fn(b, o) { read_u32_be(b, o) } }
+  let r64 = if isle { fn(b, o) { read_u64_le(b, o) } } else { fn(b, o) { read_u64_be(b, o) } }
 
   let e_type = r16(bytes, 16)
   let e_machine = r16(bytes, 18)
@@ -1045,6 +1060,94 @@ fn parse_elf(bytes : Bytes) -> Array[StructField] {
     field(if is64 { 60 } else { 48 }, 2, "e_shnum", "\{e_shnum}", "Section headers"),
     field(if is64 { 62 } else { 50 }, 2, "e_shstrndx", "\{e_shstrndx}", "String table index"),
   ]))
+
+  // --- Program Headers ---
+  if e_phnum > 0 && e_phoff > 0 && e_phoff + e_phnum * e_phentsize <= len {
+    let phdr_entries : Array[StructField] = []
+    for i = 0; i < e_phnum; i = i + 1 {
+      let po = e_phoff + i * e_phentsize
+      let p_type = r32(bytes, po)
+      let pn = match p_type {
+        0 => "PT_NULL"; 1 => "PT_LOAD"; 2 => "PT_DYNAMIC"; 3 => "PT_INTERP"
+        4 => "PT_NOTE"; 5 => "PT_SHLIB"; 6 => "PT_PHDR"; 7 => "PT_TLS"
+        _ => "?"
+      }
+      let pf = if is64 { r32(bytes, po + 4) } else { r32(bytes, po + 24) }
+      let r_ = if pf % 8 >= 4 { "R" } else { "" }
+      let w_ = if (pf / 2) % 2 == 1 { "W" } else { "" }
+      let x_ = if pf % 2 == 1 { "E" } else { "" }
+      let flags_str = r_ + w_ + x_
+      let p_offset = if is64 { r64(bytes, po + 8) } else { r32(bytes, po + 4) }
+      let p_vaddr = if is64 { r64(bytes, po + 16) } else { r32(bytes, po + 8) }
+      let p_filesz = if is64 { r64(bytes, po + 32) } else { r32(bytes, po + 16) }
+      let p_memsz = if is64 { r64(bytes, po + 40) } else { r32(bytes, po + 20) }
+      phdr_entries.push(group(po, e_phentsize, "\{pn}", "\{format_size(p_filesz)}, flags:\{flags_str}", [
+        field(po, 4, "p_type", pn, ""),
+        field(if is64 { po + 4 } else { po + 24 }, 4, "p_flags", flags_str, "R=4 W=2 E=1"),
+        field(if is64 { po + 8 } else { po + 4 }, if is64 { 8 } else { 4 }, "p_offset", "0x\{hex(p_offset, 8)}", ""),
+        field(if is64 { po + 16 } else { po + 8 }, if is64 { 8 } else { 4 }, "p_vaddr", "0x\{hex(p_vaddr, 8)}", "Virtual address"),
+        field(if is64 { po + 32 } else { po + 16 }, if is64 { 8 } else { 4 }, "p_filesz", format_size(p_filesz), "Size in file"),
+        field(if is64 { po + 40 } else { po + 20 }, if is64 { 8 } else { 4 }, "p_memsz", format_size(p_memsz), "Size in memory"),
+      ]))
+    }
+    fields.push(group(e_phoff, e_phnum * e_phentsize, "Program Headers", "\{e_phnum} entries", phdr_entries))
+  }
+
+  // --- Section Headers ---
+  // Pre-read section name string table
+  let shstr = if e_shstrndx > 0 && e_shstrndx < e_shnum && e_shentsize >= 40 {
+    let strtab_shoff = if is64 { e_shoff + e_shstrndx * e_shentsize } else { e_shoff + e_shstrndx * e_shentsize }
+    let strtab_sh_offset = if is64 { r64(bytes, strtab_shoff + 24) } else { r32(bytes, strtab_shoff + 16) }
+    let strtab_sh_size = if is64 { r64(bytes, strtab_shoff + 32) } else { r32(bytes, strtab_shoff + 20) }
+    (strtab_sh_offset, strtab_sh_size)
+  } else {
+    (-1, 0)
+  }
+
+  fn read_shstr(off : Int, sz : Int, sh_name : Int, bytes : Bytes) -> String {
+    if off < 0 || sh_name < 0 || sh_name >= sz { return "?" }
+    let mut end = sh_name
+    while end < sz && bytes[off + end].to_int() != 0 { end = end + 1 }
+    let sb = StringBuilder()
+    for j = sh_name; j < end; j = j + 1 {
+      match bytes[off + j].to_int().to_char() { Some(c) => sb.write_char(c); None => () }
+    }
+    sb.to_string()
+  }
+
+  if e_shnum > 0 && e_shentsize >= 40 && e_shoff + e_shnum * e_shentsize <= len {
+    let shdr_entries : Array[StructField] = []
+    for i = 0; i < e_shnum; i = i + 1 {
+      let so = e_shoff + i * e_shentsize
+      let sh_name = r32(bytes, so)
+      let sh_type = r32(bytes, so + 4)
+      let sh_flags = if is64 { r64(bytes, so + 8) } else { r32(bytes, so + 8) }
+      let sh_addr = if is64 { r64(bytes, so + 16) } else { r32(bytes, so + 12) }
+      let sh_offset = if is64 { r64(bytes, so + 24) } else { r32(bytes, so + 16) }
+      let sh_size = if is64 { r64(bytes, so + 32) } else { r32(bytes, so + 20) }
+      let name_str = read_shstr(shstr.0, shstr.1, sh_name, bytes)
+      let tn = match sh_type {
+        0 => "SHT_NULL"; 1 => "SHT_PROGBITS"; 2 => "SHT_SYMTAB"; 3 => "SHT_STRTAB"
+        4 => "SHT_RELA"; 5 => "SHT_HASH"; 6 => "SHT_DYNAMIC"; 7 => "SHT_NOTE"
+        8 => "SHT_NOBITS"; 9 => "SHT_REL"; 11 => "SHT_DYNSYM"
+        _ => "?"
+      }
+      let fw = if sh_flags % 2 == 1 { "W" } else { "" }
+      let fa = if (sh_flags / 2) % 2 == 1 { "A" } else { "" }
+      let fx = if sh_flags % 8 >= 4 { "X" } else { "" }
+      let fl = fw + fa + fx
+      let desc = "\{format_size(sh_size)}\{if fl != "" { " " + fl } else { "" }}"
+      shdr_entries.push(group(so, e_shentsize, "\{name_str}", desc, [
+        field(so, 4, "sh_name", name_str, ""),
+        field(so + 4, 4, "sh_type", tn, ""),
+        field(so + 8, if is64 { 8 } else { 4 }, "sh_flags", fl, "W=1 A=2 X=4"),
+        field(if is64 { so + 16 } else { so + 12 }, if is64 { 8 } else { 4 }, "sh_addr", "0x\{hex(sh_addr, 8)}", ""),
+        field(if is64 { so + 24 } else { so + 16 }, if is64 { 8 } else { 4 }, "sh_offset", "0x\{hex(sh_offset, 8)}", "File offset"),
+        field(if is64 { so + 32 } else { so + 20 }, if is64 { 8 } else { 4 }, "sh_size", format_size(sh_size), ""),
+      ]))
+    }
+    fields.push(group(e_shoff, e_shnum * e_shentsize, "Section Headers", "\{e_shnum} sections", shdr_entries))
+  }
   fields
 }
 
