@@ -19,8 +19,8 @@
 
 // Saved terminal state for restoration on exit
 static struct termios saved_term;
-static int term_saved = 0;
-static int alt_screen_active = 0;
+static volatile sig_atomic_t term_saved = 0;
+static volatile sig_atomic_t alt_screen_active = 0;
 
 // Restore terminal to original settings (signal-safe)
 static void restore_terminal(void) {
@@ -85,8 +85,9 @@ void tui_enter_alt_screen(void) {
     enable_ansi();
     printf("\033[?1049h");
 #else
-    if (write(STDOUT_FILENO, "\033[?1049h\033[?1000h\033[?1006h", 24) < 0) {}
-    alt_screen_active = 1;
+    if (write(STDOUT_FILENO, "\033[?1049h\033[?1000h\033[?1006h", 24) >= 0) {
+        alt_screen_active = 1;
+    }
 #endif
     fflush(stdout);
 }
@@ -106,7 +107,6 @@ void tui_exit_alt_screen(void) {
 void tui_enter_raw(void) {
     struct termios newt;
     if (tcgetattr(STDIN_FILENO, &saved_term) != 0) return;
-    term_saved = 1;
     setup_terminal_handlers();
 
     newt = saved_term;
@@ -115,7 +115,7 @@ void tui_enter_raw(void) {
     newt.c_lflag &= ~(ICANON | ECHO | ISIG | IEXTEN);
     newt.c_cc[VMIN] = 1;
     newt.c_cc[VTIME] = 0;
-    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+    term_saved = (tcsetattr(STDIN_FILENO, TCSANOW, &newt) == 0);
 }
 
 void tui_exit_raw(void) {
@@ -241,14 +241,14 @@ int tui_get_terminal_rows(void) {
     CONSOLE_SCREEN_BUFFER_INFO csbi;
     if (GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi))
         return csbi.srWindow.Bottom - csbi.srWindow.Top + 1;
-    return 0;
+    return 24;
 #else
     struct winsize ws = {0};
     if (ioctl(STDIN_FILENO, TIOCGWINSZ, &ws) != -1 && ws.ws_row > 0) return ws.ws_row;
     if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) != -1 && ws.ws_row > 0) return ws.ws_row;
     char *env = getenv("LINES");
     if (env) { int n = atoi(env); if (n > 0 && n <= 200) return n; }
-    return 0;
+    return 24;
 #endif
 }
 
@@ -294,8 +294,7 @@ void raw_print(const char* s) {
 #else
     // Use write() directly in raw mode — avoids stdio buffering
     // that can rearrange output with large buffers
-    size_t len = 0;
-    while (s[len]) len++;
+    size_t len = strlen(s);
     if (write(STDOUT_FILENO, s, len) < 0) {}
 #endif
 }
@@ -304,7 +303,6 @@ void raw_print(const char* s) {
 // Returns a pointer to the mapped file data. Sets *size to the file size.
 // Returns NULL on failure.
 #ifdef _WIN32
-#include <windows.h>
 void* mmap_file(const char* path, int* size) {
     HANDLE hFile = CreateFileA(path, GENERIC_READ, FILE_SHARE_READ,
         NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
@@ -368,7 +366,8 @@ int tui_get_cwd(char* buf, int buf_size) {
     wchar_t wbuf[1024];
     int wlen = GetCurrentDirectoryW(1024, wbuf);
     if (wlen <= 0) return 0;
-    return WideCharToMultiByte(CP_UTF8, 0, wbuf, wlen, buf, buf_size, NULL, NULL);
+    int n = WideCharToMultiByte(CP_UTF8, 0, wbuf, -1, buf, buf_size, NULL, NULL);
+return n > 0 ? n - 1 : n;
 #else
     if (getcwd(buf, buf_size)) { int i = 0; while(buf[i]) i++; return i; }
     return 0;
@@ -418,7 +417,8 @@ int tui_get_home(char* buf, int buf_size) {
     wchar_t wbuf[1024];
     DWORD len = GetEnvironmentVariableW(L"USERPROFILE", wbuf, 1024);
     if (len == 0) return 0;
-    return WideCharToMultiByte(CP_UTF8, 0, wbuf, len, buf, buf_size, NULL, NULL);
+    int n = WideCharToMultiByte(CP_UTF8, 0, wbuf, -1, buf, buf_size, NULL, NULL);
+return n > 0 ? n - 1 : n;
 #else
     const char* home = getenv("HOME");
     if (!home) return 0;
@@ -445,7 +445,8 @@ int tui_realpath(const char* path, char* buf, int buf_size) {
     MultiByteToWideChar(CP_UTF8, 0, path, -1, wpath, 1024);
     DWORD len = GetFullPathNameW(wpath, 1024, wout, NULL);
     if (len == 0) return 0;
-    return WideCharToMultiByte(CP_UTF8, 0, wout, len, buf, buf_size, NULL, NULL);
+    int n = WideCharToMultiByte(CP_UTF8, 0, wout, -1, buf, buf_size, NULL, NULL);
+	    return n > 0 ? n - 1 : n;
 #else
     char resolved[4096];
     if (!realpath(path, resolved)) return 0;

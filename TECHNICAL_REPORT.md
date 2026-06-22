@@ -17,7 +17,7 @@
 | 搜索 — 精确 | Boyer-Moore-Horspool 算法，hex 和 ASCII 两种模式 | ✓ |
 | 搜索 — 通配符 | `??` 任意字节、`*` 任意长度、`*N` 跳过 N 字节，支持转义 | ✓ |
 | 结构解析 | 20 种文件格式解析器（图像/音频/视频/归档/可执行） | ✓ |
-| 签名扫描 | Aho-Corasick 多模式匹配 + 14 格式验证器 + 提取隐写文件 + 置信度过滤 | ✓ |
+| 签名扫描 | Aho-Corasick 多模式匹配 + 18 格式验证器 + 去重过滤 + 提取隐写文件 | ✓ |
 | 熵分析 | 256 字节块香农熵，颜色柱状图可视化 | ✓ |
 | 字符串提取 | 可打印 ASCII 序列提取（≥4 字节），跳转高亮 | ✓ |
 | 编解码 | Base64 / URL / Unicode / Hex 编解码，交互式弹窗实时预览 | ✓ |
@@ -33,10 +33,14 @@
 
 | 指标 | 数值 |
 |------|------|
-| MoonBit 源代码行数 | ~5,800 行（17个 .mbt 文件） |
-| C FFI 层代码行数 | ~460 行（tui_stub.c，17 个 FFI 函数） |
+| 有效 MoonBit 代码 | **6,202 行**（18 个源文件） |
+| 　├ 核心库（Native + Wasm 共享） | 3,127 行（8 个文件） |
+| 　├ Native CLI/TUI | 2,874 行（9 个文件） |
+| 　└ Wasm CLI | 201 行（1 个文件） |
+| MoonBit 测试代码 | 1,577 行（4 个文件） |
+| C FFI 层 | **458 行**（tui_stub.c，17 个 FFI 函数） |
 | 支持的二进制格式 | 20 种 |
-| 测试用例数 | 85 个（全部通过） |
+| 测试用例数 | 176 个（全部通过） |
 | 支持的操作系统 | Windows 11、Linux |
 | 编译目标 | Native（x86_64）+ Wasm-GC |
 | 外部依赖 | 仅 moonbitlang/x v0.4.45 |
@@ -161,9 +165,9 @@ C FFI 层（`tui_stub.c`）封装了 Windows 和 Linux 的差异：
   → 单趟扫描文件，O(n + m + z)
 ```
 
-17 个基础模式对应：JPEG (FFD8)、PNG (89504E47)、GIF (47494638)、BMP (424D)、RIFF (52494646)、ZIP (504B0304/504B0506/504B0102)、RAR (526172211A07)、7z (377ABCAF271C)、GZip (1F8B08)、Zlib (789C/78DA/7801)、BZip2 (425A68)、PE (4D5A)、ELF (7F454C46)、TAR（位置约束匹配）
+21 个基础模式对应：JPEG (FFD8)、PNG (89504E47)、GIF (47494638)、BMP (424D)、RIFF (52494646)、ZIP (504B0304)、RAR (52617221)、7z (377ABCAF271C)、GZip (1F8B)、Zlib (789C/78DA/7801/785E)、BZip2 (425A68)、PE (4D5A)、ELF (7F454C46)、TAR (ustar)、OGG (4F676753)、MP3 (ID3)、FLAC (664C6143)、WebM/EBML (1A45DFA3)
 
-**阶段二：逐格式结构验证（14 个验证器）**
+**阶段二：逐格式结构验证（18 个验证器）**
 
 每个验证器对候选偏移进行深度检查：
 
@@ -174,7 +178,7 @@ C FFI 层（`tui_stub.c`）封装了 Windows 和 Linux 的差异：
 | ZIP | 验证版本号 / 标志 / 压缩方法字段约束 |
 | PE | 检查 e_lfanew 指向有效 "PE\0\0" 签名 |
 | TAR | 确认 ustar 魔数出现在 (offset - 257) % 512 == 0 的位置 |
-| GIF/BMP/WAV/ELF | 结构完整性验证 |
+| GIF/BMP/WAV/ELF/OGG/MP3/FLAC/WebM | 结构完整性验证 |
 
 **置信度评分**：
 - 1 = 仅魔数匹配（低置信度）
@@ -286,28 +290,32 @@ Wasm-GC 版本（`cmd/wasm/main.mbt`）复用全部核心库，去掉 TUI 和 FF
 ```
 $ moon test --target native
 
-Total tests: 85, passed: 85, failed: 0.
+Total tests: 176, passed: 176, failed: 0.
 ```
 
-全部 85 个测试用例通过，覆盖核心库全部模块。
+全部 176 个测试用例通过，覆盖核心库全部模块。
 
 ### 4.2 测试覆盖矩阵
 
 | 测试类别 | 用例数 | 覆盖模块 | 测试内容 |
 |---------|--------|---------|---------|
-| HexBuffer 操作 | 12 | hex_editor.mbt | 构造/读/写/插入/删除/导出/往返/容量增长/修改标记 |
+| HexBuffer 操作 | 14 | hex_editor.mbt | 构造/读/写/插入/删除/导出/往返/容量增长/修改标记/编辑往返/空缓冲插入 |
 | Gap Buffer 机制 | 2 | hex_editor.mbt | 跨位置插入间隙移动、大量插入触发扩容 |
-| 显示格式化 | 6 | hex_view.mbt | 字节 hex/ASCII 格式化、偏移格式化、尺寸显示、hex dump |
-| 编解码 | 16 | hex_codec.mbt | Base64/URL/Unicode/Hex 各格式编解码往返测试、已知向量验证、非法输入边界测试 |
-| 搜索算法 | 11 | hex_search.mbt | BMH 精确匹配、hex 模式解析、`??` 通配符、`*` 多通配符、`*N` 固定跳过、文本模式（含 `?`/`*`/`\` 转义） |
-| 格式扫描与解析 | 22 | hex_scan.mbt + hex_struct.mbt | 14 种格式签名扫描 + 20 种格式结构解析（使用 testfile/ 真实文件） |
-| 隐写与混合 | 2 | hex_scan.mbt | JPEG 内嵌数据检测（hidden.jpg）、多文件合并检测（mergejp.jpg） |
-| 熵与字符串 | 2 | hex_entropy.mbt + hex_strings.mbt | 均匀/离散熵精度验证、ASCII 字符串提取 |
-| 边界与安全性 | 6 | 全部模块 | 空输入安全（b"" 所有 7 模块）、JSON 导出、Buffer info |
+| 显示格式化 | 8 | hex_view.mbt | 字节 hex/ASCII、偏移、尺寸、hex dump、已知值验证 |
+| 编解码 | 16 | hex_codec.mbt | Base64/URL/Unicode/Hex 往返测试、已知向量、非法输入 |
+| 搜索算法 | 14 | hex_search.mbt | BMH 精确位置、hex 模式解析、`??`/`*`/`*N` 通配符、文本模式、`\` 转义 |
+| 格式扫描与解析 | 23 | hex_scan + hex_struct | 18 格式签名扫描 + 20 格式结构解析 + JPEG 结构验证 + Zlib FCHECK + 容器抑制 + 新格式(OGG/MP3/FLAC/WebM) |
+| 隐写与混合 | 2 | hex_scan.mbt | hidden.jpg 嵌入检测、mergejp.jpg 多文件合并 |
+| 熵与字符串 | 7 | hex_entropy + hex_strings | 均匀/离散/部分块/单字节精度、字符串长度边界/偏移 |
+| CLI 解析 | 22 | helpers.mbt | parseInt(dec/hex/neg)、detectType、isOption、findArg、getIntOption 等 |
+| 编辑/撤销 | 22 | tui_edit.mbt | 5 种 UndoOp 的 apply/reverse、往返、复合撤销、revertAll |
+| UTF-8 解码 | 15 | tui_files.mbt | 1-4 字节、截断、混合编码、非法跳过、空范围 |
+| 路径/书签 | 6 | tui_files.mbt | basename、joinPath、parentPath、getMarksPath |
+| 边界与安全性 | 7 | 全部模块 | 空输入安全(全 7 模块)、JSON 导出、formatInfo |
 
 ### 4.3 测试数据
 
-`testfile/` 目录包含 24 个涵盖所有支持格式的真实二进制文件：
+`testfile/` 目录包含 25 个涵盖所有支持格式的真实二进制文件：
 
 - 图像：test.png, test.jpg, test.gif, test.bmp
 - 音频：test.wav, test.flac, test.ogg, test.mp3
@@ -318,7 +326,7 @@ Total tests: 85, passed: 85, failed: 0.
 
 ### 4.4 跨平台验证
 
-| 平台 | 编译 | 测试 (85 cases) | TUI 交互 | CLI 命令 | Wasm-GC |
+| 平台 | 编译 | 测试 (176 cases) | TUI 交互 | CLI 命令 | Wasm-GC |
 |------|------|----------------|---------|---------|---------|
 | Windows 11 | ✓ | ✓ 全部通过 | ✓ | ✓ | ✓ |
 | Linux | ✓ | ✓ 全部通过 | ✓ | ✓ | ✓ |
@@ -348,7 +356,7 @@ Total tests: 85, passed: 85, failed: 0.
 - **裸终端控制**：不依赖 ncurses 等第三方库，纯 ANSI 转义序列 + 平台 API，证明 MoonBit 可以实现底层系统编程
 - **跨平台编译**：同一套代码编译到 x86_64 Native 和 Wasm-GC 两个目标，零修改共享核心库
 - **算法表达力**：Aho-Corasick 自动机、Shift-Or 位并行、Boyer-Moore-Horspool 等经典算法均在 MoonBit 中自然表达
-- **大型工程组织**：17 个源文件、约 5800 行代码、85 个测试用例，证明 MoonBit 具备中型项目的工程化能力
+- **大型工程组织**：18 个源文件、约 6,200 行代码、176 个测试用例，证明 MoonBit 具备中型项目的工程化能力
 
 ### 5.2 搜索算法的三级自适应调度
 
@@ -405,11 +413,11 @@ hex_editor/
 ├── hex_view.mbt             # 十六进制格式化、尺寸显示
 ├── hex_search.mbt           # BMH / Shift-Or / 贪婪分段搜索
 ├── hex_struct.mbt           # 20 种文件格式递归下降解析器
-├── hex_scan.mbt             # Aho-Corasick 签名扫描 + 14 格式验证
+├── hex_scan.mbt             # Aho-Corasick 签名扫描 + 18 格式验证
 ├── hex_strings.mbt          # 可打印 ASCII 字符串提取
 ├── hex_entropy.mbt          # 香农熵分析（查找表优化）
 ├── hex_codec.mbt            # Base64 / URL / Unicode / Hex 编解码
-├── hex_editor_test.mbt      # 85 个测试用例
+├── hex_editor_test.mbt      # 176 个测试用例
 ├── cmd/main/
 │   ├── main.mbt             # CLI 入口（14 个子命令）
 │   ├── tui.mbt              # TUI 主循环、FFI 声明、mmap 加载

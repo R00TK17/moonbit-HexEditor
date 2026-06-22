@@ -35,7 +35,7 @@ fn load(path : String) -> Bytes? {
 
 fn find_arg(args : Array[String], cmd : String) -> String? {
   for i = 0; i < args.length(); i = i + 1 {
-    if args[i] != cmd && !args[i].contains("-") { return Some(args[i]) }
+    if args[i] != cmd && (args[i].length() == 0 || args[i].get_char(0).unwrap() != '-') { return Some(args[i]) }
   }
   None
 }
@@ -99,7 +99,7 @@ fn cmd_search(args : Array[String]) -> Unit {
   let mut pattern = ""
   let mut found_file = false
   for i = 0; i < args.length(); i = i + 1 {
-    if args[i] != "search" && !args[i].contains("-") {
+    if args[i] != "search" && (args[i].length() == 0 || args[i].get_char(0).unwrap() != '-') {
       if !found_file { found_file = true }
       else { pattern = args[i]; break }
     }
@@ -133,7 +133,7 @@ fn cmd_encode(args : Array[String]) -> Unit {
   let mut input = ""
   let mut found_type = false
   for i = 0; i < args.length(); i = i + 1 {
-    if args[i] != "encode" && !args[i].contains("-") {
+    if args[i] != "encode" && (args[i].length() == 0 || args[i].get_char(0).unwrap() != '-') {
       if !found_type { found_type = true }
       else { input = args[i]; break }
     }
@@ -158,7 +158,7 @@ fn cmd_decode(args : Array[String]) -> Unit {
   let mut input = ""
   let mut found_type = false
   for i = 0; i < args.length(); i = i + 1 {
-    if args[i] != "decode" && !args[i].contains("-") {
+    if args[i] != "decode" && (args[i].length() == 0 || args[i].get_char(0).unwrap() != '-') {
       if !found_type { found_type = true }
       else { input = args[i]; break }
     }

@@ -140,19 +140,20 @@ pub fn refresh_browser(state : TuiState) -> Unit {
     if name == ".." || t == 'D'.to_int() { dirs.push(name) }
     else { files.push(name) }
   }
-  // Build sorted list: .. first, then dirs, then files
-  let has_dotdot = dirs.contains("..")
-  if !has_dotdot {
-    state.browser_names.push("..")
-    state.browser_is_dir.push(true)
-  }
+  // Build sorted list: .. first, then dirs (excluding ..), then files
+  state.browser_names.push("..")
+  state.browser_is_dir.push(true)
   for i = 0; i < dirs.length(); i = i + 1 {
-    state.browser_names.push(dirs[i])
-    state.browser_is_dir.push(true)
+    if dirs[i] != ".." {  // skip .. from C output, already prepended
+      state.browser_names.push(dirs[i])
+      state.browser_is_dir.push(true)
+    }
   }
   for i = 0; i < files.length(); i = i + 1 {
-    state.browser_names.push(files[i])
-    state.browser_is_dir.push(false)
+    if files[i] != ".." {  // skip .. if misclassified as file on Linux
+      state.browser_names.push(files[i])
+      state.browser_is_dir.push(false)
+    }
   }
   state.browser_sel = 0
   state.browser_scroll = 0

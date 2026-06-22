@@ -83,7 +83,7 @@ moon build --target wasm-gc cmd/wasm
 **5. Run tests**
 
 ```bash
-moon test --target native          # 164 tests
+moon test --target native          # 176 tests
 ```
 
 **6. Launch**
@@ -128,11 +128,12 @@ This runs 6 representative commands (struct, scan, view, entropy, encode, search
   - Gap Buffer: O(1) insert/delete at cursor, gap = file allocation / 16
 - Structure view: parsed file structure with scrollable display
 - Bookmarks: 21 slots (0-20), popup list with auto-scroll, `Ctrl+B` set, `#N` goto, **persistent** (auto save/load to `~/.hexedit/`)
-- Signature scan: `w` key, 14 formats with per-signature validation, confidence filtering, cached results
+- Signature scan: `w` key, 18 formats with per-signature validation, confidence filtering, dedup, cached results
   - **Image:** JPEG, PNG, GIF, BMP
   - **Archive:** ZIP, RAR, 7z, GZip, Zlib, BZip2, TAR
   - **Executable:** PE (exe/dll), ELF
-  - **Audio:** WAV
+  - **Audio:** WAV, FLAC, MP3, OGG
+  - **Video/Container:** AVI, WebM
 - Scan result caching: `w`/`s`/`h` save position when re-opened, auto-clear on edits
 - Entropy analysis: `h` key, 256-byte blocks, Shannon entropy with color-coded bars
 - Strings extraction: `s` key, printable ASCII sequences >= 4 chars, with caching, jump-to-offset and highlight
@@ -280,11 +281,11 @@ hex_editor/
 ├── hex_view.mbt                 # Hex dump formatting, size display, hex byte table
 ├── hex_search.mbt               # Search: BMH exact, wildcard (?? * *N), text pattern (? * \)
 ├── hex_struct.mbt               # 20 file format parsers + JSON export
-├── hex_scan.mbt                 # Signature scanner (14 formats), Aho-Corasick
+├── hex_scan.mbt                 # Signature scanner (18 formats), Aho-Corasick
 ├── hex_strings.mbt              # Printable ASCII string extraction
 ├── hex_entropy.mbt              # Shannon entropy analysis (256-byte blocks)
 ├── hex_codec.mbt                # Codecs: Base64, URL, Unicode, Hex encoding/decoding
-├── hex_editor_test.mbt          # 164 unit + integration tests
+├── hex_editor_test.mbt          # 176 unit + integration tests
 ├── cmd/main/
 │   ├── main.mbt                 # CLI entry (view/info/struct/strings/entropy/scan)
 │   ├── helpers.mbt              # CLI argument parsing, file loading, type detection
@@ -301,12 +302,14 @@ hex_editor/
 │   └── tui_stub.c               # C stubs (terminal, mmap, directory listing, UTF-8)
 ├── cmd/wasm/
 │   └── main.mbt                 # Wasm-GC CLI entry (lightweight, no FFI)
-├── testfile/                    # 24 test files (all supported formats)
+├── testfile/                    # 25 test files (all supported formats)
 ├── .github/workflows/ci.yml     # CI: check → build (native+wasm) → test (Linux+Win)
 ├── setup.sh / setup.ps1         # One-click setup scripts
 ├── demo.sh / demo.ps1           # Run 6 CLI demos against bundled test files
 └── TECHNICAL_REPORT.md          # Technical documentation (Chinese)
 ```
+
+**Code Scale:** 6,202 lines MoonBit (3,127 shared lib + 2,874 native CLI/TUI + 201 wasm CLI) + 458 lines C FFI + 1,577 lines tests.
 
 ## Dependencies
 

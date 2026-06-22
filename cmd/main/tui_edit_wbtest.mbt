@@ -163,16 +163,42 @@ test "undo_redo roundtrip kind 0 modify" {
   assert_eq(buf.byte_at(1), b'\x42') // redone
 }
 
-test "undo_redo roundtrip kind 1 undo direction" {
-  // Simulate after insert: buf has an extra byte inserted at pos 1
+test "undo_redo roundtrip kind 1 insert" {
+  // Simulate: insert 0x99 at position 1 into [0x01, 0x02, 0x03]
   let buf = @lib.HexBuffer::from_bytes(b"\x01\x99\x02\x03")
-  // Undo the insert at position 1
-  let op = undo_op(1, 1, b'\x00')
-  let _redo_op = apply_undo(buf, op)
-  // After undo: inserted byte should be deleted
+  // The undo op records what was inserted (0x99) at position 1
+  let op = undo_op(1, 1, b'\x99')
+  // Undo: should delete the inserted byte
+  let redo_op = apply_undo(buf, op)
   assert_eq(buf.length(), 3)
   assert_eq(buf.byte_at(0), b'\x01')
   assert_eq(buf.byte_at(1), b'\x02')
+  assert_eq(buf.byte_at(2), b'\x03')
+  // Redo: should re-insert 0x99 at position 1
+  let _ = apply_redo(buf, redo_op)
+  assert_eq(buf.length(), 4)
+  assert_eq(buf.byte_at(0), b'\x01')
+  assert_eq(buf.byte_at(1), b'\x99')
+  assert_eq(buf.byte_at(2), b'\x02')
+  assert_eq(buf.byte_at(3), b'\x03')
+}
+
+test "undo_redo roundtrip kind 2 delete" {
+  // Simulate: delete byte at position 1 (was 0x02) from [0x01, 0x02, 0x03]
+  let buf = @lib.HexBuffer::from_bytes(b"\x01\x03")
+  // The undo op records the deleted byte (0x02) at position 1
+  let op = undo_op(2, 1, b'\x02')
+  // Undo: should re-insert 0x02 at position 1
+  let redo_op = apply_undo(buf, op)
+  assert_eq(buf.length(), 3)
+  assert_eq(buf.byte_at(0), b'\x01')
+  assert_eq(buf.byte_at(1), b'\x02')
+  assert_eq(buf.byte_at(2), b'\x03')
+  // Redo: should delete byte at position 1 again
+  let _ = apply_redo(buf, redo_op)
+  assert_eq(buf.length(), 2)
+  assert_eq(buf.byte_at(0), b'\x01')
+  assert_eq(buf.byte_at(1), b'\x03')
 }
 
 test "undo_redo double modify roundtrip" {
@@ -227,15 +253,27 @@ test "revert_all_edits mix insert delete modify" {
 
 // ====== Kind 2 (delete) redo ======
 
-test "apply_redo kind 2 delete" {
+test "apply_redo kind 1 delete" {
+  // After undo of a delete at position 1, redo_stack has kind 1 with old_byte = deleted byte
   let buf = @lib.HexBuffer::from_bytes(b"\x01\x02\x03")
-  // Simulate: delete buf[1] = 0x02
-  let captured = buf.byte_at(1)
-  buf.delete_byte(1) |> ignore
-  assert_eq(buf.length(), 2)
-  // Redo op for delete: re-delete by applying same kind 2 with captured byte
-  let op : UndoOp = { kind: 2, offset: 1, old_byte: captured, old_bytes: [], count: 1 }
+  let op : UndoOp = { kind: 1, offset: 1, old_byte: b'\x02', old_bytes: [], count: 1 }
   let undo_op = apply_redo(buf, op)
-  assert_eq(buf.length(), 1)
+  // Redo should delete byte at position 1 again
+  assert_eq(buf.length(), 2)
+  assert_eq(buf.byte_at(0), b'\x01')
+  assert_eq(buf.byte_at(1), b'\x03')
   assert_eq(undo_op.kind, 2)
+}
+
+test "apply_redo kind 2 insert" {
+  // After undo of an insert at position 1, redo_stack has kind 2 with old_byte = inserted byte
+  let buf = @lib.HexBuffer::from_bytes(b"\x01\x03")
+  let op : UndoOp = { kind: 2, offset: 1, old_byte: b'\x02', old_bytes: [], count: 1 }
+  let undo_op = apply_redo(buf, op)
+  // Redo should re-insert the byte
+  assert_eq(buf.length(), 3)
+  assert_eq(buf.byte_at(0), b'\x01')
+  assert_eq(buf.byte_at(1), b'\x02')
+  assert_eq(buf.byte_at(2), b'\x03')
+  assert_eq(undo_op.kind, 1)
 }

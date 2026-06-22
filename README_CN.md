@@ -83,7 +83,7 @@ moon build --target wasm-gc cmd/wasm
 **5. 运行测试**
 
 ```bash
-moon test --target native          # 164 个测试
+moon test --target native          # 176 个测试
 ```
 
 **6. 启动**
@@ -113,7 +113,6 @@ chmod +x demo.sh && ./demo.sh
 ```
 
 自动运行 6 个代表性命令（struct、scan、view、entropy、encode、search），使用项目自带的测试文件。
-```
 
 ## 功能特性
 
@@ -129,11 +128,12 @@ chmod +x demo.sh && ./demo.sh
   - Gap Buffer：光标处插入/删除 O(1)，间隙 = 文件占用空间 / 16
 - 结构视图：解析文件内部结构，支持滚动浏览
 - 书签：21 个槽位（0-20），弹出列表自动滚动，`Ctrl+B` 设置，`#N` 跳转，**持久化**（自动保存/加载到 `~/.hexedit/`）
-- 签名扫描：`w` 键，14 种格式，每格式独立验证，置信度过滤，结果缓存
+- 签名扫描：`w` 键，18 种格式，每格式独立验证，置信度过滤，去重，结果缓存
   - **图像:** JPEG、PNG、GIF、BMP
   - **压缩/归档:** ZIP、RAR、7z、GZip、Zlib、BZip2、TAR
   - **可执行:** PE（exe/dll）、ELF
-  - **音频:** WAV
+  - **音频:** WAV、FLAC、MP3、OGG
+  - **视频/容器:** AVI、WebM
 - 扫描缓存：`w`/`s`/`h` 重新打开时保持上次位置，编辑后自动清除
 - 熵分析：`h` 键，256 字节块，香农熵色彩柱状图
 - 字符串提取：`s` 键，可打印 ASCII 序列（>=4 字节），支持缓存、跳转高亮
@@ -282,11 +282,11 @@ hex_editor/
 ├── hex_view.mbt                 # 十六进制格式化、尺寸显示
 ├── hex_search.mbt               # 搜索：BMH 精确、通配符（?? * *N）、文本模式（? * \）
 ├── hex_struct.mbt               # 20 种文件格式解析器 + JSON 导出
-├── hex_scan.mbt                 # 签名扫描（14 种格式）、Aho-Corasick 自动机
+├── hex_scan.mbt                 # 签名扫描（18 种格式）、Aho-Corasick 自动机
 ├── hex_strings.mbt              # 可打印 ASCII 字符串提取
 ├── hex_entropy.mbt              # 香农熵分析（256 字节块）
 ├── hex_codec.mbt                # 编解码：Base64、URL、Unicode、Hex
-├── hex_editor_test.mbt          # 164 个单元 + 集成测试
+├── hex_editor_test.mbt          # 176 个单元 + 集成测试
 ├── cmd/main/
 │   ├── main.mbt                 # CLI 入口（view/info/struct/strings/entropy/scan）
 │   ├── helpers.mbt              # CLI 参数解析、文件加载、类型检测
@@ -303,12 +303,14 @@ hex_editor/
 │   └── tui_stub.c               # C 桩（终端、mmap、目录列表、UTF-8）
 ├── cmd/wasm/
 │   └── main.mbt                 # Wasm-GC CLI 入口（轻量版，无 FFI）
-├── testfile/                    # 24 个测试文件（覆盖所有支持格式）
+├── testfile/                    # 25 个测试文件（覆盖所有支持格式）
 ├── .github/workflows/ci.yml     # CI：检查 → 构建 (native+wasm) → 测试 (Linux+Win)
 ├── setup.sh / setup.ps1         # 一键搭建脚本
 ├── demo.sh / demo.ps1           # 运行 6 个 CLI 演示命令
 └── TECHNICAL_REPORT.md          # 初赛技术说明文档
 ```
+
+**代码规模：** 6,202 行 MoonBit（3,127 共享核心库 + 2,874 Native CLI/TUI + 201 Wasm CLI）+ 458 行 C FFI + 1,577 行测试。
 
 ## 依赖
 

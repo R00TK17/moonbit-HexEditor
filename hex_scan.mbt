@@ -79,7 +79,7 @@ pub fn scan_signatures(bytes : Bytes) -> Array[ScanMatch] {
     b"\x89\x50\x4E\x47",                     // PNG
     b"\x47\x49\x46\x38",                     // GIF
     b"\x42\x4D",                             // BMP
-    b"\x52\x49\x46\x46",                     // RIFF/WAV
+    b"\x52\x49\x46\x46",                     // RIFF/WAV/AVI
     b"\x50\x4B\x03\x04",                     // ZIP
     b"\x52\x61\x72\x21",                     // RAR
     b"\x37\x7A\xBC\xAF\x27\x1C",             // 7z
@@ -89,6 +89,10 @@ pub fn scan_signatures(bytes : Bytes) -> Array[ScanMatch] {
     b"\x4D\x5A",                             // PE (exe/dll)
     b"\x7F\x45\x4C\x46",                     // ELF
     b"\x75\x73\x74\x61\x72",                 // TAR (ustar)
+    b"\x4F\x67\x67\x53",                     // OGG (OggS)
+    b"\x49\x44\x33",                         // MP3 (ID3)
+    b"\x66\x4C\x61\x43",                     // FLAC (fLaC)
+    b"\x1A\x45\xDF\xA3",                     // WebM (EBML)
   ]
   let (nodes, ac_pats) = build_ac(magics)
 
@@ -126,34 +130,48 @@ pub fn scan_signatures(bytes : Bytes) -> Array[ScanMatch] {
     if filtered[i].confidence >= 2 { trusted.push(filtered[i]) }
   }
   estimate_sizes(bytes, trusted)
+  // Dedup: suppress compressed-format matches nested inside earlier payloads
+  let deduped : Array[ScanMatch] = []
+  for i = 0; i < trusted.length(); i = i + 1 {
+    let m = trusted[i]
+    let is_compressed = m.name.contains("Zlib") || m.name.contains("GZip") || m.name.contains("BZip2")
+    let mut nested = false
+    if is_compressed {
+      for j = 0; j < i; j = j + 1 {
+        let prev = trusted[j]
+        if m.offset > prev.offset && m.offset < prev.offset + prev.size { nested = true }
+      }
+    }
+    if !nested { deduped.push(m) }
+  }
   // Tail detection: boost header confidence when end markers found
   if len >= 2 && bytes[len-2].to_int() == 0xFF && bytes[len-1].to_int() == 0xD9 &&
      bytes[0].to_int() == 0xFF && bytes[1].to_int() == 0xD8 {
-    for i = 0; i < trusted.length(); i = i + 1 {
-      if trusted[i].name.contains("JPEG") && trusted[i].confidence < 3 { trusted[i].confidence = 3 }
+    for i = 0; i < deduped.length(); i = i + 1 {
+      if deduped[i].name.contains("JPEG") && deduped[i].confidence < 3 { deduped[i].confidence = 3 }
     }
   }
   if len >= 12 && bytes[0].to_int() == 0x89 && bytes[1].to_int() == 0x50 &&
      bytes[len-12].to_int() == 0x00 && bytes[len-11].to_int() == 0x00 && bytes[len-10].to_int() == 0x00 && bytes[len-9].to_int() == 0x00 &&
      bytes[len-8].to_int() == 0x49 && bytes[len-7].to_int() == 0x45 && bytes[len-6].to_int() == 0x4E && bytes[len-5].to_int() == 0x44 {
-    for i = 0; i < trusted.length(); i = i + 1 {
-      if trusted[i].name.contains("PNG image") && trusted[i].confidence < 3 { trusted[i].confidence = 3 }
+    for i = 0; i < deduped.length(); i = i + 1 {
+      if deduped[i].name.contains("PNG image") && deduped[i].confidence < 3 { deduped[i].confidence = 3 }
     }
   }
   if len >= 3 && read_str(bytes, 0, 3) == "GIF" && bytes[len-1].to_int() == 0x3B {
-    for i = 0; i < trusted.length(); i = i + 1 {
-      if trusted[i].name.contains("GIF image") && trusted[i].confidence < 3 { trusted[i].confidence = 3 }
+    for i = 0; i < deduped.length(); i = i + 1 {
+      if deduped[i].name.contains("GIF image") && deduped[i].confidence < 3 { deduped[i].confidence = 3 }
     }
   }
   // Trailing data
-  if trusted.length() > 0 {
-    let last = trusted[trusted.length() - 1]
+  if deduped.length() > 0 {
+    let last = deduped[deduped.length() - 1]
     let tail_off = last.offset + last.size
     if tail_off > 0 && tail_off + 256 < len {
-      trusted.push({ offset: tail_off, name: "Trailing data (" + format_size(len - tail_off) + ")", size: len - tail_off, confidence: 1 })
+      deduped.push({ offset: tail_off, name: "Trailing data (" + format_size(len - tail_off) + ")", size: len - tail_off, confidence: 1 })
     }
   }
-  trusted
+  deduped
 }
 
 ///| Each format has a dedicated validator (binwalk-style per-signature parser)
@@ -161,12 +179,50 @@ fn validate_jpeg(bytes : Bytes, off : Int, len : Int) -> ScanMatch? {
   guard off + 4 <= len && bytes[off].to_int() == 0xFF && bytes[off + 1].to_int() == 0xD8 && bytes[off + 2].to_int() == 0xFF else { None }
   let marker = bytes[off + 3].to_int()
   guard (marker >= 0xE0 && marker <= 0xEF) || marker == 0xFE || marker == 0xDB || (marker >= 0xC0 && marker <= 0xC4) else { None }
-  Some({ offset: off, name: "JPEG image", size: 0, confidence: 2 })
+  // Verify JPEG structure: require JFIF/EXIF identifier or valid marker chain
+  let end = if off + 300 < len { off + 300 } else { len }
+  let mut markers = 0
+  let mut pos = off + 2
+  while pos + 4 <= end {
+    if bytes[pos].to_int() != 0xFF { pos = pos + 1; continue }
+    let nm = bytes[pos + 1].to_int()
+    if nm == 0x00 { pos = pos + 2; continue }   // escaped FF
+    if nm == 0xD9 { break }                       // EOI
+    if nm == 0xD8 { pos = pos + 2; continue }     // nested SOI
+    // Valid marker: check segment length is sane
+    if pos + 4 > end { break }
+    let seg_len = bytes[pos + 2].to_int() * 256 + bytes[pos + 3].to_int()
+    if seg_len < 2 || pos + 2 + seg_len > len { pos = pos + 2; continue }
+    // Count structural markers
+    if nm == 0xE0 && seg_len >= 7 &&
+       bytes[pos + 4].to_int() == 0x4A && bytes[pos + 5].to_int() == 0x46 &&
+       bytes[pos + 6].to_int() == 0x49 && bytes[pos + 7].to_int() == 0x46 { markers = markers + 1 }  // JFIF
+    if nm == 0xE1 && seg_len >= 8 &&
+       bytes[pos + 4].to_int() == 0x45 && bytes[pos + 5].to_int() == 0x78 &&
+       bytes[pos + 6].to_int() == 0x69 && bytes[pos + 7].to_int() == 0x66 { markers = markers + 1 }  // Exif
+    if nm == 0xDB || (nm >= 0xC0 && nm <= 0xC2) { markers = markers + 1 }  // DQT or SOF
+    if markers >= 1 { break }
+    pos = pos + 2 + seg_len
+  }
+  guard markers >= 1 else { None }
+  Some({ offset: off, name: "JPEG image", size: 0, confidence: 3 })
 }
 fn validate_png(bytes : Bytes, off : Int, len : Int) -> ScanMatch? {
   guard off + 25 <= len && bytes[off].to_int() == 0x89 && bytes[off + 1].to_int() == 0x50 && bytes[off + 2].to_int() == 0x4E && bytes[off + 3].to_int() == 0x47 && bytes[off + 4].to_int() == 0x0D && bytes[off + 5].to_int() == 0x0A && bytes[off + 6].to_int() == 0x1A && bytes[off + 7].to_int() == 0x0A else { None }
   guard read_u32_be(bytes, off + 8) == 0x0D && read_str(bytes, off + 12, 4) == "IHDR" else { None }
   let w = read_u32_be(bytes, off + 16); let h = read_u32_be(bytes, off + 20)
+  // Validate IHDR: color type and bit depth must be a valid combination
+  let bpp = bytes[off + 24].to_int()
+  let color_type = bytes[off + 25].to_int()
+  let valid_bpp_ct = match color_type {
+    0 => bpp == 1 || bpp == 2 || bpp == 4 || bpp == 8 || bpp == 16
+    2 => bpp == 8 || bpp == 16
+    3 => bpp == 1 || bpp == 2 || bpp == 4 || bpp == 8
+    4 => bpp == 8 || bpp == 16
+    6 => bpp == 8 || bpp == 16
+    _ => false
+  }
+  guard valid_bpp_ct else { None }
   Some({ offset: off, name: "PNG image, " + w.to_string() + " x " + h.to_string(), size: 0, confidence: 3 })
 }
 fn validate_gif(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
@@ -183,8 +239,11 @@ fn validate_bmp(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
   Some({ offset: off, name: "BMP image", size: 0, confidence: 3 })
 }
 fn validate_wav(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
-  guard off + 12 <= _len && read_str(bytes, off, 4) == "RIFF" && read_str(bytes, off + 8, 4) == "WAVE" else { None }
-  Some({ offset: off, name: "WAV audio", size: 0, confidence: 2 })
+  guard off + 12 <= _len && read_str(bytes, off, 4) == "RIFF" else { None }
+  let fcc = read_str(bytes, off + 8, 4)
+  if fcc == "WAVE" { return Some({ offset: off, name: "WAV audio", size: 0, confidence: 2 }) }
+  if fcc == "AVI " { return Some({ offset: off, name: "AVI video", size: 0, confidence: 2 }) }
+  None
 }
 
 fn validate_zip(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
@@ -218,9 +277,13 @@ fn validate_zlib(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
   guard off + 2 <= _len else { None }
   let header = bytes[off].to_int() * 256 + bytes[off + 1].to_int()
   guard header == 0x789C || header == 0x78DA || header == 0x7801 || header == 0x785E else { None }
-  let flevel = (bytes[off + 1].to_int() >> 6) & 3
+  // RFC 1950 FCHECK: (CMF*256+FLG) % 31 == 0, compression method must be deflate (8)
+  let cmf = bytes[off].to_int()
+  let flg = bytes[off + 1].to_int()
+  guard cmf % 16 == 8 && (cmf * 256 + flg) % 31 == 0 else { None }
+  let flevel = (flg / 64) % 4
   let level_str = if flevel == 0 { "fastest" } else if flevel == 1 { "fast" } else if flevel == 2 { "default" } else { "best" }
-  Some({ offset: off, name: "Zlib compressed data, " + level_str + " compression", size: 0, confidence: 2 })
+  Some({ offset: off, name: "Zlib compressed data, " + level_str + " compression", size: 0, confidence: 3 })
 }
 fn validate_bzip2(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
   guard off + 4 <= _len && bytes[off].to_int() == 0x42 && bytes[off + 1].to_int() == 0x5A && bytes[off + 2].to_int() == 0x68 else { None }
@@ -248,6 +311,35 @@ fn validate_tar(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
   Some({ offset: off - 257, name: "TAR archive", size: 0, confidence: 3 })
 }
 
+fn validate_ogg(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
+  guard off + 4 <= _len && read_str(bytes, off, 4) == "OggS" else { None }
+  Some({ offset: off, name: "OGG audio", size: 0, confidence: 3 })
+}
+fn validate_mp3(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
+  guard off + 10 <= _len && read_str(bytes, off, 3) == "ID3" else { None }
+  // Validate ID3v2 header: version (2.2, 2.3, 2.4), flags, syncsafe size
+  let ver_major = bytes[off + 3].to_int()
+  let ver_minor = bytes[off + 4].to_int()
+  guard ver_major >= 2 && ver_major <= 4 && ver_minor <= 255 else { None }
+  let flags = bytes[off + 5].to_int()
+  guard flags % 16 == 0 else { None }  // low 4 bits must be 0
+  // Syncsafe size: each byte uses 7 bits, highest bit must be 0
+  let mut syncsafe_ok = true
+  for i = 6; i < 10; i = i + 1 {
+    if bytes[off + i].to_int() > 0x7F { syncsafe_ok = false }
+  }
+  guard syncsafe_ok else { None }
+  Some({ offset: off, name: "MP3 audio (ID3v2.\{ver_major})", size: 0, confidence: 3 })
+}
+fn validate_flac(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
+  guard off + 4 <= _len && read_str(bytes, off, 4) == "fLaC" else { None }
+  Some({ offset: off, name: "FLAC audio", size: 0, confidence: 3 })
+}
+fn validate_webm(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
+  guard off + 4 <= _len && bytes[off].to_int() == 0x1A && bytes[off + 1].to_int() == 0x45 && bytes[off + 2].to_int() == 0xDF && bytes[off + 3].to_int() == 0xA3 else { None }
+  Some({ offset: off, name: "WebM/Matroska", size: 0, confidence: 3 })
+}
+
 fn check_sigs(bytes : Bytes, off : Int, len : Int, results : Array[ScanMatch]) -> Unit {
   let parsers = [
     validate_jpeg, validate_png, validate_gif, validate_bmp,
@@ -256,6 +348,7 @@ fn check_sigs(bytes : Bytes, off : Int, len : Int, results : Array[ScanMatch]) -
     validate_gzip, validate_zlib, validate_bzip2,
     validate_pe, validate_elf,
     validate_tar,
+    validate_ogg, validate_mp3, validate_flac, validate_webm,
   ]
   for i = 0; i < parsers.length(); i = i + 1 {
     match parsers[i](bytes, off, len) { Some(m) => results.push(m); None => () }
@@ -264,7 +357,7 @@ fn check_sigs(bytes : Bytes, off : Int, len : Int, results : Array[ScanMatch]) -
 
 ///| Filter false positives inside containers
 fn filter_false_positives(bytes : Bytes, matches : Array[ScanMatch]) -> Array[ScanMatch] {
-  let has_container = bytes.length() >= 4 && (
+  let is_container = bytes.length() >= 4 && (
     (bytes[0].to_int() == 0x42 && bytes[1].to_int() == 0x4D) ||  // BMP
     (bytes[0].to_int() == 0xFF && bytes[1].to_int() == 0xD8) ||  // JPEG
     (bytes[0].to_int() == 0x50 && bytes[1].to_int() == 0x4B) ||  // ZIP
@@ -273,12 +366,20 @@ fn filter_false_positives(bytes : Bytes, matches : Array[ScanMatch]) -> Array[Sc
     (bytes[0].to_int() == 0x4D && bytes[1].to_int() == 0x5A) ||  // PE
     (read_str(bytes, 0, 4) == "Rar!") ||                        // RAR
     (bytes[0].to_int() == 0x37 && bytes[1].to_int() == 0x7A) ||     // 7z
-    (read_str(bytes, 257, 5) == "ustar")                          // TAR
+    (read_str(bytes, 257, 5) == "ustar") ||                      // TAR
+    (read_str(bytes, 0, 4) == "OggS") ||                         // OGG
+    (read_str(bytes, 0, 4) == "fLaC") ||                         // FLAC
+    (read_str(bytes, 0, 6) == "GIF87a" || read_str(bytes, 0, 6) == "GIF89a") || // GIF
+    (read_str(bytes, 0, 3) == "ID3") ||                          // MP3
+    (bytes[0].to_int() == 0x1A && bytes[1].to_int() == 0x45) ||     // WebM/EBML
+    (read_str(bytes, 0, 4) == "RIFF")                            // WAV/AVI
   )
+  // MP4: check ftyp box at offset 4
+  let is_mp4 = bytes.length() >= 12 && read_u32_be(bytes, 4) == 0x66747970
+  let has_container = is_container || is_mp4
   fn is_fp(m : ScanMatch) -> Bool {
-    m.confidence <= 1 ||
-    m.name.contains("Zlib") || m.name.contains("GZip") || m.name.contains("BZip2") ||
-    m.name.contains("PE executable (MZ)")
+    m.confidence <= 1 || m.name.contains("PE executable (MZ)") ||
+    m.name.contains("Zlib") || m.name.contains("GZip") || m.name.contains("BZip2")
   }
   let filtered : Array[ScanMatch] = []
   for i = 0; i < matches.length(); i = i + 1 {

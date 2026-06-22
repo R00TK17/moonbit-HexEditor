@@ -128,15 +128,7 @@ fn codec_recompute(state : TuiState) -> Unit {
       0 => @lib.base64_encode(data)
       1 => @lib.url_encode(data)
       2 => @lib.unicode_encode(data)
-      _ => {
-        // Hex: bytes → "48 65 6C"
-        let sb = StringBuilder()
-        for i = 0; i < data.length(); i = i + 1 {
-          if i > 0 { sb.write_char(' ') }
-          sb.write_string(@lib.format_byte_hex(data[i], uppercase=true))
-        }
-        sb.to_string()
-      }
+      _ => @lib.hex_encode(data)  // Hex: bytes → "48 65 6C"
     }
   } else {
     if state.codec_type == 3 {
@@ -202,6 +194,8 @@ fn handle_codec_key(state : TuiState, key : Int) -> Unit {
     sb.write_char(key.to_char().unwrap())
     state.codec_input = sb.to_string()
     codec_recompute(state)
+  } else if key == 13 {
+    state.msg = "Codec result ready"
   }
   // else: swallow other keys
 }
@@ -448,50 +442,56 @@ pub fn handle_key(
 
   } else if state.edit_mode && !state.edit_ascii && key >= '0'.to_int() && key <= '9'.to_int() {
     state.edit_modified = true; state.esc_pending = false; state.redo_stack = []; state.scan_done = false; state.strings_done = false; state.entropy_done = false; state.struct_done = false
-    if state.insert_mode && state.edit_nibble is None {
-      buffer.insert_byte(state.edit_off, b'\x00') |> ignore
-      state.undo_stack.push(undo_op(1, state.edit_off, b'\x00'))
+    if state.insert_mode {
+      let (new_off, new_nib, msg) = handle_hex_input_insert(buffer, state.edit_off, state.edit_nibble, key, state)
+      state.edit_off = new_off; state.edit_nibble = new_nib; state.msg = msg
+    } else {
+      let (new_off, new_nib, new_msg, undo) = handle_hex_input(buffer, state.edit_off, state.edit_nibble, key)
+      state.edit_off = new_off; state.edit_nibble = new_nib
+      match undo { Some(op) => state.undo_stack.push(op); None => () }
+      state.msg = "\{new_msg}\{depth_suffix(state.undo_stack.length(), state.redo_stack.length())}"
     }
-    let (new_off, new_nib, new_msg, undo) = handle_hex_input(buffer, state.edit_off, state.edit_nibble, key)
-    state.edit_off = new_off; state.edit_nibble = new_nib
-    match undo { Some(op) => state.undo_stack.push(op); None => () }
-    state.msg = "\{new_msg}\{depth_suffix(state.undo_stack.length(), state.redo_stack.length())}"
 
   } else if state.edit_mode && !state.edit_ascii && key >= 'a'.to_int() && key <= 'f'.to_int() {
     state.edit_modified = true; state.esc_pending = false; state.redo_stack = []; state.scan_done = false; state.strings_done = false; state.entropy_done = false; state.struct_done = false
-    if state.insert_mode && state.edit_nibble is None {
-      buffer.insert_byte(state.edit_off, b'\x00') |> ignore
-      state.undo_stack.push(undo_op(1, state.edit_off, b'\x00'))
+    if state.insert_mode {
+      let (new_off, new_nib, msg) = handle_hex_input_insert(buffer, state.edit_off, state.edit_nibble, key, state)
+      state.edit_off = new_off; state.edit_nibble = new_nib; state.msg = msg
+    } else {
+      let (new_off, new_nib, new_msg, undo) = handle_hex_input(buffer, state.edit_off, state.edit_nibble, key)
+      state.edit_off = new_off; state.edit_nibble = new_nib
+      match undo { Some(op) => state.undo_stack.push(op); None => () }
+      state.msg = "\{new_msg}\{depth_suffix(state.undo_stack.length(), state.redo_stack.length())}"
     }
-    let (new_off, new_nib, new_msg, undo) = handle_hex_input(buffer, state.edit_off, state.edit_nibble, key)
-    state.edit_off = new_off; state.edit_nibble = new_nib
-    match undo { Some(op) => state.undo_stack.push(op); None => () }
-    state.msg = "\{new_msg}\{depth_suffix(state.undo_stack.length(), state.redo_stack.length())}"
 
   } else if state.edit_mode && !state.edit_ascii && key >= 'A'.to_int() && key <= 'F'.to_int() {
     state.edit_modified = true; state.esc_pending = false; state.redo_stack = []; state.scan_done = false; state.strings_done = false; state.entropy_done = false; state.struct_done = false
-    if state.insert_mode && state.edit_nibble is None {
-      buffer.insert_byte(state.edit_off, b'\x00') |> ignore
-      state.undo_stack.push(undo_op(1, state.edit_off, b'\x00'))
-    }
     let lower = key + ('a'.to_int() - 'A'.to_int())
-    let (new_off, new_nib, new_msg, undo) = handle_hex_input(buffer, state.edit_off, state.edit_nibble, lower)
-    state.edit_off = new_off; state.edit_nibble = new_nib
-    match undo { Some(op) => state.undo_stack.push(op); None => () }
-    state.msg = "\{new_msg}\{depth_suffix(state.undo_stack.length(), state.redo_stack.length())}"
+    if state.insert_mode {
+      let (new_off, new_nib, msg) = handle_hex_input_insert(buffer, state.edit_off, state.edit_nibble, lower, state)
+      state.edit_off = new_off; state.edit_nibble = new_nib; state.msg = msg
+    } else {
+      let (new_off, new_nib, new_msg, undo) = handle_hex_input(buffer, state.edit_off, state.edit_nibble, lower)
+      state.edit_off = new_off; state.edit_nibble = new_nib
+      match undo { Some(op) => state.undo_stack.push(op); None => () }
+      state.msg = "\{new_msg}\{depth_suffix(state.undo_stack.length(), state.redo_stack.length())}"
+    }
 
   } else if state.edit_mode && state.edit_ascii && key >= 32 && key <= 126 {
     state.edit_modified = true; state.esc_pending = false; state.edit_nibble = None; state.redo_stack = []; state.scan_done = false; state.strings_done = false; state.entropy_done = false; state.struct_done = false
-    if state.insert_mode {
-      buffer.insert_byte(state.edit_off, b'\x00') |> ignore
-      state.undo_stack.push(undo_op(1, state.edit_off, b'\x00'))
-    }
-    let old = match buffer.get_byte(state.edit_off) { Some(b) => b; None => b'\x00' }
-    state.undo_stack.push(undo_op(0, state.edit_off, old))
     let ch = key.to_char().unwrap()
-    buffer.set_byte(state.edit_off, ch.to_int().to_byte()) |> ignore
-    state.msg = "Set '\{ch}' (0x\{@lib.format_byte_hex(ch.to_int().to_byte())})\{depth_suffix(state.undo_stack.length(), state.redo_stack.length())}"
-    if state.edit_off + 1 < buffer.length() { state.edit_off = state.edit_off + 1 }
+    if state.insert_mode {
+      buffer.insert_byte(state.edit_off, ch.to_int().to_byte()) |> ignore
+      state.undo_stack.push(undo_op(1, state.edit_off, ch.to_int().to_byte()))
+      state.msg = "Inserted '\{ch}' (0x\{@lib.format_byte_hex(ch.to_int().to_byte())})\{depth_suffix(state.undo_stack.length(), state.redo_stack.length())}"
+      if state.edit_off + 1 < buffer.length() { state.edit_off = state.edit_off + 1 }
+    } else {
+      let old = match buffer.get_byte(state.edit_off) { Some(b) => b; None => b'\x00' }
+      state.undo_stack.push(undo_op(0, state.edit_off, old))
+      buffer.set_byte(state.edit_off, ch.to_int().to_byte()) |> ignore
+      state.msg = "Set '\{ch}' (0x\{@lib.format_byte_hex(ch.to_int().to_byte())})\{depth_suffix(state.undo_stack.length(), state.redo_stack.length())}"
+      if state.edit_off + 1 < buffer.length() { state.edit_off = state.edit_off + 1 }
+    }
 
   // Ctrl+Z: Undo
   } else if state.edit_mode && key == 26 {

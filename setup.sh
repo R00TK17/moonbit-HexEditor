@@ -22,7 +22,14 @@ else
     elif command -v brew &>/dev/null; then
         brew install gcc
     else
-        echo "  Please install gcc manually."
+        echo "  Please install gcc manually (apt/yum/pacman/brew)."
+        exit 1
+    fi
+    # Verify after install
+    if command -v gcc &>/dev/null; then
+        echo "  ✓ gcc installed: $(gcc --version | head -1)"
+    else
+        echo "  ✗ gcc installed but not found on PATH. Check your PATH or install manually."
         exit 1
     fi
 fi
@@ -72,6 +79,10 @@ echo ""
 echo "========================================="
 echo " Setup Complete!"
 echo "========================================="
+echo ""
+echo " Note: if 'moon' is not found after opening a new terminal,"
+echo "   add this to your ~/.bashrc or ~/.zshrc:"
+echo '     export PATH="$HOME/.moon/bin:$PATH"'
 echo ""
 echo " Usage:"
 echo "   # TUI mode"

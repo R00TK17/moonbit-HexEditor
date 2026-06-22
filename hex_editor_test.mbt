@@ -896,3 +896,98 @@ test "HexBuffer insert into empty" {
   assert_eq(buf.byte_at(0), b'\x42')
   assert_false(buf.is_empty())
 }
+
+// ========== New scan validator tests ==========
+
+test "scan_signatures on OGG" {
+  let data = b"\x4F\x67\x67\x53\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x1E"
+  let matches = @hex_editor.scan_signatures(data)
+  assert_true(scan_has(matches, "OGG"))
+}
+
+test "scan_signatures on MP3" {
+  let data = b"\x49\x44\x33\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+  let matches = @hex_editor.scan_signatures(data)
+  assert_true(scan_has(matches, "MP3"))
+}
+
+test "scan_signatures on FLAC" {
+  let data = b"\x66\x4C\x61\x43\x80\x00\x00\x22\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+  let matches = @hex_editor.scan_signatures(data)
+  assert_true(scan_has(matches, "FLAC"))
+}
+
+test "scan_signatures on WebM" {
+  let data = b"\x1A\x45\xDF\xA3\x9F\x42\x86\x81\x01\x42\xF7\x81\x01\x42\xF2\x81\x04\x42\xF3\x81\x08\x42\x82\x88\x6D\x61\x74\x72\x6F\x73\x6B\x61\x18\x53\x80\x67"
+  let matches = @hex_editor.scan_signatures(data)
+  assert_true(scan_has(matches, "WebM"))
+}
+
+///|
+/// Test: Zlib FCHECK validation — invalid checksum should reject
+test "scan_signatures zlib fcheck rejects invalid" {
+  // 0x7800 has CM=8 but (0x78*256+0x00) % 31 = 30720 % 31 = 30, not 0 → should reject
+  let data = b"\x78\x00\x00\x00\x00\x00"
+  let matches = @hex_editor.scan_signatures(data)
+  let mut has_zlib = false
+  for i = 0; i < matches.length(); i = i + 1 { if matches[i].name.contains("Zlib") { has_zlib = true } }
+  assert_false(has_zlib)
+}
+
+///|
+/// Test: container suppression — Zlib inside a ZIP file should be filtered
+test "scan_signatures container suppresses internal zlib" {
+  // ZIP file with a deflated entry; the deflate data may contain zlib-like bytes
+  let data = match read_test_file("test.zip") { Some(d) => d; None => return }
+  let matches = @hex_editor.scan_signatures(data)
+  // Should only find ZIP at offset 0, not Zlib/GZip/BZip2 inside
+  assert_true(scan_has(matches, "ZIP"))
+  let mut has_zlib = false
+  for i = 0; i < matches.length(); i = i + 1 { if matches[i].name.contains("Zlib") { has_zlib = true } }
+  assert_false(has_zlib)
+}
+
+///|
+/// Test: JPEG structure validation rejects invalid marker chain
+test "scan_signatures jpeg invalid structure" {
+  // FF D8 FF E0 (valid SOI+APP0) but no JFIF/EXIF/DQT/SOF within 300 bytes → should reject
+  let data = Bytes::makei(64, fn(i) {
+    if i == 0 { b'\xFF' } else if i == 1 { b'\xD8' }
+    else if i == 2 { b'\xFF' } else if i == 3 { b'\xE0' }
+    else { b'\x00' }
+  })
+  let matches = @hex_editor.scan_signatures(data)
+  let mut has_jpeg = false
+  for i = 0; i < matches.length(); i = i + 1 { if matches[i].name.contains("JPEG") { has_jpeg = true } }
+  assert_false(has_jpeg)
+}
+
+///|
+/// Test: file-based ELF parse now includes program and section headers
+test "file: ELF parse with program and section headers" {
+  let data = match read_test_file("test.elf") { Some(d) => d; None => return }
+  let fields = @hex_editor.parse_structure(data)
+  assert_true(fields.length() >= 3)  // Ident + Header + Program Headers + Section Headers
+  let json = @hex_editor.format_structure_json(fields)
+  assert_true(json.contains("Program"))
+  assert_true(json.contains("Section"))
+}
+
+///|
+/// Test: file-based AVI parse with main header and stream info
+test "file: AVI scan+parse" {
+  let data = match read_test_file("test.avi") { Some(d) => d; None => return }
+  let matches = @hex_editor.scan_signatures(data)
+  assert_true(scan_has(matches, "AVI"))
+  let fields = @hex_editor.parse_structure(data)
+  assert_true(fields.length() >= 2)  // RIFF + Main Header + at least one stream
+}
+
+///|
+/// Test: Aho-Corasick fail link following for overlapping patterns
+test "scan_signatures overlapping patterns ZIP+Zlib" {
+  // ZIP local file header at offset 0 with compression method = 8 (deflated)
+  let data = b"\x50\x4B\x03\x04\x14\x00\x00\x00\x08\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+  let matches = @hex_editor.scan_signatures(data)
+  assert_true(scan_has(matches, "ZIP"))
+}

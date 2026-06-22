@@ -52,6 +52,33 @@ fn handle_hex_input(
 }
 
 ///|
+/// Handle hex digit input in insert mode: single undo op per byte.
+/// First nibble only records the high nibble; second nibble inserts the combined byte.
+fn handle_hex_input_insert(
+  buffer : @lib.HexBuffer,
+  edit_off : Int,
+  edit_nibble : Int?,
+  key : Int,
+  state : TuiState,
+) -> (Int, Int?, String) {
+  let digit = if key >= '0'.to_int() && key <= '9'.to_int() {
+    key - '0'.to_int()
+  } else {
+    key - 'a'.to_int() + 10
+  }
+  match edit_nibble {
+    None => (edit_off, Some(digit), "Edit: _\{hex_digit_char(digit)}\{depth_suffix(state.undo_stack.length(), state.redo_stack.length())}")
+    Some(hi) => {
+      let byte_val = ((hi << 4) | digit).to_byte()
+      buffer.insert_byte(edit_off, byte_val) |> ignore
+      state.undo_stack.push(undo_op(1, edit_off, byte_val))
+      let new_off = edit_off + 1
+      (new_off, None, "Inserted 0x\{@lib.format_byte_hex(byte_val)}\{depth_suffix(state.undo_stack.length(), state.redo_stack.length())}")
+    }
+  }
+}
+
+///|
 fn hex_digit_char(n : Int) -> Char {
   if n < 10 { ('0'.to_int() + n).to_char().unwrap() }
   else { ('a'.to_int() + n - 10).to_char().unwrap() }
@@ -90,8 +117,9 @@ pub fn apply_undo(buffer : @lib.HexBuffer, op : UndoOp) -> UndoOp {
     buffer.set_byte(op.offset, op.old_byte) |> ignore
     undo_op(0, op.offset, current)
   } else if op.kind == 1 {
+    let captured = match buffer.get_byte(op.offset) { Some(b) => b; None => b'\x00' }
     buffer.delete_byte(op.offset) |> ignore
-    undo_op(2, op.offset, b'\x00')
+    undo_op(2, op.offset, captured)
   } else if op.kind == 2 {
     buffer.insert_byte(op.offset, op.old_byte) |> ignore
     undo_op(1, op.offset, op.old_byte)
@@ -124,12 +152,12 @@ pub fn apply_redo(buffer : @lib.HexBuffer, op : UndoOp) -> UndoOp {
     buffer.set_byte(op.offset, op.old_byte) |> ignore
     undo_op(0, op.offset, current)
   } else if op.kind == 1 {
-    buffer.insert_byte(op.offset, op.old_byte) |> ignore
-    undo_op(2, op.offset, op.old_byte)
-  } else if op.kind == 2 {
     let captured = match buffer.get_byte(op.offset) { Some(b) => b; None => b'\x00' }
     buffer.delete_byte(op.offset) |> ignore
     undo_op(2, op.offset, captured)
+  } else if op.kind == 2 {
+    buffer.insert_byte(op.offset, op.old_byte) |> ignore
+    undo_op(1, op.offset, op.old_byte)
   } else if op.kind == 3 {
     // Redo paste overwrite: save current, overwrite with old_bytes (pasted bytes)
     let saved : Array[Byte] = []

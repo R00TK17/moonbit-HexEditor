@@ -54,13 +54,20 @@ if ($gcc) {
         } catch {}
     }
 
-    if (-not $installed) {
+    if ($installed) {
+        # Refresh PATH so gcc is available in this session
+        $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
+    }
+
+    # Verify again after install
+    $gcc = Get-Command gcc -ErrorAction SilentlyContinue
+    if ($gcc) {
+        Write-Host "  [OK] gcc installed and available" -ForegroundColor Green
+    } else {
         Write-Host ""
-        Write-Host "  Auto-install failed. Please install MinGW-w64 manually:" -ForegroundColor Yellow
+        Write-Host "  gcc still not found on PATH. Install MinGW-w64 manually:" -ForegroundColor Yellow
         Write-Host "    https://github.com/niXman/mingw-builds-binaries/releases" -ForegroundColor White
-        Write-Host "  Or via a package manager:" -ForegroundColor Yellow
-        Write-Host "    scoop install mingw" -ForegroundColor White
-        Write-Host "    choco install mingw" -ForegroundColor White
+        Write-Host "  After install, add MinGW\\bin to your system PATH." -ForegroundColor Yellow
         Write-Host ""
         $continue = Read-Host "Continue without gcc? (y/n)"
         if ($continue -ne 'y') { exit 1 }
@@ -121,6 +128,10 @@ Write-Host ""
 Write-Host "=========================================" -ForegroundColor Cyan
 Write-Host " Setup Complete!" -ForegroundColor Cyan
 Write-Host "=========================================" -ForegroundColor Cyan
+Write-Host ""
+Write-Host " Note: if 'moon' is not recognized after opening a new terminal," -ForegroundColor Yellow
+Write-Host "   run this to add MoonBit to your user PATH permanently:" -ForegroundColor Yellow
+Write-Host '   [Environment]::SetEnvironmentVariable("Path", "$env:USERPROFILE\.moon\bin;" + [Environment]::GetEnvironmentVariable("Path", "User"), "User")' -ForegroundColor White
 Write-Host ""
 Write-Host " Usage:" -ForegroundColor White
 Write-Host "   # TUI mode" -ForegroundColor Gray
