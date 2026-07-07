@@ -114,14 +114,14 @@ try { & moon update 2>$null } catch {}
 
 # 4. Build
 Write-Step "4" "Building..."
-& moon build --target native
+& moon build
 Write-Host "  [OK] Native build OK" -ForegroundColor Green
 & moon build --target wasm-gc cmd/wasm
 Write-Host "  [OK] Wasm-GC build OK" -ForegroundColor Green
 
 # 5. Test
 Write-Step "5" "Running tests..."
-$result = & moon test --target native 2>&1 | Select-Object -Last 1
+$result = & moon test 2>&1 | Select-Object -Last 1
 Write-Host "  $result" -ForegroundColor Green
 
 Write-Host ""
@@ -135,13 +135,13 @@ Write-Host '   [Environment]::SetEnvironmentVariable("Path", "$env:USERPROFILE\.
 Write-Host ""
 Write-Host " Usage:" -ForegroundColor White
 Write-Host "   # TUI mode" -ForegroundColor Gray
-Write-Host "   moon run --target native cmd/main -- <file>" -ForegroundColor White
+Write-Host "   moon run cmd/main -- <file>" -ForegroundColor White
 Write-Host ""
 Write-Host "   # CLI commands" -ForegroundColor Gray
-Write-Host "   moon run --target native cmd/main -- view <file>" -ForegroundColor White
-Write-Host "   moon run --target native cmd/main -- struct <file>" -ForegroundColor White
-Write-Host "   moon run --target native cmd/main -- scan <file>" -ForegroundColor White
-Write-Host "   moon run --target native cmd/main -- help" -ForegroundColor White
+Write-Host "   moon run cmd/main -- view <file>" -ForegroundColor White
+Write-Host "   moon run cmd/main -- struct <file>" -ForegroundColor White
+Write-Host "   moon run cmd/main -- scan <file>" -ForegroundColor White
+Write-Host "   moon run cmd/main -- help" -ForegroundColor White
 Write-Host ""
 Write-Host "   # Wasm-GC CLI" -ForegroundColor Gray
 Write-Host "   moon run --target wasm-gc cmd/wasm -- struct <file>" -ForegroundColor White

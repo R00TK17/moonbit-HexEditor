@@ -25,8 +25,8 @@
 struct HexBuffer {
   mut data : FixedArray[Byte]
   mut gap_start : Int // first gap index (inclusive)
-  mut gap_end : Int   // first post-gap index (exclusive)
-  mut len : Int       // logical length = data.length() - gap_size
+  mut gap_end : Int // first post-gap index (exclusive)
+  mut len : Int // logical length = data.length() - gap_size
   mut modified : Bool
   mut file_path : String?
 }
@@ -35,15 +35,26 @@ struct HexBuffer {
 /// Gap size = disk allocation / 16, minimum 256 bytes.
 /// Disk allocation = file_size rounded up to 4KB cluster boundary.
 fn calc_gap_size(file_size : Int) -> Int {
-  let alloc = ((file_size + 4095) / 4096) * 4096
+  let alloc = (file_size + 4095) / 4096 * 4096
   let g = alloc / 16
-  if g < 256 { 256 } else { g }
+  if g < 256 {
+    256
+  } else {
+    g
+  }
 }
 
 ///|
 /// Creates a new empty HexBuffer with 256-byte initial gap.
 pub fn HexBuffer::new() -> HexBuffer {
-  { data: FixedArray::make(256, Byte::default()), gap_start: 0, gap_end: 256, len: 0, modified: false, file_path: None }
+  {
+    data: FixedArray::make(256, Byte::default()),
+    gap_start: 0,
+    gap_end: 256,
+    len: 0,
+    modified: false,
+    file_path: None,
+  }
 }
 
 ///|
@@ -55,7 +66,14 @@ pub fn HexBuffer::from_bytes(bytes : Bytes) -> HexBuffer {
   let total = file_size + gap
   let data = FixedArray::make(total, Byte::default())
   data.blit_from_bytes(0, bytes, 0, file_size)
-  { data, gap_start: file_size, gap_end: total, len: file_size, modified: false, file_path: None }
+  {
+    data,
+    gap_start: file_size,
+    gap_end: total,
+    len: file_size,
+    modified: false,
+    file_path: None,
+  }
 }
 
 ///|
@@ -96,7 +114,11 @@ pub fn HexBuffer::get_file_path(self : HexBuffer) -> String? {
 ///   logical 0..gap_start  → physical same
 ///   logical gap_start..   → physical + gap_size
 fn HexBuffer::to_physical(self : HexBuffer, idx : Int) -> Int {
-  if idx < self.gap_start { idx } else { idx + self.gap_end - self.gap_start }
+  if idx < self.gap_start {
+    idx
+  } else {
+    idx + self.gap_end - self.gap_start
+  }
 }
 
 ///|
@@ -115,7 +137,11 @@ pub fn HexBuffer::byte_at(self : HexBuffer, idx : Int) -> Byte {
 
 ///|
 /// Set byte at logical offset. Returns false if out of bounds.
-pub fn HexBuffer::set_byte(self : HexBuffer, offset : Int, value : Byte) -> Bool {
+pub fn HexBuffer::set_byte(
+  self : HexBuffer,
+  offset : Int,
+  value : Byte,
+) -> Bool {
   guard offset >= 0 && offset < self.len else { false }
   self.data[self.to_physical(offset)] = value
   self.modified = true
@@ -132,7 +158,9 @@ pub fn HexBuffer::set_byte(self : HexBuffer, offset : Int, value : Byte) -> Bool
 ///   pos > gap_start: move bytes [gap_end, gap_end+delta) to start of gap
 ///     [AAA|_____|BBB]  →  [AAAB|_____|BB]
 fn HexBuffer::move_gap(self : HexBuffer, pos : Int) -> Unit {
-  if pos == self.gap_start { return }
+  if pos == self.gap_start {
+    return
+  }
   let gap_size = self.gap_end - self.gap_start
   if pos < self.gap_start {
     // Shift bytes leftward into the gap's tail
@@ -177,9 +205,15 @@ fn HexBuffer::grow_gap(self : HexBuffer) -> Unit {
 /// 1. Grow gap if exhausted
 /// 2. Move gap to offset
 /// 3. Write byte into gap_start, advance gap_start
-pub fn HexBuffer::insert_byte(self : HexBuffer, offset : Int, value : Byte) -> Bool {
+pub fn HexBuffer::insert_byte(
+  self : HexBuffer,
+  offset : Int,
+  value : Byte,
+) -> Bool {
   guard offset >= 0 && offset <= self.len else { false }
-  if self.gap_start == self.gap_end { self.grow_gap() }
+  if self.gap_start == self.gap_end {
+    self.grow_gap()
+  }
   self.move_gap(offset)
   self.data[self.gap_start] = value
   self.gap_start = self.gap_start + 1
@@ -204,17 +238,25 @@ pub fn HexBuffer::delete_byte(self : HexBuffer, offset : Int) -> Bool {
 ///|
 /// Compact copy of logical bytes (no gap).
 pub fn HexBuffer::to_bytes(self : HexBuffer) -> Bytes {
-  if self.len == 0 { return b"" }
+  if self.len == 0 {
+    return b""
+  }
   Bytes::makei(self.len, fn(i) { self.data[self.to_physical(i)] })
 }
 
 ///|
 pub fn HexBuffer::to_fixedarray(self : HexBuffer) -> FixedArray[Byte] {
-  if self.len == 0 { return [] }
+  if self.len == 0 {
+    return []
+  }
   let arr = FixedArray::make(self.len, Byte::default())
-  if self.gap_start > 0 { arr.unsafe_blit(0, self.data, 0, self.gap_start) }
+  if self.gap_start > 0 {
+    arr.unsafe_blit(0, self.data, 0, self.gap_start)
+  }
   let after = self.len - self.gap_start
-  if after > 0 { arr.unsafe_blit(self.gap_start, self.data, self.gap_end, after) }
+  if after > 0 {
+    arr.unsafe_blit(self.gap_start, self.data, self.gap_end, after)
+  }
   arr
 }
 
@@ -228,10 +270,11 @@ pub fn HexBuffer::data_ref(self : HexBuffer) -> FixedArray[Byte] {
 pub fn HexBuffer::save(self : HexBuffer, path? : String) -> Unit raise {
   let save_path = match path {
     Some(p) => p
-    None => match self.file_path {
-      Some(p) => p
-      None => raise @fs.IOError::IOError("No file path specified for save")
-    }
+    None =>
+      match self.file_path {
+        Some(p) => p
+        None => raise @fs.IOError::IOError("No file path specified for save")
+      }
   }
   let bytes = self.to_bytes()
   @fs.write_bytes_to_file(save_path, bytes)

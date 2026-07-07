@@ -5,30 +5,66 @@
 ///|
 /// FFI declarations
 extern "C" fn tui_get_key() -> Int = "tui_get_key"
+
+///|
 extern "C" fn tui_init_console() -> Unit = "tui_init_console"
+
+///|
 extern "C" fn tui_clear_screen() -> Unit = "tui_clear_screen"
+
+///|
 extern "C" fn tui_hide_cursor() -> Unit = "tui_hide_cursor"
+
+///|
 extern "C" fn tui_show_cursor() -> Unit = "tui_show_cursor"
+
+///|
 extern "C" fn tui_enter_raw() -> Unit = "tui_enter_raw"
+
+///|
 extern "C" fn tui_exit_raw() -> Unit = "tui_exit_raw"
+
+///|
 extern "C" fn tui_enter_alt_screen() -> Unit = "tui_enter_alt_screen"
+
+///|
 extern "C" fn tui_exit_alt_screen() -> Unit = "tui_exit_alt_screen"
+
+///|
 extern "C" fn tui_get_terminal_rows() -> Int = "tui_get_terminal_rows"
+
+///|
 extern "C" fn tui_get_terminal_cols() -> Int = "tui_get_terminal_cols"
+
+///|
 #borrow(_path)
 extern "C" fn mmap_file_size(_path : Bytes) -> Int = "mmap_file_size"
+
+///|
 #borrow(_path, _buf)
 extern "C" fn mmap_load(_path : Bytes, _buf : Bytes) -> Int = "mmap_load"
+
+///|
 #borrow(_s)
 extern "C" fn raw_print(_s : Bytes) -> Unit = "raw_print"
+
+///|
 #borrow(_path, _buf)
 extern "C" fn tui_list_dir(_path : Bytes, _buf : Bytes, _size : Int) -> Int = "tui_list_dir"
+
+///|
 #borrow(_buf)
 extern "C" fn tui_get_cwd(_buf : Bytes, _size : Int) -> Int = "tui_get_cwd"
+
+///|
 #borrow(_buf)
 extern "C" fn tui_get_home(_buf : Bytes, _size : Int) -> Int = "tui_get_home"
+
+///|
 #borrow(_path)
 extern "C" fn tui_mkdir_p(_path : Bytes) -> Unit = "tui_mkdir_p"
+
+///|
 #borrow(_path, _buf)
 extern "C" fn tui_realpath(_path : Bytes, _buf : Bytes, _size : Int) -> Int = "tui_realpath"
 
@@ -89,7 +125,9 @@ fn tui_read_line(prompt : String) -> String {
 ///|
 /// Load file via mmap (fast path). Falls back to regular load on failure.
 fn load_file_best(path : String) -> Result[@lib.HexBuffer, String] {
-  if !@fs.path_exists(path) { return Err("Not found: \{path}") }
+  if !@fs.path_exists(path) {
+    return Err("Not found: \{path}")
+  }
   let c_path = str_to_bytes(path)
   let size = mmap_file_size(c_path)
   if size > 0 {
@@ -113,7 +151,11 @@ pub fn run_tui(file_path : String?) -> Unit {
     None => None
   }
   let mut buffer = match abs_path {
-    Some(p) => match load_file_best(p) { Ok(b) => b; Err(_) => @lib.HexBuffer::new() }
+    Some(p) =>
+      match load_file_best(p) {
+        Ok(b) => b
+        Err(_) => @lib.HexBuffer::new()
+      }
     None => @lib.HexBuffer::new()
   }
 
@@ -121,7 +163,7 @@ pub fn run_tui(file_path : String?) -> Unit {
 
   // Load saved bookmarks and scroll position
   match abs_path {
-    Some(p) => { state.offset = load_file_state(p, state.bookmarks) }
+    Some(p) => state.offset = load_file_state(p, state.bookmarks)
     None => ()
   }
 
@@ -134,12 +176,72 @@ pub fn run_tui(file_path : String?) -> Unit {
     let term_rows = tui_get_terminal_rows()
     let term_cols = tui_get_terminal_cols()
     let screen_rows = if term_rows > 6 { term_rows - 3 } else { 32 }
-    draw_screen(buffer, state.offset, state.msg, state.results, state.result_idx, state.match_len, state.match_lens, state.edit_mode, state.edit_off, state.edit_ascii, state.insert_mode, state.select_mode, state.select_start, state.struct_view, state.struct_offset, state.struct_lines, state.bookmark_view, state.bookmark_sel, state.bookmark_scroll, state.bookmarks, state.scan_view, state.scan_sel, state.scan_scroll, state.scan_offsets, state.scan_names, state.scan_sizes, state.entropy_view, state.entropy_sel, state.entropy_blocks, state.strings_view, state.strings_sel, state.strings_scroll, state.strings_matches, state.codec_view, state.codec_type, state.codec_encode, state.codec_input, state.codec_result, state.file_list_view, state.file_list_sel, state.file_slots, state.active_file, state.browser_view, state.browser_path, state.browser_names, state.browser_is_dir, state.browser_sel, state.browser_scroll, screen_rows, term_cols)
+    draw_screen(
+      buffer,
+      state.offset,
+      state.msg,
+      state.results,
+      state.result_idx,
+      state.match_len,
+      state.match_lens,
+      state.edit_mode,
+      state.edit_off,
+      state.edit_ascii,
+      state.insert_mode,
+      state.select_mode,
+      state.select_start,
+      state.struct_view,
+      state.struct_offset,
+      state.struct_lines,
+      state.bookmark_view,
+      state.bookmark_sel,
+      state.bookmark_scroll,
+      state.bookmarks,
+      state.scan_view,
+      state.scan_sel,
+      state.scan_scroll,
+      state.scan_offsets,
+      state.scan_names,
+      state.scan_sizes,
+      state.entropy_view,
+      state.entropy_sel,
+      state.entropy_blocks,
+      state.strings_view,
+      state.strings_sel,
+      state.strings_scroll,
+      state.strings_matches,
+      state.codec_view,
+      state.codec_type,
+      state.codec_encode,
+      state.codec_input,
+      state.codec_result,
+      state.file_list_view,
+      state.file_list_sel,
+      state.file_slots,
+      state.active_file,
+      state.browser_view,
+      state.browser_path,
+      state.browser_names,
+      state.browser_is_dir,
+      state.browser_sel,
+      state.browser_scroll,
+      screen_rows,
+      term_cols,
+    )
 
     let key = tui_get_key()
 
     // o/O: open file browser
-    if !state.edit_mode && !state.struct_view && !state.bookmark_view && !state.strings_view && !state.codec_view && !state.scan_view && !state.entropy_view && !state.file_list_view && !state.browser_view && (key == 'o'.to_int() || key == 'O'.to_int()) {
+    if !state.edit_mode &&
+      !state.struct_view &&
+      !state.bookmark_view &&
+      !state.strings_view &&
+      !state.codec_view &&
+      !state.scan_view &&
+      !state.entropy_view &&
+      !state.file_list_view &&
+      !state.browser_view &&
+      (key == 'o'.to_int() || key == 'O'.to_int()) {
       state.browser_path = get_cwd_string()
       refresh_browser(state)
       state.browser_view = true
@@ -149,27 +251,47 @@ pub fn run_tui(file_path : String?) -> Unit {
     }
 
     // Consume pending file switch
-    if state.pending_switch >= 0 && state.pending_switch < state.file_slots.length() {
+    if state.pending_switch >= 0 &&
+      state.pending_switch < state.file_slots.length() {
       // Save old file's state
-      save_file_state(state.file_slots[state.active_file].path, state.offset, state.bookmarks)
+      save_file_state(
+        state.file_slots[state.active_file].path,
+        state.offset,
+        state.bookmarks,
+      )
       state.file_slots[state.active_file].offset = state.offset
       state.file_slots[state.active_file].buffer = buffer
       // Switch
       state.active_file = state.pending_switch
       buffer = state.file_slots[state.active_file].buffer
       // Clear and load new file's bookmarks
-      for i = 0; i < 21; i = i + 1 { state.bookmarks[i] = None }
-      state.offset = load_file_state(state.file_slots[state.active_file].path, state.bookmarks)
-      state.scan_done = false; state.strings_done = false; state.entropy_done = false
-      state.results = []; state.match_len = 0; state.match_lens = []
-      state.edit_mode = false; state.undo_stack = []; state.redo_stack = []
+      for i = 0; i < 21; i = i + 1 {
+        state.bookmarks[i] = None
+      }
+      state.offset = load_file_state(
+        state.file_slots[state.active_file].path,
+        state.bookmarks,
+      )
+      state.scan_done = false
+      state.strings_done = false
+      state.entropy_done = false
+      state.results = []
+      state.match_len = 0
+      state.match_lens = []
+      state.edit_mode = false
+      state.undo_stack = []
+      state.redo_stack = []
       state.msg = "[\{state.active_file + 1}/\{state.file_slots.length()}] \{basename(state.file_slots[state.active_file].path)} | \{@lib.format_size(buffer.length())}"
       state.pending_switch = -1
     }
   }
 
   // Save state on exit
-  save_file_state(state.file_slots[state.active_file].path, state.offset, state.bookmarks)
+  save_file_state(
+    state.file_slots[state.active_file].path,
+    state.offset,
+    state.bookmarks,
+  )
 
   tui_show_cursor()
   tui_exit_alt_screen()
@@ -178,18 +300,31 @@ pub fn run_tui(file_path : String?) -> Unit {
 
 ///|
 /// Calculate offset to show target. Only scrolls if target is off-screen.
-fn scroll_to_show(target : Int, current_offset : Int, total_len : Int, screen_rows : Int) -> Int {
+fn scroll_to_show(
+  target : Int,
+  current_offset : Int,
+  total_len : Int,
+  screen_rows : Int,
+) -> Int {
   let visible_bytes = screen_rows * 16
   let view_end = current_offset + visible_bytes
-  if target >= current_offset && target < view_end { return current_offset }
+  if target >= current_offset && target < view_end {
+    return current_offset
+  }
   let middle = screen_rows / 2
   let ideal = target - middle * 16
-  if ideal < 0 { 0 }
-  else if ideal + visible_bytes > total_len {
+  if ideal < 0 {
+    0
+  } else if ideal + visible_bytes > total_len {
     let max = total_len - visible_bytes
-    if max < 0 { 0 } else { max }
+    if max < 0 {
+      0
+    } else {
+      max
+    }
+  } else {
+    ideal / 16 * 16
   }
-  else { (ideal / 16) * 16 }
 }
 
 ///|

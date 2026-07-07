@@ -20,7 +20,7 @@ A terminal-based hex editor and binary file analyzer written in MoonBit, featuri
 
 | Tool | Version | Purpose |
 |------|---------|---------|
-| [MoonBit](https://www.moonbitlang.com/download/) | 0.1.20260529+ | Compiler & build tool |
+| [MoonBit](https://www.moonbitlang.com/download/) | 0.1.20260703+ | Compiler & build tool |
 | GCC / Clang | Any recent | C FFI compilation |
 | Git | Any | Clone repository |
 
@@ -76,27 +76,27 @@ moon update
 **4. Build (both targets)**
 
 ```bash
-moon build --target native
+moon build
 moon build --target wasm-gc cmd/wasm
 ```
 
 **5. Run tests**
 
 ```bash
-moon test --target native          # 176 tests
+moon test          # 176 tests
 ```
 
 **6. Launch**
 
 ```bash
 # TUI mode
-moon run --target native cmd/main -- testfile/test.png
+moon run cmd/main -- testfile/test.png
 
 # CLI commands
-moon run --target native cmd/main -- view <file>
-moon run --target native cmd/main -- struct <file>
-moon run --target native cmd/main -- scan <file>
-moon run --target native cmd/main -- help
+moon run cmd/main -- view <file>
+moon run cmd/main -- struct <file>
+moon run cmd/main -- scan <file>
+moon run cmd/main -- help
 
 # Wasm-GC CLI (lightweight, no TUI)
 moon run --target wasm-gc cmd/wasm -- struct <file>
@@ -113,6 +113,29 @@ chmod +x demo.sh && ./demo.sh
 ```
 
 This runs 6 representative commands (struct, scan, view, entropy, encode, search) against the bundled test files.
+
+### Usage as a Library
+
+```bash
+moon add R00TK17/hex_editor
+```
+
+```moonbit
+// Parse binary file structure (20 formats auto-detected)
+let fields = @R00TK17/hex_editor.parse_structure(bytes)
+
+// Scan for embedded file signatures (18 validators, Aho-Corasick)
+let matches = @R00TK17/hex_editor.scan_signatures(bytes)
+
+// Shannon entropy analysis (256-byte blocks, lookup-table optimized)
+let blocks = @R00TK17/hex_editor.entropy_scan(bytes)
+
+// Search with wildcards
+let result = @R00TK17/hex_editor.find_hex_pattern(bytes, "FF ?? ?? EE")
+
+// Codecs: Base64 / URL / Unicode / Hex
+let b64 = @R00TK17/hex_editor.base64_encode(bytes)
+```
 
 ## Features
 
@@ -148,17 +171,17 @@ This runs 6 representative commands (struct, scan, view, entropy, encode, search
 
 ### CLI Commands
 ```
-moon run --target native cmd/main -- view [-b 8|16] <f>  Quick hex dump
-moon run --target native cmd/main -- info <file>      File info + type detection
-moon run --target native cmd/main -- search [-x|-a] <f> <p>   Search (hex/text)
-moon run --target native cmd/main -- struct <file>    Structure analysis
-moon run --target native cmd/main -- strings <file>   String extraction
-moon run --target native cmd/main -- entropy <file>   Entropy analysis
-moon run --target native cmd/main -- scan <file>      Signature scan
-moon run --target native cmd/main -- encode <type> <f>   Encode (base64/url/unicode/hex)
-moon run --target native cmd/main -- decode <type> <f>   Decode (base64/url/unicode/hex)
-moon run --target native cmd/main -- base64 <file>       Base64 encode (alias)
-moon run --target native cmd/main -- unbase64 <file>     Base64 decode (alias)
+moon run cmd/main -- view [-b 8|16] <f>  Quick hex dump
+moon run cmd/main -- info <file>      File info + type detection
+moon run cmd/main -- search [-x|-a] <f> <p>   Search (hex/text)
+moon run cmd/main -- struct <file>    Structure analysis
+moon run cmd/main -- strings <file>   String extraction
+moon run cmd/main -- entropy <file>   Entropy analysis
+moon run cmd/main -- scan <file>      Signature scan
+moon run cmd/main -- encode <type> <f>   Encode (base64/url/unicode/hex)
+moon run cmd/main -- decode <type> <f>   Decode (base64/url/unicode/hex)
+moon run cmd/main -- base64 <file>       Base64 encode (alias)
+moon run cmd/main -- unbase64 <file>     Base64 decode (alias)
 ```
 
 ### Wasm-GC CLI (lightweight, no TUI, no FFI)
@@ -176,7 +199,7 @@ moon run --target wasm-gc cmd/wasm -- decode <type> <input>   Decode
 ### Example Output
 
 ```
-$ moon run --target native cmd/main -- struct testfile/test.png
+$ moon run cmd/main -- struct testfile/test.png
 File: testfile/test.png (1.8 MB)
 
 0x00000000  Signature = 89 50 4E 47 0D 0A 1A 0A  -- PNG signature
@@ -185,12 +208,12 @@ File: testfile/test.png (1.8 MB)
 0x00000530  IDAT = 1048576 bytes  -- Image data block
 0x001D0E32  IEND = 0 bytes  -- Image end
 
-$ moon run --target native cmd/main -- scan testfile/hidden.jpg
+$ moon run cmd/main -- scan testfile/hidden.jpg
 0x00000000  JPEG image (83.8 KB)
 0x0000A41A  Trailing data (82 B)
 2 signatures found
 
-$ moon run --target native cmd/main -- encode base64 Hello
+$ moon run cmd/main -- encode base64 Hello
 SGVsbG8=
 ```
 
@@ -212,19 +235,19 @@ Once built, use these commands for day-to-day work:
 
 ```bash
 # Rebuild after code changes
-moon build --target native
+moon build
 
 # Run tests
-moon test --target native
+moon test
 
 # Launch TUI
-moon run --target native cmd/main -- file.bin
-moon run --target native cmd/main                  # empty editor
+moon run cmd/main -- file.bin
+moon run cmd/main                  # empty editor
 
 # CLI one-off commands (no TUI)
-moon run --target native cmd/main -- view file.bin
-moon run --target native cmd/main -- struct file.bin
-moon run --target native cmd/main -- scan file.bin
+moon run cmd/main -- view file.bin
+moon run cmd/main -- struct file.bin
+moon run cmd/main -- scan file.bin
 ```
 
 ### TUI Keys
@@ -303,7 +326,7 @@ hex_editor/
 ├── cmd/wasm/
 │   └── main.mbt                 # Wasm-GC CLI entry (lightweight, no FFI)
 ├── testfile/                    # 25 test files (all supported formats)
-├── .github/workflows/ci.yml     # CI: check → build (native+wasm) → test (Linux+Win)
+├── .github/workflows/ci.yml     # CI: check → fmt → info+diff → build (native+wasm) → test (Linux+Win)
 ├── setup.sh / setup.ps1         # One-click setup scripts
 ├── demo.sh / demo.ps1           # Run 6 CLI demos against bundled test files
 └── TECHNICAL_REPORT.md          # Technical documentation (Chinese)
@@ -314,7 +337,7 @@ hex_editor/
 ## Dependencies
 
 - [moonbitlang/x](https://github.com/moonbitlang/x) — File I/O & system APIs
-- MoonBit 0.1.20260529+
+- MoonBit 0.1.20260703+
 
 ## License
 

@@ -11,7 +11,9 @@
 
 name = "R00TK17/hex_editor"
 
-version = "0.1.0"
+version = "0.1.2"
+
+preferred_target = "native"
 
 readme = "README.mbt.md"
 
@@ -19,7 +21,16 @@ repository = "https://github.com/R00TK17/moonbit-HexEditor"
 
 license = "Apache-2.0"
 
-keywords = ["hex", "editor", "binary", "tui", "parser", "forensics", "entropy", "steganography"]
+keywords = [
+  "hex",
+  "editor",
+  "binary",
+  "tui",
+  "parser",
+  "forensics",
+  "entropy",
+  "steganography",
+]
 
 description = "Terminal hex editor & binary analysis toolkit: 20 format parsers, wildcard search, entropy analysis, steganography detection, Base64/URL/Unicode/Hex codecs. Cross-platform (Windows/Linux), dual-target (Native + Wasm-GC)."
 

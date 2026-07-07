@@ -1,0 +1,61 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "R00TK17/hex_editor/cmd/main"
+
+import {
+  "R00TK17/hex_editor",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn apply_redo(@hex_editor.HexBuffer, UndoOp) -> UndoOp
+
+pub fn apply_undo(@hex_editor.HexBuffer, UndoOp) -> UndoOp
+
+pub fn basename(String) -> String
+
+pub fn depth_suffix(Int, Int) -> String
+
+pub fn handle_bookmark_normal_key(TuiState, Int) -> Bool
+
+pub fn handle_bookmark_popup_key(TuiState, Int, Int) -> Bool
+
+pub fn handle_browser_key(TuiState, Int, Int) -> Bool
+
+pub fn handle_file_list_key(TuiState, Int, Int) -> Bool
+
+pub fn handle_file_list_normal_key(TuiState, Int) -> Bool
+
+pub fn handle_key(TuiState, @hex_editor.HexBuffer, Int, Int) -> Unit
+
+pub fn load_file_state(String, FixedArray[Int?]) -> Int
+
+pub fn pop_last(Array[UndoOp]) -> (Array[UndoOp], UndoOp?)
+
+pub fn refresh_browser(TuiState) -> Unit
+
+pub fn run_tui(String?) -> Unit
+
+pub fn save_file_state(String, Int, FixedArray[Int?]) -> Unit
+
+pub fn to_absolute_path(String) -> String
+
+pub fn undo_op(Int, Int, Byte) -> UndoOp
+
+// Errors
+
+// Types and methods
+pub struct FileSlot {
+  mut buffer : @hex_editor.HexBuffer
+  path : String
+  mut offset : Int
+}
+
+type TuiState
+pub fn TuiState::new(String?, @hex_editor.HexBuffer) -> Self
+
+type UndoOp derive(@debug.Debug)
+
+// Type aliases
+
+// Traits
+

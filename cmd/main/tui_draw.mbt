@@ -15,7 +15,9 @@ fn split_text_lines(text : String) -> Array[String] {
     }
   }
   let remaining = sb.to_string()
-  if remaining.length() > 0 { lines.push(remaining) }
+  if remaining.length() > 0 {
+    lines.push(remaining)
+  }
   lines
 }
 
@@ -54,9 +56,15 @@ fn build_match_bitmap(
   vis_size : Int,
   buf_len : Int,
 ) -> FixedArray[Bool] {
-  let mlen = if search_idx >= 0 && search_idx < match_lens.length() { match_lens[search_idx] } else { match_len }
+  let mlen = if search_idx >= 0 && search_idx < match_lens.length() {
+    match_lens[search_idx]
+  } else {
+    match_len
+  }
   let bm = FixedArray::make(vis_size, false)
-  if mlen <= 0 || match_offset < 0 { return bm }
+  if mlen <= 0 || match_offset < 0 {
+    return bm
+  }
   for j = 0; j < mlen; j = j + 1 {
     let bo = match_offset + j
     if bo >= vis_start && bo < vis_start + vis_size && bo < buf_len {
@@ -69,7 +77,11 @@ fn build_match_bitmap(
 ///|
 /// Truncate text to fit within max columns.
 fn clip(text : String, max : Int) -> String {
-  if text.length() <= max { text } else { text[:max].to_owned() }
+  if text.length() <= max {
+    text
+  } else {
+    text[:max].to_owned()
+  }
 }
 
 ///|
@@ -132,19 +144,32 @@ fn draw_screen(
   sb.write_string("\u001b[H")
 
   if scan_view {
-    draw_scan_popup(sb, scan_sel, scan_scroll, scan_offsets, scan_names, scan_sizes, screen_rows)
+    draw_scan_popup(
+      sb, scan_sel, scan_scroll, scan_offsets, scan_names, scan_sizes, screen_rows,
+    )
   } else if entropy_view {
     draw_entropy_popup(sb, entropy_sel, entropy_blocks, screen_rows)
   } else if strings_view {
-    draw_strings_popup(sb, strings_sel, strings_scroll, strings_matches, screen_rows, term_cols)
+    draw_strings_popup(
+      sb, strings_sel, strings_scroll, strings_matches, screen_rows, term_cols,
+    )
   } else if codec_view {
-    draw_codec_popup(sb, codec_type, codec_encode, codec_input, codec_result, screen_rows, term_cols)
+    draw_codec_popup(
+      sb, codec_type, codec_encode, codec_input, codec_result, screen_rows, term_cols,
+    )
   } else if browser_view {
-    draw_browser_popup(sb, browser_path, browser_names, browser_is_dir, browser_sel, browser_scroll, screen_rows, term_cols)
+    draw_browser_popup(
+      sb, browser_path, browser_names, browser_is_dir, browser_sel, browser_scroll,
+      screen_rows, term_cols,
+    )
   } else if file_list_view {
-    draw_file_list_popup(sb, file_list_sel, file_slots, active_file, screen_rows)
+    draw_file_list_popup(
+      sb, file_list_sel, file_slots, active_file, screen_rows,
+    )
   } else if bookmark_view {
-    draw_bookmark_popup(sb, bookmark_sel, bookmark_scroll, bookmarks, screen_rows)
+    draw_bookmark_popup(
+      sb, bookmark_sel, bookmark_scroll, bookmarks, screen_rows,
+    )
   } else if struct_view && struct_lines.length() > 0 {
     let total = struct_lines.length()
     let off = if struct_offset < 0 { 0 } else { struct_offset }
@@ -158,26 +183,68 @@ fn draw_screen(
     }
   } else if struct_view {
     sb.write_string("  No structure detected.\u001b[K\r\n")
-    for i = 0; i < screen_rows - 1; i = i + 1 { sb.write_string("  \u001b[K\r\n") }
+    for i = 0; i < screen_rows - 1; i = i + 1 {
+      sb.write_string("  \u001b[K\r\n")
+    }
   } else if buffer.is_empty() {
     sb.write_string("\r\n  [Empty]  o:open  q:quit\u001b[K\r\n")
   } else {
     let len = buffer.length()
-    let rows_from_offset = if offset < len { (len - offset + 15) / 16 } else { 0 }
-    let display_rows = if screen_rows < rows_from_offset { screen_rows } else { rows_from_offset }
+    let rows_from_offset = if offset < len {
+      (len - offset + 15) / 16
+    } else {
+      0
+    }
+    let display_rows = if screen_rows < rows_from_offset {
+      screen_rows
+    } else {
+      rows_from_offset
+    }
 
     let vis_size = display_rows * 16
-    let highlight_all = build_highlight_bitmap(search_results, match_len, match_lens, offset, vis_size, len)
-    let highlight_cur = if search_results.length() > 0 && search_idx >= 0 && search_idx < search_results.length() {
-      build_match_bitmap(search_results[search_idx], match_len, match_lens, search_idx, offset, vis_size, len)
-    } else { FixedArray::make(vis_size, false) }
+    let highlight_all = build_highlight_bitmap(
+      search_results, match_len, match_lens, offset, vis_size, len,
+    )
+    let highlight_cur = if search_results.length() > 0 &&
+      search_idx >= 0 &&
+      search_idx < search_results.length() {
+      build_match_bitmap(
+        search_results[search_idx],
+        match_len,
+        match_lens,
+        search_idx,
+        offset,
+        vis_size,
+        len,
+      )
+    } else {
+      FixedArray::make(vis_size, false)
+    }
 
-    let sel_lo = if select_mode && edit_mode { if select_start < edit_off { select_start } else { edit_off } } else { -1 }
-    let sel_hi = if select_mode && edit_mode { if select_start > edit_off { select_start } else { edit_off } } else { -1 }
+    let sel_lo = if select_mode && edit_mode {
+      if select_start < edit_off {
+        select_start
+      } else {
+        edit_off
+      }
+    } else {
+      -1
+    }
+    let sel_hi = if select_mode && edit_mode {
+      if select_start > edit_off {
+        select_start
+      } else {
+        edit_off
+      }
+    } else {
+      -1
+    }
 
     for row = 0; row < display_rows; row = row + 1 {
       let row_off = offset + row * 16
-      if row_off >= len { break }
+      if row_off >= len {
+        break
+      }
       let row_len = if row_off + 16 <= len { 16 } else { len - row_off }
 
       let off_str = @lib.format_offset(row_off)
@@ -188,7 +255,9 @@ fn draw_screen(
       }
 
       for col = 0; col < 16; col = col + 1 {
-        if col > 0 && col == 8 { sb.write_string(" ") }
+        if col > 0 && col == 8 {
+          sb.write_string(" ")
+        }
         if col < row_len {
           let byte_off = row_off + col
           let byte = buffer.byte_at(byte_off)
@@ -196,14 +265,25 @@ fn draw_screen(
           let is_edit = edit_mode && byte_off == edit_off
           let is_cur = !is_edit && bi < vis_size && highlight_cur[bi]
           let is_hl = !is_edit && !is_cur && bi < vis_size && highlight_all[bi]
-          let is_sel = !is_edit && !is_cur && !is_hl && byte_off >= sel_lo && byte_off <= sel_hi
-          if is_edit { sb.write_string("\u001b[7m") }
-          else if is_cur { sb.write_string("\u001b[42;30m") }
-          else if is_hl { sb.write_string("\u001b[43;30m") }
-          else if is_sel { sb.write_string("\u001b[45;37m") }
+          let is_sel = !is_edit &&
+            !is_cur &&
+            !is_hl &&
+            byte_off >= sel_lo &&
+            byte_off <= sel_hi
+          if is_edit {
+            sb.write_string("\u001b[7m")
+          } else if is_cur {
+            sb.write_string("\u001b[42;30m")
+          } else if is_hl {
+            sb.write_string("\u001b[43;30m")
+          } else if is_sel {
+            sb.write_string("\u001b[45;37m")
+          }
           let hex = @lib.format_byte_hex(byte, uppercase=true)
           sb.write_string(hex)
-          if is_edit || is_cur || is_hl || is_sel { sb.write_string("\u001b[0m") }
+          if is_edit || is_cur || is_hl || is_sel {
+            sb.write_string("\u001b[0m")
+          }
           sb.write_string(" ")
         } else {
           sb.write_string("   ")
@@ -219,14 +299,25 @@ fn draw_screen(
           let is_edit = edit_mode && byte_off == edit_off
           let is_cur = !is_edit && bi < vis_size && highlight_cur[bi]
           let is_hl = !is_edit && !is_cur && bi < vis_size && highlight_all[bi]
-          let is_sel = !is_edit && !is_cur && !is_hl && byte_off >= sel_lo && byte_off <= sel_hi
-          if is_edit { sb.write_string("\u001b[7m") }
-          else if is_cur { sb.write_string("\u001b[42;30m") }
-          else if is_hl { sb.write_string("\u001b[43;30m") }
-          else if is_sel { sb.write_string("\u001b[45;37m") }
+          let is_sel = !is_edit &&
+            !is_cur &&
+            !is_hl &&
+            byte_off >= sel_lo &&
+            byte_off <= sel_hi
+          if is_edit {
+            sb.write_string("\u001b[7m")
+          } else if is_cur {
+            sb.write_string("\u001b[42;30m")
+          } else if is_hl {
+            sb.write_string("\u001b[43;30m")
+          } else if is_sel {
+            sb.write_string("\u001b[45;37m")
+          }
           let a = @lib.format_ascii(byte)
           sb.write_char(a)
-          if is_edit || is_cur || is_hl || is_sel { sb.write_string("\u001b[0m") }
+          if is_edit || is_cur || is_hl || is_sel {
+            sb.write_string("\u001b[0m")
+          }
         } else {
           sb.write_string(" ")
         }
@@ -244,10 +335,16 @@ fn draw_screen(
   // Status bar — fixed at second-to-last line (absolute positioning)
   let status_row = screen_rows + 1
   sb.write_string("\u001b[" + status_row.to_string() + ";1H")
-  let max_row = if buffer.length() > 0 { (buffer.length() + 15) / 16 } else { 0 }
+  let max_row = if buffer.length() > 0 {
+    (buffer.length() + 15) / 16
+  } else {
+    0
+  }
   let raw_row = if buffer.length() > 0 { offset / 16 + 1 } else { 0 }
   let cur_row = if raw_row > max_row { max_row } else { raw_row }
-  sb.write_string("\u001b[44;37m 0x\{@lib.to_hex_string(offset, width=8)} | row \{cur_row}/\{max_row} \u001b[0m")
+  sb.write_string(
+    "\u001b[44;37m 0x\{@lib.to_hex_string(offset, width=8)} | row \{cur_row}/\{max_row} \u001b[0m",
+  )
 
   if status_msg != "" {
     sb.write_string(" \u001b[41;37m \{status_msg} \u001b[0m")
@@ -261,49 +358,99 @@ fn draw_screen(
     let tab = if edit_ascii { "Tab:ASCII" } else { "Tab:Hex" }
     let row1 = screen_rows + 2
     sb.write_string("\u001b[" + row1.to_string() + ";1H")
-    sb.write_string("\u001b[47;30m " + clip("Esc:exit " + ins + " " + tab + " Ctrl+Y:sel Del:delete", w) + " \u001b[0m\u001b[K")
+    sb.write_string(
+      "\u001b[47;30m " +
+      clip("Esc:exit " + ins + " " + tab + " Ctrl+Y:sel Del:delete", w) +
+      " \u001b[0m\u001b[K",
+    )
     let row2 = screen_rows + 3
     sb.write_string("\u001b[" + row2.to_string() + ";1H")
-    sb.write_string("\u001b[47;30m " + clip("Ctrl+Z:undo Ctrl+R:redo Ctrl+N:copy Ctrl+L:paste Ctrl+X:save", w) + " \u001b[0m\u001b[K")
+    sb.write_string(
+      "\u001b[47;30m " +
+      clip("Ctrl+Z:undo Ctrl+R:redo Ctrl+N:copy Ctrl+L:paste Ctrl+X:save", w) +
+      " \u001b[0m\u001b[K",
+    )
   } else if scan_view {
     let row = screen_rows + 2
     sb.write_string("\u001b[" + row.to_string() + ";1H")
-    sb.write_string("\u001b[47;30m " + clip("q:quit  Enter:jump  x:extract  w:close", w) + " \u001b[0m\u001b[K")
+    sb.write_string(
+      "\u001b[47;30m " +
+      clip("q:quit  Enter:jump  x:extract  w:close", w) +
+      " \u001b[0m\u001b[K",
+    )
   } else if entropy_view {
     let row = screen_rows + 2
     sb.write_string("\u001b[" + row.to_string() + ";1H")
-    sb.write_string("\u001b[47;30m " + clip("q:quit  Enter:jump  LR:page  h:close", w) + " \u001b[0m\u001b[K")
+    sb.write_string(
+      "\u001b[47;30m " +
+      clip("q:quit  Enter:jump  LR:page  h:close", w) +
+      " \u001b[0m\u001b[K",
+    )
   } else if strings_view {
     let row = screen_rows + 2
     sb.write_string("\u001b[" + row.to_string() + ";1H")
-    sb.write_string("\u001b[47;30m " + clip("q:quit Enter:jump e:export s:close", w) + " \u001b[0m\u001b[K")
+    sb.write_string(
+      "\u001b[47;30m " +
+      clip("q:quit Enter:jump e:export s:close", w) +
+      " \u001b[0m\u001b[K",
+    )
   } else if codec_view {
     let row = screen_rows + 2
     sb.write_string("\u001b[" + row.to_string() + ";1H")
-    sb.write_string("\u001b[47;30m " + clip("LR:type  Tab:mode  Esc:close", w) + " \u001b[0m\u001b[K")
+    sb.write_string(
+      "\u001b[47;30m " +
+      clip("LR:type  Tab:mode  Esc:close", w) +
+      " \u001b[0m\u001b[K",
+    )
   } else if browser_view {
     let row = screen_rows + 2
     sb.write_string("\u001b[" + row.to_string() + ";1H")
-    sb.write_string("\u001b[47;30m " + clip("q:quit Enter:open/enter o:input Esc:cancel", w) + " \u001b[0m\u001b[K")
+    sb.write_string(
+      "\u001b[47;30m " +
+      clip("q:quit Enter:open/enter o:input Esc:cancel", w) +
+      " \u001b[0m\u001b[K",
+    )
   } else if file_list_view {
     let row = screen_rows + 2
     sb.write_string("\u001b[" + row.to_string() + ";1H")
-    sb.write_string("\u001b[47;30m " + clip("q:quit d:close Enter:switch Tab/Esc:back", w) + " \u001b[0m\u001b[K")
+    sb.write_string(
+      "\u001b[47;30m " +
+      clip("q:quit d:close Enter:switch Tab/Esc:back", w) +
+      " \u001b[0m\u001b[K",
+    )
   } else if bookmark_view {
     let row = screen_rows + 2
     sb.write_string("\u001b[" + row.to_string() + ";1H")
-    sb.write_string("\u001b[47;30m " + clip("q:quit  Enter:jump  d:delete  b:close  Ctrl+B:set", w) + " \u001b[0m\u001b[K")
+    sb.write_string(
+      "\u001b[47;30m " +
+      clip("q:quit  Enter:jump  d:delete  b:close  Ctrl+B:set", w) +
+      " \u001b[0m\u001b[K",
+    )
   } else if struct_view {
     let row = screen_rows + 2
     sb.write_string("\u001b[" + row.to_string() + ";1H")
-    sb.write_string("\u001b[47;30m " + clip("q:quit UD:scroll LR:page e:export t:hex", w) + " \u001b[0m\u001b[K")
+    sb.write_string(
+      "\u001b[47;30m " +
+      clip("q:quit UD:scroll LR:page e:export t:hex", w) +
+      " \u001b[0m\u001b[K",
+    )
   } else {
     let row1 = screen_rows + 2
     sb.write_string("\u001b[" + row1.to_string() + ";1H")
-    sb.write_string("\u001b[47;30m " + clip("q:quit o:open g:goto e:edit /:hex f:text n/p:match", w) + " \u001b[0m\u001b[K")
+    sb.write_string(
+      "\u001b[47;30m " +
+      clip("q:quit o:open g:goto e:edit /:hex f:text n/p:match", w) +
+      " \u001b[0m\u001b[K",
+    )
     let row2 = screen_rows + 3
     sb.write_string("\u001b[" + row2.to_string() + ";1H")
-    sb.write_string("\u001b[47;30m " + clip("w:scan s:strings h:entropy t:struct b:bookmark c:codec Tab:files", w) + " \u001b[0m\u001b[K")
+    sb.write_string(
+      "\u001b[47;30m " +
+      clip(
+        "w:scan s:strings h:entropy t:struct b:bookmark c:codec Tab:files", w,
+      ) +
+      " \u001b[0m\u001b[K",
+    )
   }
 
   // Erase below: clear anything after the help bar
@@ -331,13 +478,26 @@ fn draw_bookmark_popup(
       Some(off) => "0x" + @lib.to_hex_string(off, width=8)
     }
     if i == sel {
-      sb.write_string("  \u001b[44;37m" + marker + i.to_string() + ": " + content + "\u001b[0m\u001b[K\r\n")
+      sb.write_string(
+        "  \u001b[44;37m" +
+        marker +
+        i.to_string() +
+        ": " +
+        content +
+        "\u001b[0m\u001b[K\r\n",
+      )
     } else {
-      sb.write_string("  " + marker + i.to_string() + ": " + content + "\u001b[K\r\n")
+      sb.write_string(
+        "  " + marker + i.to_string() + ": " + content + "\u001b[K\r\n",
+      )
     }
   }
   let displayed = end - scroll
-  let remaining = if screen_rows > displayed + 1 { screen_rows - displayed - 1 } else { 0 }
+  let remaining = if screen_rows > displayed + 1 {
+    screen_rows - displayed - 1
+  } else {
+    0
+  }
   for _i = 0; _i < remaining; _i = _i + 1 {
     sb.write_string("  \u001b[K\r\n")
   }
@@ -361,29 +521,55 @@ fn draw_entropy_popup(
     let e_str = format_e(b.entropy)
     let bar = make_bar((b.entropy / 8.0 * 40.0).to_int())
     if i == sel {
-      sb.write_string("  \u001b[44;37m" + off_str + "  " + bar + "  " + e_str + "\u001b[0m\u001b[K\r\n")
+      sb.write_string(
+        "  \u001b[44;37m" +
+        off_str +
+        "  " +
+        bar +
+        "  " +
+        e_str +
+        "\u001b[0m\u001b[K\r\n",
+      )
     } else {
-      sb.write_string("  " + off_str + "  " + bar + "  " + e_str + "\u001b[K\r\n")
+      sb.write_string(
+        "  " + off_str + "  " + bar + "  " + e_str + "\u001b[K\r\n",
+      )
     }
   }
   let displayed = end - sel
-  let remaining = if screen_rows > displayed + 1 { screen_rows - displayed - 1 } else { 0 }
+  let remaining = if screen_rows > displayed + 1 {
+    screen_rows - displayed - 1
+  } else {
+    0
+  }
   for _i = 0; _i < remaining; _i = _i + 1 {
     sb.write_string("  \u001b[K\r\n")
   }
 }
 
+///|
 fn make_bar(len : Int) -> String {
   let s = StringBuilder()
   let clamped = if len > 40 { 40 } else { len }
-  let color = if clamped > 30 { "\u001b[41m" } else if clamped > 15 { "\u001b[43m" } else { "\u001b[42m" }
+  let color = if clamped > 30 {
+    "\u001b[41m"
+  } else if clamped > 15 {
+    "\u001b[43m"
+  } else {
+    "\u001b[42m"
+  }
   s.write_string(color)
-  for _i = 0; _i < clamped; _i = _i + 1 { s.write_char('|') }
+  for _i = 0; _i < clamped; _i = _i + 1 {
+    s.write_char('|')
+  }
   s.write_string("\u001b[0m")
-  for _i = clamped; _i < 40; _i = _i + 1 { s.write_char(' ') }
+  for _i = clamped; _i < 40; _i = _i + 1 {
+    s.write_char(' ')
+  }
   s.to_string()
 }
 
+///|
 fn format_e(e : Double) -> String {
   let n = (e * 10.0).to_int()
   (n / 10).to_string() + "." + (n % 10).to_string()
@@ -402,25 +588,36 @@ fn draw_strings_popup(
   sb.write_string("  -- Strings --\u001b[K\r\n")
   let total = matches.length()
   let max_visible = if screen_rows > 1 { screen_rows - 1 } else { 0 }
-  let end = if scroll + max_visible < total { scroll + max_visible } else { total }
+  let end = if scroll + max_visible < total {
+    scroll + max_visible
+  } else {
+    total
+  }
   let text_w = if term_cols > 16 { term_cols - 16 } else { 60 }
   for i = scroll; i < end; i = i + 1 {
     let m = matches[i]
     let off_str = "0x" + @lib.to_hex_string(m.offset, width=8)
     let text = clip(m.text, text_w)
     if i == sel {
-      sb.write_string("  \u001b[44;37m" + off_str + "  " + text + "\u001b[0m\u001b[K\r\n")
+      sb.write_string(
+        "  \u001b[44;37m" + off_str + "  " + text + "\u001b[0m\u001b[K\r\n",
+      )
     } else {
       sb.write_string("  " + off_str + "  " + text + "\u001b[K\r\n")
     }
   }
   let displayed = end - scroll
-  let remaining = if screen_rows > displayed + 1 { screen_rows - displayed - 1 } else { 0 }
+  let remaining = if screen_rows > displayed + 1 {
+    screen_rows - displayed - 1
+  } else {
+    0
+  }
   for _i = 0; _i < remaining; _i = _i + 1 {
     sb.write_string("  \u001b[K\r\n")
   }
 }
 
+///|
 fn draw_scan_popup(
   sb : StringBuilder,
   sel : Int,
@@ -433,18 +630,35 @@ fn draw_scan_popup(
   sb.write_string("  -- Binary Scan --\u001b[K\r\n")
   let total = offsets.length()
   let max_visible = if screen_rows > 1 { screen_rows - 1 } else { 0 }
-  let end = if scroll + max_visible < total { scroll + max_visible } else { total }
+  let end = if scroll + max_visible < total {
+    scroll + max_visible
+  } else {
+    total
+  }
   for i = scroll; i < end; i = i + 1 {
     let off_str = "0x" + @lib.to_hex_string(offsets[i], width=8)
     let size_str = " (" + @lib.format_size(sizes[i]) + ")"
     if i == sel {
-      sb.write_string("  \u001b[44;37m" + off_str + "  " + names[i] + size_str + "\u001b[0m\u001b[K\r\n")
+      sb.write_string(
+        "  \u001b[44;37m" +
+        off_str +
+        "  " +
+        names[i] +
+        size_str +
+        "\u001b[0m\u001b[K\r\n",
+      )
     } else {
-      sb.write_string("  " + off_str + "  " + names[i] + size_str + "\u001b[K\r\n")
+      sb.write_string(
+        "  " + off_str + "  " + names[i] + size_str + "\u001b[K\r\n",
+      )
     }
   }
   let displayed = end - scroll
-  let remaining = if screen_rows > displayed + 1 { screen_rows - displayed - 1 } else { 0 }
+  let remaining = if screen_rows > displayed + 1 {
+    screen_rows - displayed - 1
+  } else {
+    0
+  }
   for _i = 0; _i < remaining; _i = _i + 1 {
     sb.write_string("  \u001b[K\r\n")
   }
@@ -505,7 +719,10 @@ fn draw_codec_popup(
     ipos = iend
     ilines = ilines + 1
   }
-  if ilines == 0 { sb.write_string("  Input:  _\u001b[K\r\n"); ilines = 1 }
+  if ilines == 0 {
+    sb.write_string("  Input:  _\u001b[K\r\n")
+    ilines = 1
+  }
   for _i = ilines; _i < input_rows; _i = _i + 1 {
     sb.write_string("  \u001b[K\r\n")
   }
@@ -524,7 +741,10 @@ fn draw_codec_popup(
     rpos = rend
     rlines = rlines + 1
   }
-  if rlines == 0 { sb.write_string("  Result:\u001b[K\r\n"); rlines = 1 }
+  if rlines == 0 {
+    sb.write_string("  Result:\u001b[K\r\n")
+    rlines = 1
+  }
   for _i = rlines; _i < result_rows; _i = _i + 1 {
     sb.write_string("  \u001b[K\r\n")
   }
@@ -550,13 +770,37 @@ fn draw_file_list_popup(
     let name = basename(slots[i].path)
     let size = @lib.format_size(slots[i].buffer.length())
     if i == sel {
-      sb.write_string("  \u001b[44;37m" + marker + " " + (i + 1).to_string() + ": " + name + " (" + size + ")\u001b[0m\u001b[K\r\n")
+      sb.write_string(
+        "  \u001b[44;37m" +
+        marker +
+        " " +
+        (i + 1).to_string() +
+        ": " +
+        name +
+        " (" +
+        size +
+        ")\u001b[0m\u001b[K\r\n",
+      )
     } else {
-      sb.write_string("  " + marker + " " + (i + 1).to_string() + ": " + name + " (" + size + ")\u001b[K\r\n")
+      sb.write_string(
+        "  " +
+        marker +
+        " " +
+        (i + 1).to_string() +
+        ": " +
+        name +
+        " (" +
+        size +
+        ")\u001b[K\r\n",
+      )
     }
   }
   let displayed = end - start
-  let remaining = if screen_rows > displayed + 1 { screen_rows - displayed - 1 } else { 0 }
+  let remaining = if screen_rows > displayed + 1 {
+    screen_rows - displayed - 1
+  } else {
+    0
+  }
   for _i = 0; _i < remaining; _i = _i + 1 {
     sb.write_string("  \u001b[K\r\n")
   }
@@ -578,7 +822,11 @@ fn draw_browser_popup(
   sb.write_string("  -- Open: " + clip(path, w) + " --\u001b[K\r\n")
   let total = names.length()
   let max_visible = if screen_rows > 1 { screen_rows - 1 } else { 0 }
-  let end = if scroll + max_visible < total { scroll + max_visible } else { total }
+  let end = if scroll + max_visible < total {
+    scroll + max_visible
+  } else {
+    total
+  }
   for i = scroll; i < end; i = i + 1 {
     let tag = if i < is_dir.length() && is_dir[i] { "[DIR] " } else { "      " }
     let name = names[i]
@@ -589,7 +837,11 @@ fn draw_browser_popup(
     }
   }
   let displayed = end - scroll
-  let remaining = if screen_rows > displayed + 1 { screen_rows - displayed - 1 } else { 0 }
+  let remaining = if screen_rows > displayed + 1 {
+    screen_rows - displayed - 1
+  } else {
+    0
+  }
   for _i = 0; _i < remaining; _i = _i + 1 {
     sb.write_string("  \u001b[K\r\n")
   }

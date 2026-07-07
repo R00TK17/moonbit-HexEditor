@@ -11,11 +11,25 @@ struct StructField {
   children : Array[StructField]
 } derive(Debug)
 
-fn field(off : Int, sz : Int, name : String, val : String, desc : String) -> StructField {
+///|
+fn field(
+  off : Int,
+  sz : Int,
+  name : String,
+  val : String,
+  desc : String,
+) -> StructField {
   { offset: off, size: sz, name, value: val, description: desc, children: [] }
 }
 
-fn group(off : Int, sz : Int, name : String, desc : String, kids : Array[StructField]) -> StructField {
+///|
+fn group(
+  off : Int,
+  sz : Int,
+  name : String,
+  desc : String,
+  kids : Array[StructField],
+) -> StructField {
   { offset: off, size: sz, name, value: "", description: desc, children: kids }
 }
 
@@ -26,33 +40,86 @@ pub fn parse_structure(bytes : Bytes) -> Array[StructField] {
   guard len >= 4 else { return [] }
   let magic_le = read_u32_le(bytes, 0)
   let magic_be = read_u16_be(bytes, 0)
-  if magic_be == 0xFFD8 { return parse_jpeg(bytes) }
-  if magic_be == 0x8950 { return parse_png(bytes) }
-  if magic_be == 0x4D5A || magic_be == 0x5A4D { return parse_pe(bytes) }
-  if magic_le == 0x04034B50 { return parse_zip(bytes) }
-  if len >= 6 && (read_str(bytes, 0, 6) == "GIF87a" || read_str(bytes, 0, 6) == "GIF89a") { return parse_gif(bytes) }
-  if magic_be == 0x424D { return parse_bmp(bytes) }
-  if len >= 7 && read_str(bytes, 0, 4) == "Rar!" { return parse_rar(bytes) }
-  if len >= 512 && read_str(bytes, 257, 5) == "ustar" { return parse_tar(bytes) }
-  if len >= 2 && is_zlib(bytes) { return parse_zlib(bytes) }
+  if magic_be == 0xFFD8 {
+    return parse_jpeg(bytes)
+  }
+  if magic_be == 0x8950 {
+    return parse_png(bytes)
+  }
+  if magic_be == 0x4D5A || magic_be == 0x5A4D {
+    return parse_pe(bytes)
+  }
+  if magic_le == 0x04034B50 {
+    return parse_zip(bytes)
+  }
+  if len >= 6 &&
+    (read_str(bytes, 0, 6) == "GIF87a" || read_str(bytes, 0, 6) == "GIF89a") {
+    return parse_gif(bytes)
+  }
+  if magic_be == 0x424D {
+    return parse_bmp(bytes)
+  }
+  if len >= 7 && read_str(bytes, 0, 4) == "Rar!" {
+    return parse_rar(bytes)
+  }
+  if len >= 512 && read_str(bytes, 257, 5) == "ustar" {
+    return parse_tar(bytes)
+  }
+  if len >= 2 && is_zlib(bytes) {
+    return parse_zlib(bytes)
+  }
   // Audio/Video
-  if len >= 12 && read_str(bytes, 0, 4) == "RIFF" && read_str(bytes, 8, 4) == "WAVE" { return parse_wav(bytes) }
-  if len >= 12 && read_str(bytes, 0, 4) == "RIFF" && read_str(bytes, 8, 4) == "AVI " { return parse_avi(bytes) }
-  if magic_be == 0x664C { return parse_flac(bytes) }  // "fL"
-  if len >= 4 && read_str(bytes, 0, 4) == "OggS" { return parse_ogg(bytes) }
-  if len >= 8 && read_str(bytes, 0, 3) == "ID3" { return parse_mp3(bytes) }
-  if len >= 8 && (read_u32_be(bytes, 4) == 0x66747970) { return parse_mp4(bytes) }  // "ftyp"
-  if read_u32_be(bytes, 0) == 0x1A45DFA3 { return parse_webm(bytes) }
+  if len >= 12 &&
+    read_str(bytes, 0, 4) == "RIFF" &&
+    read_str(bytes, 8, 4) == "WAVE" {
+    return parse_wav(bytes)
+  }
+  if len >= 12 &&
+    read_str(bytes, 0, 4) == "RIFF" &&
+    read_str(bytes, 8, 4) == "AVI " {
+    return parse_avi(bytes)
+  }
+  if magic_be == 0x664C {
+    return parse_flac(bytes)
+  } // "fL"
+  if len >= 4 && read_str(bytes, 0, 4) == "OggS" {
+    return parse_ogg(bytes)
+  }
+  if len >= 8 && read_str(bytes, 0, 3) == "ID3" {
+    return parse_mp3(bytes)
+  }
+  if len >= 8 && read_u32_be(bytes, 4) == 0x66747970 {
+    return parse_mp4(bytes)
+  } // "ftyp"
+  if read_u32_be(bytes, 0) == 0x1A45DFA3 {
+    return parse_webm(bytes)
+  }
   // ELF
-  if len >= 4 && bytes[0] == b'\x7F' && bytes[1] == b'E' && bytes[2] == b'L' && bytes[3] == b'F' {
+  if len >= 4 &&
+    bytes[0] == b'\x7F' &&
+    bytes[1] == b'E' &&
+    bytes[2] == b'L' &&
+    bytes[3] == b'F' {
     return parse_elf(bytes)
   }
   // GZip
-  if len >= 10 && bytes[0].to_int() == 0x1F && bytes[1].to_int() == 0x8B { return parse_gzip(bytes) }
+  if len >= 10 && bytes[0].to_int() == 0x1F && bytes[1].to_int() == 0x8B {
+    return parse_gzip(bytes)
+  }
   // 7z
-  if len >= 12 && bytes[0].to_int() == 0x37 && bytes[1].to_int() == 0x7A && bytes[2].to_int() == 0xBC { return parse_7z(bytes) }
+  if len >= 12 &&
+    bytes[0].to_int() == 0x37 &&
+    bytes[1].to_int() == 0x7A &&
+    bytes[2].to_int() == 0xBC {
+    return parse_7z(bytes)
+  }
   // BZip2
-  if len >= 10 && bytes[0].to_int() == 0x42 && bytes[1].to_int() == 0x5A && bytes[2].to_int() == 0x68 { return parse_bzip2(bytes) }
+  if len >= 10 &&
+    bytes[0].to_int() == 0x42 &&
+    bytes[1].to_int() == 0x5A &&
+    bytes[2].to_int() == 0x68 {
+    return parse_bzip2(bytes)
+  }
   return []
 }
 
@@ -63,61 +130,84 @@ fn is_zlib(bytes : Bytes) -> Bool {
   let cmf = bytes[0].to_int()
   let flg = bytes[1].to_int()
   let cm = cmf & 0x0F
-  (cm == 8) && ((cmf * 256 + flg) % 31 == 0)
+  cm == 8 && (cmf * 256 + flg) % 31 == 0
 }
 
+///|
 fn read_u16_be(bytes : Bytes, off : Int) -> Int {
   guard off + 2 <= bytes.length() else { 0 }
   bytes[off].to_int() * 256 + bytes[off + 1].to_int()
 }
 
+///|
 fn read_u32_be(bytes : Bytes, off : Int) -> Int {
   guard off + 4 <= bytes.length() else { 0 }
   let mut r = 0
-  for i = 0; i < 4; i = i + 1 { r = r * 256 + bytes[off + i].to_int() }
+  for i = 0; i < 4; i = i + 1 {
+    r = r * 256 + bytes[off + i].to_int()
+  }
   r
 }
 
+///|
 fn read_u16_le(bytes : Bytes, off : Int) -> Int {
   guard off + 2 <= bytes.length() else { 0 }
   bytes[off].to_int() + bytes[off + 1].to_int() * 256
 }
 
+///|
 fn read_u32_le(bytes : Bytes, off : Int) -> Int {
   guard off + 4 <= bytes.length() else { 0 }
   let mut r = 0
-  for i = 3; i >= 0; i = i - 1 { r = r * 256 + bytes[off + i].to_int() }
+  for i = 3; i >= 0; i = i - 1 {
+    r = r * 256 + bytes[off + i].to_int()
+  }
   r
 }
 
+///|
 fn read_u64_le(bytes : Bytes, off : Int) -> Int {
   guard off + 8 <= bytes.length() else { 0 }
   let mut r = 0
-  for i = 7; i >= 0; i = i - 1 { r = r * 256 + bytes[off + i].to_int() }
+  for i = 7; i >= 0; i = i - 1 {
+    r = r * 256 + bytes[off + i].to_int()
+  }
   r
 }
 
+///|
 fn read_u64_be(bytes : Bytes, off : Int) -> Int {
   guard off + 8 <= bytes.length() else { 0 }
   let mut r = 0
-  for i = 0; i < 8; i = i + 1 { r = r * 256 + bytes[off + i].to_int() }
+  for i = 0; i < 8; i = i + 1 {
+    r = r * 256 + bytes[off + i].to_int()
+  }
   r
 }
 
+///|
 fn hex(n : Int, width : Int) -> String {
-  format_offset(n, width=width)
+  format_offset(n, width~)
 }
 
+///|
 fn read_str(bytes : Bytes, off : Int, max : Int) -> String {
   let result = StringBuilder()
   let len = bytes.length()
   for i = 0; i < max; i = i + 1 {
-    if off + i >= len { break }
+    if off + i >= len {
+      break
+    }
     let b = bytes[off + i]
-    if b == b'\x00' { break }
+    if b == b'\x00' {
+      break
+    }
     if b.to_int() >= 32 && b.to_int() < 127 {
       let ch = b.to_int().to_char()
-      match ch { Some(c) => result.write_char(c); None => () }
+      match ch {
+        Some(c) => result.write_char(c)
+        None => ()
+      }
     }
   }
   result.to_string()
@@ -126,25 +216,39 @@ fn read_str(bytes : Bytes, off : Int, max : Int) -> String {
 // ============== JPEG ==============
 
 // Helper: find FOURCC at or after a position, with max search bound
-fn find_fourcc(data : Bytes, start : Int, fourcc : String, max_off : Int) -> Int {
+
+///|
+fn find_fourcc(
+  data : Bytes,
+  start : Int,
+  fourcc : String,
+  max_off : Int,
+) -> Int {
   for p = start; p + 8 <= max_off && p + 8 <= data.length(); p = p + 2 {
-    if read_str(data, p, 4) == fourcc { return p }
+    if read_str(data, p, 4) == fourcc {
+      return p
+    }
   }
   -1
 }
 
 // Helper: read FOURCC as string from offset
+
+///|
 fn fourcc_at(data : Bytes, off : Int) -> String {
   read_str(data, off, 4)
 }
 
+///|
 fn parse_jpeg(bytes : Bytes) -> Array[StructField] {
   let len = bytes.length()
   let fields = []
   fields.push(field(0, 2, "SOI", "FF D8", "Start of Image"))
   let mut pos = 2
   for iter = 0; pos + 2 < len && iter < 50; iter = iter + 1 {
-    if bytes[pos].to_int() != 0xFF { break }
+    if bytes[pos].to_int() != 0xFF {
+      break
+    }
     let marker = bytes[pos + 1].to_int()
     if marker == 0xD9 {
       fields.push(field(pos, 2, "EOI", "FF D9", "End of Image"))
@@ -162,22 +266,46 @@ fn parse_jpeg(bytes : Bytes) -> Array[StructField] {
         }
       }
       if scan_end > scan_start {
-        fields.push(field(scan_start, scan_end - scan_start, "ScanData", "\{scan_end - scan_start} bytes", "Compressed image data"))
+        fields.push(
+          field(
+            scan_start,
+            scan_end - scan_start,
+            "ScanData",
+            "\{scan_end - scan_start} bytes",
+            "Compressed image data",
+          ),
+        )
       }
       pos = scan_end
       continue
     }
     if marker >= 0xD0 && marker <= 0xD7 {
       let nm = match marker {
-        0xD0 => "RST0"; 0xD1 => "RST1"; 0xD2 => "RST2"; 0xD3 => "RST3"
-        0xD4 => "RST4"; 0xD5 => "RST5"; 0xD6 => "RST6"; 0xD7 => "RST7"
+        0xD0 => "RST0"
+        0xD1 => "RST1"
+        0xD2 => "RST2"
+        0xD3 => "RST3"
+        0xD4 => "RST4"
+        0xD5 => "RST5"
+        0xD6 => "RST6"
+        0xD7 => "RST7"
         _ => "RSTn"
       }
-      fields.push(field(pos, 2, nm, "FF \{format_byte_hex(bytes[pos + 1])}", "Restart marker"))
+      fields.push(
+        field(
+          pos,
+          2,
+          nm,
+          "FF \{format_byte_hex(bytes[pos + 1])}",
+          "Restart marker",
+        ),
+      )
       pos = pos + 2
       continue
     }
-    if pos + 4 > len { break }
+    if pos + 4 > len {
+      break
+    }
     let sl = read_u16_be(bytes, pos + 2)
     let nm = jpeg_marker_name(marker)
     // Extract dimensions for SOF markers
@@ -188,39 +316,82 @@ fn parse_jpeg(bytes : Bytes) -> Array[StructField] {
     } else {
       "\{nm} segment, \{sl} bytes"
     }
-    fields.push(field(pos, 2, nm, "FF \{format_byte_hex(bytes[pos + 1])}", desc))
+    fields.push(
+      field(pos, 2, nm, "FF \{format_byte_hex(bytes[pos + 1])}", desc),
+    )
     pos = pos + 2 + sl
   }
   // Fallback: check end of file for EOI if not found during scan
   if pos < len {
-    if len >= 2 && bytes[len-2].to_int() == 0xFF && bytes[len-1].to_int() == 0xD9 {
-      if pos < len - 2 { fields.push(field(pos, len - 2 - pos, "Trailing", "\{len - 2 - pos} bytes", "Remaining data")) }
+    if len >= 2 &&
+      bytes[len - 2].to_int() == 0xFF &&
+      bytes[len - 1].to_int() == 0xD9 {
+      if pos < len - 2 {
+        fields.push(
+          field(
+            pos,
+            len - 2 - pos,
+            "Trailing",
+            "\{len - 2 - pos} bytes",
+            "Remaining data",
+          ),
+        )
+      }
       fields.push(field(len - 2, 2, "EOI", "FF D9", "End of Image"))
     } else {
-      fields.push(field(pos, len - pos, "Trailing", "\{len - pos} bytes", "Remaining data"))
+      fields.push(
+        field(
+          pos,
+          len - pos,
+          "Trailing",
+          "\{len - pos} bytes",
+          "Remaining data",
+        ),
+      )
     }
   }
   fields
 }
 
+///|
 fn jpeg_marker_name(m : Int) -> String {
   match m {
-    0xE0 => "APP0"; 0xE1 => "APP1"; 0xE2 => "APP2"; 0xE3 => "APP3"
-    0xE4 => "APP4"; 0xE5 => "APP5"; 0xE6 => "APP6"; 0xE7 => "APP7"
-    0xE8 => "APP8"; 0xE9 => "APP9"; 0xEA => "APP10"; 0xEB => "APP11"
-    0xEC => "APP12"; 0xED => "APP13"; 0xEE => "APP14"; 0xEF => "APP15"
-    0xDB => "DQT"; 0xC0 => "SOF0"; 0xC1 => "SOF1"; 0xC2 => "SOF2"
-    0xC4 => "DHT"; 0xDD => "DRI"; 0xFE => "COM"
+    0xE0 => "APP0"
+    0xE1 => "APP1"
+    0xE2 => "APP2"
+    0xE3 => "APP3"
+    0xE4 => "APP4"
+    0xE5 => "APP5"
+    0xE6 => "APP6"
+    0xE7 => "APP7"
+    0xE8 => "APP8"
+    0xE9 => "APP9"
+    0xEA => "APP10"
+    0xEB => "APP11"
+    0xEC => "APP12"
+    0xED => "APP13"
+    0xEE => "APP14"
+    0xEF => "APP15"
+    0xDB => "DQT"
+    0xC0 => "SOF0"
+    0xC1 => "SOF1"
+    0xC2 => "SOF2"
+    0xC4 => "DHT"
+    0xDD => "DRI"
+    0xFE => "COM"
     _ => "UNK"
   }
 }
 
 // ============== PNG ==============
 
+///|
 fn parse_png(bytes : Bytes) -> Array[StructField] {
   let len = bytes.length()
   let fields = []
-  fields.push(field(0, 8, "Signature", "89 50 4E 47 0D 0A 1A 0A", "PNG signature"))
+  fields.push(
+    field(0, 8, "Signature", "89 50 4E 47 0D 0A 1A 0A", "PNG signature"),
+  )
   let mut pos = 8
   for _i = 0; pos + 12 <= len && _i < 50; _i = _i + 1 {
     let dlen = read_u32_be(bytes, pos)
@@ -241,7 +412,9 @@ fn parse_png(bytes : Bytes) -> Array[StructField] {
       _ => "\{dlen} bytes"
     }
     fields.push(field(pos, total, ctype, "\{dlen} bytes", desc))
-    if ctype == "IEND" { break }
+    if ctype == "IEND" {
+      break
+    }
     pos = pos + total
   }
   fields
@@ -249,19 +422,32 @@ fn parse_png(bytes : Bytes) -> Array[StructField] {
 
 // ============== PE ==============
 
+///|
 fn parse_pe(bytes : Bytes) -> Array[StructField] {
   let len = bytes.length()
-  guard len >= 64 else { return [field(0, len, "TRUNCATED", "", "Too small for PE")] }
+  guard len >= 64 else {
+    return [field(0, len, "TRUNCATED", "", "Too small for PE")]
+  }
   let fields = []
   let e_lfanew = read_u32_le(bytes, 60)
-  fields.push(group(0, 64, "DOS Header", "MZ signature", [
-    field(0, 2, "e_magic", "MZ", "DOS signature"),
-    field(60, 4, "e_lfanew", "0x\{hex(e_lfanew, 8)}", "PE offset"),
-  ]))
+  fields.push(
+    group(0, 64, "DOS Header", "MZ signature", [
+      field(0, 2, "e_magic", "MZ", "DOS signature"),
+      field(60, 4, "e_lfanew", "0x\{hex(e_lfanew, 8)}", "PE offset"),
+    ]),
+  )
 
   let pe_off = e_lfanew
   if pe_off > 64 {
-    fields.push(field(64, pe_off - 64, "DOS Stub", "\{pe_off - 64} bytes", "DOS stub program"))
+    fields.push(
+      field(
+        64,
+        pe_off - 64,
+        "DOS Stub",
+        "\{pe_off - 64} bytes",
+        "DOS stub program",
+      ),
+    )
   }
   guard pe_off + 4 <= len else { return fields }
 
@@ -279,21 +465,45 @@ fn parse_pe(bytes : Bytes) -> Array[StructField] {
   let nsections = read_u16_le(bytes, coff + 2)
   let sz_opt = read_u16_le(bytes, coff + 16)
   let mach_name = match machine {
-    0x014C => "i386"; 0x8664 => "AMD64"; 0x01C4 => "ARM"; 0xAA64 => "ARM64"; _ => "0x\{hex(machine, 4)}"
+    0x014C => "i386"
+    0x8664 => "AMD64"
+    0x01C4 => "ARM"
+    0xAA64 => "ARM64"
+    _ => "0x\{hex(machine, 4)}"
   }
 
-  fields.push(group(coff, 20, "COFF Header", "Machine: \{mach_name}, \{nsections} sections", [
-    field(coff, 2, "Machine", mach_name, ""),
-    field(coff + 2, 2, "NumSections", "\{nsections}", ""),
-    field(coff + 4, 4, "Timestamp", "0x\{hex(read_u32_le(bytes, coff + 4), 8)}", ""),
-    field(coff + 16, 2, "SizeOfOptional", "\{sz_opt}", ""),
-  ]))
+  fields.push(
+    group(
+      coff,
+      20,
+      "COFF Header",
+      "Machine: \{mach_name}, \{nsections} sections",
+      [
+        field(coff, 2, "Machine", mach_name, ""),
+        field(coff + 2, 2, "NumSections", "\{nsections}", ""),
+        field(
+          coff + 4,
+          4,
+          "Timestamp",
+          "0x\{hex(read_u32_le(bytes, coff + 4), 8)}",
+          "",
+        ),
+        field(coff + 16, 2, "SizeOfOptional", "\{sz_opt}", ""),
+      ],
+    ),
+  )
 
   let opt = coff + 20
   guard opt + sz_opt <= len else { return fields }
   if sz_opt >= 2 {
     let omagic = read_u16_le(bytes, opt)
-    let pe_type = if omagic == 0x20B { "PE32+" } else if omagic == 0x10B { "PE32" } else { "?" }
+    let pe_type = if omagic == 0x20B {
+      "PE32+"
+    } else if omagic == 0x10B {
+      "PE32"
+    } else {
+      "?"
+    }
     let ep = if sz_opt >= 20 { read_u32_le(bytes, opt + 16) } else { 0 }
     let ibase = if sz_opt >= 32 { read_u32_le(bytes, opt + 28) } else { 0 }
     let kids = [
@@ -307,25 +517,36 @@ fn parse_pe(bytes : Bytes) -> Array[StructField] {
   let sec_start = opt + sz_opt
   for i = 0; i < nsections; i = i + 1 {
     let so = sec_start + i * 40
-    if so + 40 > len { break }
+    if so + 40 > len {
+      break
+    }
     let sn = read_str(bytes, so, 8)
     let vs = read_u32_le(bytes, so + 8)
     let va = read_u32_le(bytes, so + 12)
     let rs = read_u32_le(bytes, so + 16)
     let ro = read_u32_le(bytes, so + 20)
-    fields.push(group(so, 40, "Section: \{sn}", "VAddr=0x\{hex(va, 8)} RawSize=0x\{hex(rs, 8)}", [
-      field(so, 8, "Name", sn, ""),
-      field(so + 8, 4, "VirtualSize", "0x\{hex(vs, 8)}", ""),
-      field(so + 12, 4, "VirtualAddress", "0x\{hex(va, 8)}", ""),
-      field(so + 16, 4, "RawSize", "0x\{hex(rs, 8)}", ""),
-      field(so + 20, 4, "RawOffset", "0x\{hex(ro, 8)}", ""),
-    ]))
+    fields.push(
+      group(
+        so,
+        40,
+        "Section: \{sn}",
+        "VAddr=0x\{hex(va, 8)} RawSize=0x\{hex(rs, 8)}",
+        [
+          field(so, 8, "Name", sn, ""),
+          field(so + 8, 4, "VirtualSize", "0x\{hex(vs, 8)}", ""),
+          field(so + 12, 4, "VirtualAddress", "0x\{hex(va, 8)}", ""),
+          field(so + 16, 4, "RawSize", "0x\{hex(rs, 8)}", ""),
+          field(so + 20, 4, "RawOffset", "0x\{hex(ro, 8)}", ""),
+        ],
+      ),
+    )
   }
   fields
 }
 
 // ============== ZIP ==============
 
+///|
 fn parse_zip(bytes : Bytes) -> Array[StructField] {
   let len = bytes.length()
   let fields = []
@@ -349,45 +570,77 @@ fn parse_zip(bytes : Bytes) -> Array[StructField] {
       let extra_len = read_u16_le(bytes, pos + 28)
 
       let cmethod_str = match cmethod {
-        0 => "Stored"; 8 => "Deflated"; 12 => "BZip2"; 14 => "LZMA"
+        0 => "Stored"
+        8 => "Deflated"
+        12 => "BZip2"
+        14 => "LZMA"
         _ => "Unknown(\{cmethod})"
       }
       let name = if name_len > 0 && pos + 30 + name_len <= len {
         read_str(bytes, pos + 30, name_len)
-      } else { "" }
+      } else {
+        ""
+      }
       let total = 30 + name_len + extra_len
 
       let mut desc = cmethod_str
       if comp_size > 0 && uncomp_size > 0 {
         desc = "\{desc}, \{comp_size} -> \{uncomp_size} bytes"
       }
-      if name != "" { desc = "\{desc}: \{name}" }
+      if name != "" {
+        desc = "\{desc}: \{name}"
+      }
       // Check encryption flag
       let encrypted = (flags & 1) != 0
       if encrypted {
-        let pseudo = (crc == 0 && comp_size == 0 && uncomp_size == 0)
-        desc = if pseudo { "\{desc} [Encrypted? - CRC/size in data descriptor]" }
-               else { "\{desc} [Encrypted]" }
+        let pseudo = crc == 0 && comp_size == 0 && uncomp_size == 0
+        desc = if pseudo {
+          "\{desc} [Encrypted? - CRC/size in data descriptor]"
+        } else {
+          "\{desc} [Encrypted]"
+        }
       }
 
-      fields.push(group(pos, total, "LocalFile #\{file_count}", desc, [
-        field(pos, 4, "Signature", "PK\\03\\04", ""),
-        field(pos + 4, 2, "Version", "\{ver}", ""),
-        field(pos + 6, 2, "Flags", "0x\{hex(flags, 4)}", if (flags & 1) != 0 { "Encrypted" } else if (flags & 8) != 0 { "DataDescriptor" } else { "" }),
-        field(pos + 8, 2, "Method", cmethod_str, ""),
-        field(pos + 10, 2, "FileTime", "0x" + hex(file_time, 4), ""),
-        field(pos + 12, 2, "FileDate", "0x" + hex(file_date, 4), ""),
-        field(pos + 14, 4, "CRC32", "0x\{hex(crc, 8)}", ""),
-        field(pos + 18, 4, "CompressedSize", "\{comp_size}", ""),
-        field(pos + 22, 4, "UncompressedSize", "\{uncomp_size}", ""),
-        field(pos + 26, 2, "FileNameLen", "\{name_len}", ""),
-        field(pos + 28, 2, "ExtraLen", "\{extra_len}", ""),
-      ]))
+      fields.push(
+        group(pos, total, "LocalFile #\{file_count}", desc, [
+          field(pos, 4, "Signature", "PK\\03\\04", ""),
+          field(pos + 4, 2, "Version", "\{ver}", ""),
+          field(
+            pos + 6,
+            2,
+            "Flags",
+            "0x\{hex(flags, 4)}",
+            if (flags & 1) != 0 {
+              "Encrypted"
+            } else if (flags & 8) != 0 {
+              "DataDescriptor"
+            } else {
+              ""
+            },
+          ),
+          field(pos + 8, 2, "Method", cmethod_str, ""),
+          field(pos + 10, 2, "FileTime", "0x" + hex(file_time, 4), ""),
+          field(pos + 12, 2, "FileDate", "0x" + hex(file_date, 4), ""),
+          field(pos + 14, 4, "CRC32", "0x\{hex(crc, 8)}", ""),
+          field(pos + 18, 4, "CompressedSize", "\{comp_size}", ""),
+          field(pos + 22, 4, "UncompressedSize", "\{uncomp_size}", ""),
+          field(pos + 26, 2, "FileNameLen", "\{name_len}", ""),
+          field(pos + 28, 2, "ExtraLen", "\{extra_len}", ""),
+        ]),
+      )
 
       // File data follows
       let data_start = pos + total
       if comp_size > 0 && data_start + comp_size <= len {
-        fields.push(field(data_start, comp_size, "FileData #\{file_count}", "\{comp_size} bytes", "Compressed data"))
+        fields.push(
+          field(
+            data_start,
+            comp_size,
+            "FileData #\{file_count}",
+            "\{comp_size} bytes",
+            "Compressed data",
+          ),
+        )
         pos = data_start + comp_size
       } else {
         pos = pos + total
@@ -402,14 +655,22 @@ fn parse_zip(bytes : Bytes) -> Array[StructField] {
       let cd_size = read_u32_le(bytes, pos + 12)
       let cd_offset = read_u32_le(bytes, pos + 16)
       let comment_len = read_u16_le(bytes, pos + 20)
-      fields.push(group(pos, 22 + comment_len, "EOCD", "\{cd_entries} entries in central dir", [
-        field(pos, 4, "Signature", "PK\\05\\06", ""),
-        field(pos + 4, 2, "DiskNumber", "\{disk}", ""),
-        field(pos + 10, 2, "CentralDirEntries", "\{cd_entries}", ""),
-        field(pos + 12, 4, "CentralDirSize", "\{cd_size} bytes", ""),
-        field(pos + 16, 4, "CentralDirOffset", "0x\{hex(cd_offset, 8)}", ""),
-        field(pos + 20, 2, "CommentLen", "\{comment_len}", ""),
-      ]))
+      fields.push(
+        group(
+          pos,
+          22 + comment_len,
+          "EOCD",
+          "\{cd_entries} entries in central dir",
+          [
+            field(pos, 4, "Signature", "PK\\05\\06", ""),
+            field(pos + 4, 2, "DiskNumber", "\{disk}", ""),
+            field(pos + 10, 2, "CentralDirEntries", "\{cd_entries}", ""),
+            field(pos + 12, 4, "CentralDirSize", "\{cd_size} bytes", ""),
+            field(pos + 16, 4, "CentralDirOffset", "0x\{hex(cd_offset, 8)}", ""),
+            field(pos + 20, 2, "CommentLen", "\{comment_len}", ""),
+          ],
+        ),
+      )
       break
     } else {
       break
@@ -417,13 +678,16 @@ fn parse_zip(bytes : Bytes) -> Array[StructField] {
   }
 
   if fields.length() == 0 {
-    fields.push(field(0, len, "Unknown ZIP", "\{len} bytes", "ZIP signature not found"))
+    fields.push(
+      field(0, len, "Unknown ZIP", "\{len} bytes", "ZIP signature not found"),
+    )
   }
   fields
 }
 
 // ============== GIF ==============
 
+///|
 fn parse_gif(bytes : Bytes) -> Array[StructField] {
   let len = bytes.length()
   let fields = []
@@ -437,18 +701,40 @@ fn parse_gif(bytes : Bytes) -> Array[StructField] {
   let gct_size = 1 << ((packed & 7) + 1)
   let has_gct = (packed >> 7) & 1
 
-  fields.push(group(6, 7, "Screen Descriptor", "\{w}x\{h} (0x\{hex(w, 4)} x 0x\{hex(h, 4)}), GCT=\{gct_size} colors", [
-    field(6, 2, "Width", "\{w} (0x\{hex(w, 4)})", ""),
-    field(8, 2, "Height", "\{h} (0x\{hex(h, 4)})", ""),
-    field(10, 1, "Packed", "0x\{hex(packed, 2)}", "GCT=\{has_gct}, Size=\{gct_size}"),
-    field(11, 1, "Background", "\{bg}", "Background color index"),
-    field(12, 1, "Aspect", "\{bytes[12].to_int()}", "Pixel aspect ratio"),
-  ]))
+  fields.push(
+    group(
+      6,
+      7,
+      "Screen Descriptor",
+      "\{w}x\{h} (0x\{hex(w, 4)} x 0x\{hex(h, 4)}), GCT=\{gct_size} colors",
+      [
+        field(6, 2, "Width", "\{w} (0x\{hex(w, 4)})", ""),
+        field(8, 2, "Height", "\{h} (0x\{hex(h, 4)})", ""),
+        field(
+          10,
+          1,
+          "Packed",
+          "0x\{hex(packed, 2)}",
+          "GCT=\{has_gct}, Size=\{gct_size}",
+        ),
+        field(11, 1, "Background", "\{bg}", "Background color index"),
+        field(12, 1, "Aspect", "\{bytes[12].to_int()}", "Pixel aspect ratio"),
+      ],
+    ),
+  )
 
   let mut pos = 13
   if has_gct != 0 {
     let gct_bytes = gct_size * 3
-    fields.push(field(pos, gct_bytes, "Global Color Table", "\{gct_size} colors x 3 bytes", ""))
+    fields.push(
+      field(
+        pos,
+        gct_bytes,
+        "Global Color Table",
+        "\{gct_size} colors x 3 bytes",
+        "",
+      ),
+    )
     pos = pos + gct_bytes
   }
 
@@ -459,58 +745,101 @@ fn parse_gif(bytes : Bytes) -> Array[StructField] {
       img_count = img_count + 1
       let iw = read_u16_le(bytes, pos + 5)
       let ih = read_u16_le(bytes, pos + 7)
-      fields.push(group(pos, 10, "Image #\{img_count}", "\{iw}x\{ih} at (\{read_u16_le(bytes, pos + 1)}, \{read_u16_le(bytes, pos + 3)})", [
-        field(pos, 1, "Separator", "0x2C", "Image descriptor"),
-        field(pos + 1, 2, "Left", "\{read_u16_le(bytes, pos + 1)}", ""),
-        field(pos + 3, 2, "Top", "\{read_u16_le(bytes, pos + 3)}", ""),
-        field(pos + 5, 2, "Width", "\{iw}", ""),
-        field(pos + 7, 2, "Height", "\{ih}", ""),
-        field(pos + 9, 1, "Packed", "0x\{hex(bytes[pos + 9].to_int(), 2)}", ""),
-      ]))
+      fields.push(
+        group(
+          pos,
+          10,
+          "Image #\{img_count}",
+          "\{iw}x\{ih} at (\{read_u16_le(bytes, pos + 1)}, \{read_u16_le(bytes, pos + 3)})",
+          [
+            field(pos, 1, "Separator", "0x2C", "Image descriptor"),
+            field(pos + 1, 2, "Left", "\{read_u16_le(bytes, pos + 1)}", ""),
+            field(pos + 3, 2, "Top", "\{read_u16_le(bytes, pos + 3)}", ""),
+            field(pos + 5, 2, "Width", "\{iw}", ""),
+            field(pos + 7, 2, "Height", "\{ih}", ""),
+            field(
+              pos + 9,
+              1,
+              "Packed",
+              "0x\{hex(bytes[pos + 9].to_int(), 2)}",
+              "",
+            ),
+          ],
+        ),
+      )
       pos = pos + 10
       // Skip LZW code size and image data
       if pos < len {
         let lzw_size = bytes[pos].to_int()
-        fields.push(field(pos, 1, "LZWMinCode", "\{lzw_size}", "LZW minimum code size"))
+        fields.push(
+          field(pos, 1, "LZWMinCode", "\{lzw_size}", "LZW minimum code size"),
+        )
         pos = pos + 1
         while pos < len {
           let block_size = bytes[pos].to_int()
-          if block_size == 0 { pos = pos + 1; break }
+          if block_size == 0 {
+            pos = pos + 1
+            break
+          }
           if pos + 1 + block_size <= len {
-            fields.push(field(pos, 1 + block_size, "DataBlock", "\{block_size} bytes", ""))
+            fields.push(
+              field(pos, 1 + block_size, "DataBlock", "\{block_size} bytes", ""),
+            )
             pos = pos + 1 + block_size
-          } else { break }
+          } else {
+            break
+          }
         }
       }
     } else if b == 0x21 {
       if pos + 1 < len {
         let ext_type = bytes[pos + 1].to_int()
-        let ext_name = match ext_type { 0xF9 => "GCE"; 0xFE => "Comment"; 0xFF => "App"; 0x01 => "Text"; _ => "Ext" }
+        let ext_name = match ext_type {
+          0xF9 => "GCE"
+          0xFE => "Comment"
+          0xFF => "App"
+          0x01 => "Text"
+          _ => "Ext"
+        }
         let mut ext_pos = pos + 2
         while ext_pos < len {
           let bs = bytes[ext_pos].to_int()
-          if bs == 0 { ext_pos = ext_pos + 1; break }
+          if bs == 0 {
+            ext_pos = ext_pos + 1
+            break
+          }
           if ext_pos + 1 + bs <= len {
-            fields.push(field(ext_pos, 1 + bs, "\{ext_name}Data", "\{bs} bytes", ""))
+            fields.push(
+              field(ext_pos, 1 + bs, "\{ext_name}Data", "\{bs} bytes", ""),
+            )
             ext_pos = ext_pos + 1 + bs
-          } else { break }
+          } else {
+            break
+          }
         }
         pos = ext_pos
-      } else { break }
+      } else {
+        break
+      }
     } else if b == 0x3B {
       fields.push(field(pos, 1, "Trailer", "0x3B", "End of GIF"))
       break
-    } else { break }
+    } else {
+      break
+    }
   }
   fields
 }
 
 // ============== BMP ==============
 
+///|
 fn parse_bmp(bytes : Bytes) -> Array[StructField] {
   let len = bytes.length()
   let fields = []
-  guard len >= 14 else { return [field(0, len, "TRUNCATED", "", "Too small for BMP")] }
+  guard len >= 14 else {
+    return [field(0, len, "TRUNCATED", "", "Too small for BMP")]
+  }
 
   let file_size = read_u32_le(bytes, 2)
   let data_off = read_u32_le(bytes, 10)
@@ -520,35 +849,74 @@ fn parse_bmp(bytes : Bytes) -> Array[StructField] {
   let planes = read_u16_le(bytes, 26)
   let bpp = read_u16_le(bytes, 28)
   let comp = read_u32_le(bytes, 30)
-  let comp_str = match comp { 0 => "RGB"; 1 => "RLE8"; 2 => "RLE4"; 3 => "Bitfields"; _ => "?" }
+  let comp_str = match comp {
+    0 => "RGB"
+    1 => "RLE8"
+    2 => "RLE4"
+    3 => "Bitfields"
+    _ => "?"
+  }
 
-  fields.push(group(0, 14, "BMP Header", "\{file_size} bytes, data at 0x\{hex(data_off, 8)}", [
-    field(0, 2, "Signature", "BM", ""),
-    field(2, 4, "FileSize", "\{file_size}", ""),
-    field(10, 4, "DataOffset", "0x\{hex(data_off, 8)}", ""),
-  ]))
+  fields.push(
+    group(
+      0,
+      14,
+      "BMP Header",
+      "\{file_size} bytes, data at 0x\{hex(data_off, 8)}",
+      [
+        field(0, 2, "Signature", "BM", ""),
+        field(2, 4, "FileSize", "\{file_size}", ""),
+        field(10, 4, "DataOffset", "0x\{hex(data_off, 8)}", ""),
+      ],
+    ),
+  )
 
-  fields.push(group(14, hdr_size, "DIB Header", "\{w}x\{h} (0x\{hex(w, 8)} x 0x\{hex(h, 8)}), \{bpp}bpp, \{comp_str}", [
-    field(14, 4, "HeaderSize", "\{hdr_size}", ""),
-    field(18, 4, "Width", "\{w} (0x\{hex(w, 8)})", ""),
-    field(22, 4, "Height", "\{h} (0x\{hex(h, 8)})", ""),
-    field(26, 2, "Planes", "\{planes}", ""),
-    field(28, 2, "BitsPerPixel", "\{bpp}", ""),
-    field(30, 4, "Compression", comp_str, ""),
-  ]))
+  fields.push(
+    group(
+      14,
+      hdr_size,
+      "DIB Header",
+      "\{w}x\{h} (0x\{hex(w, 8)} x 0x\{hex(h, 8)}), \{bpp}bpp, \{comp_str}",
+      [
+        field(14, 4, "HeaderSize", "\{hdr_size}", ""),
+        field(18, 4, "Width", "\{w} (0x\{hex(w, 8)})", ""),
+        field(22, 4, "Height", "\{h} (0x\{hex(h, 8)})", ""),
+        field(26, 2, "Planes", "\{planes}", ""),
+        field(28, 2, "BitsPerPixel", "\{bpp}", ""),
+        field(30, 4, "Compression", comp_str, ""),
+      ],
+    ),
+  )
 
   let pixel_start = 14 + hdr_size
   if data_off > pixel_start {
-    fields.push(field(pixel_start, data_off - pixel_start, "Palette/Gap", "\{data_off - pixel_start} bytes", "Color table or gap"))
+    fields.push(
+      field(
+        pixel_start,
+        data_off - pixel_start,
+        "Palette/Gap",
+        "\{data_off - pixel_start} bytes",
+        "Color table or gap",
+      ),
+    )
   }
   if data_off < len {
-    fields.push(field(data_off, len - data_off, "PixelData", "\{len - data_off} bytes", "Bitmap pixels"))
+    fields.push(
+      field(
+        data_off,
+        len - data_off,
+        "PixelData",
+        "\{len - data_off} bytes",
+        "Bitmap pixels",
+      ),
+    )
   }
   fields
 }
 
 // ============== RAR ==============
 
+///|
 fn parse_rar(bytes : Bytes) -> Array[StructField] {
   let len = bytes.length()
   let fields = []
@@ -564,28 +932,70 @@ fn parse_rar(bytes : Bytes) -> Array[StructField] {
     let head_type = bytes[pos + 2].to_int()
     let head_flags = read_u16_le(bytes, pos + 3)
     let head_size = read_u16_le(bytes, pos + 5)
-    if head_size == 0 || pos + head_size > len { break }
+    if head_size == 0 || pos + head_size > len {
+      break
+    }
 
     let type_str = match head_type {
-      0x72 => "Marker"; 0x73 => "Archive"; 0x74 => "File"
-      0x75 => "Comment"; 0x76 => "Extra"; 0x77 => "OldRecovery"
-      0x78 => "SubBlock"; 0x79 => "Recovery"; 0x7A => "Authenticity"
+      0x72 => "Marker"
+      0x73 => "Archive"
+      0x74 => "File"
+      0x75 => "Comment"
+      0x76 => "Extra"
+      0x77 => "OldRecovery"
+      0x78 => "SubBlock"
+      0x79 => "Recovery"
+      0x7A => "Authenticity"
       _ => "Type_\{head_type}"
     }
     let desc = if head_type == 0x74 {
-      let name_len = if pos + 32 <= len { read_u16_le(bytes, pos + 7) } else { 0 }
-      if name_len > 0 && pos + 32 + name_len <= len { read_str(bytes, pos + 32, name_len) } else { "" }
-    } else { "" }
-    let encrypted = if is_rar5 { (head_flags & 0x80) != 0 } else { (head_flags & 0x01) != 0 }
+      let name_len = if pos + 32 <= len {
+        read_u16_le(bytes, pos + 7)
+      } else {
+        0
+      }
+      if name_len > 0 && pos + 32 + name_len <= len {
+        read_str(bytes, pos + 32, name_len)
+      } else {
+        ""
+      }
+    } else {
+      ""
+    }
+    let encrypted = if is_rar5 {
+      (head_flags & 0x80) != 0
+    } else {
+      (head_flags & 0x01) != 0
+    }
     let mut desc_text = if desc != "" { ": \{desc}" } else { "" }
-    if encrypted { desc_text = "\{desc_text} [Encrypted]" }
+    if encrypted {
+      desc_text = "\{desc_text} [Encrypted]"
+    }
 
-    fields.push(group(pos, head_size, "\{type_str} Block #\{block_count + 1}", "\{head_size} bytes\{desc_text}", [
-      field(pos, 2, "CRC16", "0x\{hex(head_crc, 4)}", ""),
-      field(pos + 2, 1, "Type", type_str, ""),
-      field(pos + 3, 2, "Flags", "0x\{hex(head_flags, 4)}", if encrypted { "Encrypted" } else { "" }),
-      field(pos + 5, 2, "Size", "\{head_size}", ""),
-    ]))
+    fields.push(
+      group(
+        pos,
+        head_size,
+        "\{type_str} Block #\{block_count + 1}",
+        "\{head_size} bytes\{desc_text}",
+        [
+          field(pos, 2, "CRC16", "0x\{hex(head_crc, 4)}", ""),
+          field(pos + 2, 1, "Type", type_str, ""),
+          field(
+            pos + 3,
+            2,
+            "Flags",
+            "0x\{hex(head_flags, 4)}",
+            if encrypted {
+              "Encrypted"
+            } else {
+              ""
+            },
+          ),
+          field(pos + 5, 2, "Size", "\{head_size}", ""),
+        ],
+      ),
+    )
     block_count = block_count + 1
     pos = pos + head_size
   }
@@ -597,6 +1007,7 @@ fn parse_rar(bytes : Bytes) -> Array[StructField] {
 
 // ============== TAR ==============
 
+///|
 fn parse_tar(bytes : Bytes) -> Array[StructField] {
   let len = bytes.length()
   let fields = []
@@ -608,32 +1019,51 @@ fn parse_tar(bytes : Bytes) -> Array[StructField] {
     // Check for end: two zero blocks
     let mut empty = true
     for i = pos; i < pos + 512 && i < len; i = i + 1 {
-      if bytes[i] != b'\x00' { empty = false; break }
+      if bytes[i] != b'\x00' {
+        empty = false
+        break
+      }
     }
-    if empty { break }
+    if empty {
+      break
+    }
 
     let name = read_str(bytes, pos, 100)
     let sz_str = read_str(bytes, pos + 124, 12)
     let size = parse_octal(sz_str)
     let typeflag = bytes[pos + 156].to_int()
-    let tf = if typeflag == 0 || typeflag == '0'.to_int() { "File" }
-    else if typeflag == '5'.to_int() { "Dir" }
-    else if typeflag == '2'.to_int() { "Symlink" }
-    else if typeflag == '1'.to_int() { "Hardlink" }
-    else { "?" }
+    let tf = if typeflag == 0 || typeflag == '0'.to_int() {
+      "File"
+    } else if typeflag == '5'.to_int() {
+      "Dir"
+    } else if typeflag == '2'.to_int() {
+      "Symlink"
+    } else if typeflag == '1'.to_int() {
+      "Hardlink"
+    } else {
+      "?"
+    }
 
     let blocks = (size + 511) / 512
     let total = if size > 0 { (blocks + 1) * 512 } else { 512 }
 
     if name != "" || size > 0 {
       file_count = file_count + 1
-      fields.push(group(pos, total, "\{tf} #\{file_count}", "\{name} (\{size} bytes)", [
-        field(pos, 100, "Name", name, ""),
-        field(pos + 100, 8, "Mode", read_str(bytes, pos + 100, 8), ""),
-        field(pos + 124, 12, "Size", "\{size}", "\{blocks} data blocks"),
-        field(pos + 136, 12, "MTime", read_str(bytes, pos + 136, 12), "Unix timestamp"),
-        field(pos + 156, 1, "Type", tf, ""),
-      ]))
+      fields.push(
+        group(pos, total, "\{tf} #\{file_count}", "\{name} (\{size} bytes)", [
+          field(pos, 100, "Name", name, ""),
+          field(pos + 100, 8, "Mode", read_str(bytes, pos + 100, 8), ""),
+          field(pos + 124, 12, "Size", "\{size}", "\{blocks} data blocks"),
+          field(
+            pos + 136,
+            12,
+            "MTime",
+            read_str(bytes, pos + 136, 12),
+            "Unix timestamp",
+          ),
+          field(pos + 156, 1, "Type", tf, ""),
+        ]),
+      )
     }
     pos = pos + total
   }
@@ -658,6 +1088,7 @@ fn parse_octal(s : String) -> Int {
 
 // ============== ZLIB ==============
 
+///|
 fn parse_zlib(bytes : Bytes) -> Array[StructField] {
   let len = bytes.length()
   let fields = []
@@ -669,27 +1100,48 @@ fn parse_zlib(bytes : Bytes) -> Array[StructField] {
   let flevel = (flg >> 6) & 3
 
   let level_str = match flevel {
-    0 => "Fastest"; 1 => "Fast"; 2 => "Default"; 3 => "Slowest/Best"
+    0 => "Fastest"
+    1 => "Fast"
+    2 => "Default"
+    3 => "Slowest/Best"
     _ => "?"
   }
   let window = 1 << (cinfo + 8)
 
-  fields.push(group(0, 2, "ZLIB Header", "Deflate, window=\{window}B, \{level_str}", [
-    field(0, 1, "CMF", "0x\{hex(cmf, 2)}", "Method=\{cm}, WinSize=\{window}"),
-    field(1, 1, "FLG", "0x\{hex(flg, 2)}", "Level=\{level_str}, FDICT=\{fdict}"),
-  ]))
+  fields.push(
+    group(0, 2, "ZLIB Header", "Deflate, window=\{window}B, \{level_str}", [
+      field(0, 1, "CMF", "0x\{hex(cmf, 2)}", "Method=\{cm}, WinSize=\{window}"),
+      field(
+        1,
+        1,
+        "FLG",
+        "0x\{hex(flg, 2)}",
+        "Level=\{level_str}, FDICT=\{fdict}",
+      ),
+    ]),
+  )
 
   let mut pos = 2
   if fdict != 0 && pos + 4 <= len {
     let dict_id = read_u32_be(bytes, pos)
-    fields.push(field(pos, 4, "DictID", "0x\{hex(dict_id, 8)}", "Preset dictionary ID"))
+    fields.push(
+      field(pos, 4, "DictID", "0x\{hex(dict_id, 8)}", "Preset dictionary ID"),
+    )
     pos = pos + 4
   }
 
   // Compressed data - until 4 bytes before end (Adler-32)
   let data_end = len - 4
   if data_end > pos {
-    fields.push(field(pos, data_end - pos, "CompressedData", "\{data_end - pos} bytes", "Deflate stream"))
+    fields.push(
+      field(
+        pos,
+        data_end - pos,
+        "CompressedData",
+        "\{data_end - pos} bytes",
+        "Deflate stream",
+      ),
+    )
   }
 
   // Adler-32 checksum at end
@@ -703,57 +1155,111 @@ fn parse_zlib(bytes : Bytes) -> Array[StructField] {
 
 // ============== WAV ==============
 
+///|
 fn parse_wav(bytes : Bytes) -> Array[StructField] {
   let len = bytes.length()
   let fields = []
   fields.push(field(0, 4, "RIFF", "RIFF", "Resource Interchange File Format"))
   let file_size = read_u32_le(bytes, 4)
-  fields.push(field(4, 4, "FileSize", "\{file_size} (0x\{hex(file_size, 8)})", "File size - 8"))
+  fields.push(
+    field(
+      4,
+      4,
+      "FileSize",
+      "\{file_size} (0x\{hex(file_size, 8)})",
+      "File size - 8",
+    ),
+  )
   fields.push(field(8, 4, "WAVE", "WAVE", "WAVE format"))
 
   let mut pos = 12
   for iter = 0; pos + 8 <= len && iter < 30; iter = iter + 1 {
     let ck_id = read_str(bytes, pos, 4)
     let ck_size = read_u32_le(bytes, pos + 4)
-    if ck_size == 0 || pos + 8 + ck_size > len { break }
+    if ck_size == 0 || pos + 8 + ck_size > len {
+      break
+    }
 
     if ck_id == "fmt " {
       let audio_fmt = read_u16_le(bytes, pos + 8)
       let channels = read_u16_le(bytes, pos + 10)
       let sample_rate = read_u32_le(bytes, pos + 12)
       let bps = read_u16_le(bytes, pos + 22)
-      let fmt_str = match audio_fmt { 1 => "PCM"; 3 => "IEEE Float"; 6 => "ALaw"; 7 => "MuLaw"; _ => "0x\{hex(audio_fmt, 4)}" }
-      fields.push(group(pos, 8 + ck_size, "fmt ", "\{fmt_str}, \{channels}ch, \{sample_rate}Hz, \{bps}bit", [
-        field(pos, 4, "ChunkID", "fmt ", ""),
-        field(pos + 4, 4, "ChunkSize", "\{ck_size}", ""),
-        field(pos + 8, 2, "AudioFormat", fmt_str, ""),
-        field(pos + 10, 2, "Channels", "\{channels}", ""),
-        field(pos + 12, 4, "SampleRate", "\{sample_rate} Hz", ""),
-        field(pos + 16, 4, "ByteRate", "\{read_u32_le(bytes, pos + 16)}", "Bytes/sec"),
-        field(pos + 20, 2, "BlockAlign", "\{read_u16_le(bytes, pos + 20)}", ""),
-        field(pos + 22, 2, "BitsPerSample", "\{bps}", ""),
-      ]))
+      let fmt_str = match audio_fmt {
+        1 => "PCM"
+        3 => "IEEE Float"
+        6 => "ALaw"
+        7 => "MuLaw"
+        _ => "0x\{hex(audio_fmt, 4)}"
+      }
+      fields.push(
+        group(
+          pos,
+          8 + ck_size,
+          "fmt ",
+          "\{fmt_str}, \{channels}ch, \{sample_rate}Hz, \{bps}bit",
+          [
+            field(pos, 4, "ChunkID", "fmt ", ""),
+            field(pos + 4, 4, "ChunkSize", "\{ck_size}", ""),
+            field(pos + 8, 2, "AudioFormat", fmt_str, ""),
+            field(pos + 10, 2, "Channels", "\{channels}", ""),
+            field(pos + 12, 4, "SampleRate", "\{sample_rate} Hz", ""),
+            field(
+              pos + 16,
+              4,
+              "ByteRate",
+              "\{read_u32_le(bytes, pos + 16)}",
+              "Bytes/sec",
+            ),
+            field(
+              pos + 20,
+              2,
+              "BlockAlign",
+              "\{read_u16_le(bytes, pos + 20)}",
+              "",
+            ),
+            field(pos + 22, 2, "BitsPerSample", "\{bps}", ""),
+          ],
+        ),
+      )
     } else if ck_id == "fact" {
       let fcount_val = read_u32_le(bytes, pos + 8)
-      fields.push(group(pos, 8 + ck_size, "fact", fcount_val.to_string() + " samples", [
-        field(pos, 4, "ChunkID", "fact", ""),
-        field(pos + 4, 4, "ChunkSize", ck_size.to_string(), ""),
-        field(pos + 8, 4, "SampleLength", fcount_val.to_string(), "Uncompressed samples"),
-      ]))
+      fields.push(
+        group(pos, 8 + ck_size, "fact", fcount_val.to_string() + " samples", [
+          field(pos, 4, "ChunkID", "fact", ""),
+          field(pos + 4, 4, "ChunkSize", ck_size.to_string(), ""),
+          field(
+            pos + 8,
+            4,
+            "SampleLength",
+            fcount_val.to_string(),
+            "Uncompressed samples",
+          ),
+        ]),
+      )
     } else if ck_id == "data" {
-      fields.push(field(pos, 8 + ck_size, "data", "\{ck_size} bytes", "Audio samples"))
+      fields.push(
+        field(pos, 8 + ck_size, "data", "\{ck_size} bytes", "Audio samples"),
+      )
     } else {
-      fields.push(field(pos, 8 + ck_size, ck_id, "\{ck_size} bytes", "RIFF chunk"))
-      }
+      fields.push(
+        field(pos, 8 + ck_size, ck_id, "\{ck_size} bytes", "RIFF chunk"),
+      )
+    }
     pos = pos + 8 + ck_size
-    if ck_size % 2 != 0 { pos = pos + 1 }
-      }
-    if pos < len { fields.push(field(pos, len - pos, "Trailing", "\{len - pos} bytes", "")) }
+    if ck_size % 2 != 0 {
+      pos = pos + 1
+    }
+  }
+  if pos < len {
+    fields.push(field(pos, len - pos, "Trailing", "\{len - pos} bytes", ""))
+  }
   fields
 }
 
 // ============== FLAC ==============
 
+///|
 fn parse_flac(bytes : Bytes) -> Array[StructField] {
   let len = bytes.length()
   let fields = []
@@ -763,34 +1269,59 @@ fn parse_flac(bytes : Bytes) -> Array[StructField] {
   let mut last_block = false
   for iter = 0; pos + 4 <= len && iter < 50 && !last_block; iter = iter + 1 {
     let header = bytes[pos].to_int()
-    last_block = (header >> 7) != 0
+    last_block = header >> 7 != 0
     let block_type = header & 0x7F
     let block_size = read_u24_be(bytes, pos + 1)
-    if block_size == 0 || pos + 4 + block_size > len { break }
+    if block_size == 0 || pos + 4 + block_size > len {
+      break
+    }
 
     let type_str = match block_type {
-      0 => "STREAMINFO"; 1 => "PADDING"; 2 => "APPLICATION"
-      3 => "SEEKTABLE"; 4 => "VORBIS_COMMENT"; 5 => "CUESHEET"
-      6 => "PICTURE"; _ => "UNKNOWN"
+      0 => "STREAMINFO"
+      1 => "PADDING"
+      2 => "APPLICATION"
+      3 => "SEEKTABLE"
+      4 => "VORBIS_COMMENT"
+      5 => "CUESHEET"
+      6 => "PICTURE"
+      _ => "UNKNOWN"
     }
     let desc = if block_type == 0 && pos + 4 + 18 <= len {
       let _min_block = read_u16_be(bytes, pos + 4)
       let _max_block = read_u16_be(bytes, pos + 6)
-      let sample_rate = (bytes[pos + 10].to_int() << 12) | (bytes[pos + 11].to_int() << 4) | (bytes[pos + 12].to_int() >> 4)
-      let bps = ((bytes[pos + 12].to_int() & 1) << 4) | ((bytes[pos + 13].to_int() >> 4) & 0xF)
+      let sample_rate = (bytes[pos + 10].to_int() << 12) |
+        (bytes[pos + 11].to_int() << 4) |
+        (bytes[pos + 12].to_int() >> 4)
+      let channels = ((bytes[pos + 12].to_int() >> 1) & 7) + 1
+      let bps = ((bytes[pos + 12].to_int() & 1) << 4) |
+        ((bytes[pos + 13].to_int() >> 4) & 0xF)
       let bps = bps + 1
       let mut total_samples = bytes[pos + 13].to_int() & 0xF
-      for j = 14; j < 18; j = j + 1 { total_samples = total_samples * 256 + bytes[pos + j].to_int() }
-      "\{sample_rate}Hz, \{bps}bit, \{if bps > 1 { bps } else { 0 }}ch, \{total_samples} samples"
-    } else { "\{block_size} bytes" }
+      for j = 14; j < 18; j = j + 1 {
+        total_samples = total_samples * 256 + bytes[pos + j].to_int()
+      }
+      "\{sample_rate}Hz, \{bps}bit, \{channels}ch, \{total_samples} samples"
+    } else {
+      "\{block_size} bytes"
+    }
 
-    fields.push(group(pos, 4 + block_size, type_str, desc, [
-      field(pos, 1, "Header", "0x\{hex(header, 2)}", "Last=\{last_block}, Type=\{block_type}"),
-      field(pos + 1, 3, "BlockSize", "\{block_size}", ""),
-    ]))
+    fields.push(
+      group(pos, 4 + block_size, type_str, desc, [
+        field(
+          pos,
+          1,
+          "Header",
+          "0x\{hex(header, 2)}",
+          "Last=\{last_block}, Type=\{block_type}",
+        ),
+        field(pos + 1, 3, "BlockSize", "\{block_size}", ""),
+      ]),
+    )
     pos = pos + 4 + block_size
   }
-  if pos < len { fields.push(field(pos, len - pos, "Trailing", "\{len - pos} bytes", "")) }
+  if pos < len {
+    fields.push(field(pos, len - pos, "Trailing", "\{len - pos} bytes", ""))
+  }
   fields
 }
 
@@ -798,11 +1329,14 @@ fn parse_flac(bytes : Bytes) -> Array[StructField] {
 /// Read big-endian uint24 from bytes.
 fn read_u24_be(bytes : Bytes, off : Int) -> Int {
   guard off + 3 <= bytes.length() else { 0 }
-  bytes[off].to_int() * 65536 + bytes[off + 1].to_int() * 256 + bytes[off + 2].to_int()
+  bytes[off].to_int() * 65536 +
+  bytes[off + 1].to_int() * 256 +
+  bytes[off + 2].to_int()
 }
 
 // ============== OGG ==============
 
+///|
 fn parse_ogg(bytes : Bytes) -> Array[StructField] {
   let len = bytes.length()
   let fields = []
@@ -810,7 +1344,9 @@ fn parse_ogg(bytes : Bytes) -> Array[StructField] {
   let mut page = 0
   for iter = 0; pos + 27 <= len && iter < 100; iter = iter + 1 {
     let sig = read_str(bytes, pos, 4)
-    if sig != "OggS" { break }
+    if sig != "OggS" {
+      break
+    }
     page = page + 1
     let version = bytes[pos + 4].to_int()
     let hdr_type = bytes[pos + 5].to_int()
@@ -820,30 +1356,57 @@ fn parse_ogg(bytes : Bytes) -> Array[StructField] {
     let segments = bytes[pos + 26].to_int()
     let mut total_seg_size = 0
     for i = 0; i < segments; i = i + 1 {
-      if pos + 27 + i < len { total_seg_size = total_seg_size + bytes[pos + 27 + i].to_int() }
+      if pos + 27 + i < len {
+        total_seg_size = total_seg_size + bytes[pos + 27 + i].to_int()
+      }
     }
     let page_size = 27 + segments + total_seg_size
 
-    let flags_desc = if hdr_type == 0 { "Normal" } else if hdr_type == 2 { "BOS" } else if hdr_type == 4 { "EOS" } else { "0x" + hex(hdr_type, 2) }
+    let flags_desc = if hdr_type == 0 {
+      "Normal"
+    } else if hdr_type == 2 {
+      "BOS"
+    } else if hdr_type == 4 {
+      "EOS"
+    } else {
+      "0x" + hex(hdr_type, 2)
+    }
     let granule_desc = if granule > 0 { "\{granule} samples" } else { "-" }
 
-    fields.push(group(pos, page_size, "Page #\{page}", "Seq=\{page_seq}, \{segments} seg, \{format_size(total_seg_size)}", [
-      field(pos, 4, "Signature", "OggS", ""),
-      field(pos + 4, 1, "Version", "\{version}", ""),
-      field(pos + 5, 1, "Flags", flags_desc, ""),
-      field(pos + 6, 8, "GranulePosition", granule_desc, "Codec samples"),
-      field(pos + 14, 4, "Serial", "0x\{hex(serial, 8)}", ""),
-      field(pos + 18, 4, "PageNo", "\{page_seq}", ""),
-      field(pos + 26, 1, "Segments", "\{segments}", "\{total_seg_size}B data"),
-    ]))
+    fields.push(
+      group(
+        pos,
+        page_size,
+        "Page #\{page}",
+        "Seq=\{page_seq}, \{segments} seg, \{format_size(total_seg_size)}",
+        [
+          field(pos, 4, "Signature", "OggS", ""),
+          field(pos + 4, 1, "Version", "\{version}", ""),
+          field(pos + 5, 1, "Flags", flags_desc, ""),
+          field(pos + 6, 8, "GranulePosition", granule_desc, "Codec samples"),
+          field(pos + 14, 4, "Serial", "0x\{hex(serial, 8)}", ""),
+          field(pos + 18, 4, "PageNo", "\{page_seq}", ""),
+          field(
+            pos + 26,
+            1,
+            "Segments",
+            "\{segments}",
+            "\{total_seg_size}B data",
+          ),
+        ],
+      ),
+    )
     pos = pos + page_size
   }
-  if pos < len { fields.push(field(pos, len - pos, "Trailing", "\{len - pos} bytes", "")) }
+  if pos < len {
+    fields.push(field(pos, len - pos, "Trailing", "\{len - pos} bytes", ""))
+  }
   fields
 }
 
 // ============== MP4 ==============
 
+///|
 fn parse_mp4(bytes : Bytes) -> Array[StructField] {
   let len = bytes.length()
   let fields = []
@@ -852,28 +1415,40 @@ fn parse_mp4(bytes : Bytes) -> Array[StructField] {
   for iter = 0; pos + 8 <= len && iter < 60; iter = iter + 1 {
     let box_size = read_u32_be(bytes, pos)
     let box_type = read_str(bytes, pos + 4, 4)
-    if box_size < 8 || pos + box_size > len { break }
+    if box_size < 8 || pos + box_size > len {
+      break
+    }
     box_count = box_count + 1
 
     let desc = if box_type == "ftyp" && box_size >= 12 {
       let brand = read_str(bytes, pos + 8, 4)
       "Brand: \{brand}"
-    } else if box_type == "moov" { "Movie metadata" }
-    else if box_type == "moof" { "Movie fragment" }
-    else if box_type == "mdat" { "Media data" }
-    else if box_type == "trak" { "Track" }
-    else if box_type == "mdia" { "Media" }
-    else { "\{box_size} bytes" }
+    } else if box_type == "moov" {
+      "Movie metadata"
+    } else if box_type == "moof" {
+      "Movie fragment"
+    } else if box_type == "mdat" {
+      "Media data"
+    } else if box_type == "trak" {
+      "Track"
+    } else if box_type == "mdia" {
+      "Media"
+    } else {
+      "\{box_size} bytes"
+    }
 
     fields.push(field(pos, box_size, box_type, "\{box_size} bytes", desc))
     pos = pos + box_size
   }
-  if pos < len { fields.push(field(pos, len - pos, "Trailing", "\{len - pos} bytes", "")) }
+  if pos < len {
+    fields.push(field(pos, len - pos, "Trailing", "\{len - pos} bytes", ""))
+  }
   fields
 }
 
 // ============== WebM/MKV ==============
 
+///|
 fn parse_webm(bytes : Bytes) -> Array[StructField] {
   let len = bytes.length()
   let fields = []
@@ -885,74 +1460,119 @@ fn parse_webm(bytes : Bytes) -> Array[StructField] {
   for iter = 0; pos + 2 <= len && iter < 80; iter = iter + 1 {
     let (el_id, id_len) = read_ebml_id(bytes, pos, len)
     let (el_size, size_len) = read_ebml_size(bytes, pos + id_len, len)
-    if el_size == 0 || pos + id_len + size_len + el_size > len { break }
+    if el_size == 0 || pos + id_len + size_len + el_size > len {
+      break
+    }
     el_count = el_count + 1
 
     let el_name = ebml_name(el_id)
     let total = id_len + size_len + el_size
-    fields.push(group(pos, total, el_name, "\{el_size} bytes", [
-      field(pos, id_len, "ElementID", "0x\{el_id}", ""),
-      field(pos + id_len, size_len, "ElementSize", "\{el_size}", ""),
-    ]))
+    fields.push(
+      group(pos, total, el_name, "\{el_size} bytes", [
+        field(pos, id_len, "ElementID", "0x\{el_id}", ""),
+        field(pos + id_len, size_len, "ElementSize", "\{el_size}", ""),
+      ]),
+    )
     pos = pos + total
   }
-  if pos < len { fields.push(field(pos, len - pos, "Trailing", "\{len - pos} bytes", "")) }
+  if pos < len {
+    fields.push(field(pos, len - pos, "Trailing", "\{len - pos} bytes", ""))
+  }
   fields
 }
 
+///|
 fn read_ebml_id(bytes : Bytes, off : Int, len : Int) -> (Int, Int) {
   guard off < len else { (0, 0) }
   let first = bytes[off].to_int()
   let mut id_len = 1
-  if (first & 0x80) != 0 { id_len = 1 }
-  else if (first & 0x40) != 0 { id_len = 2 }
-  else if (first & 0x20) != 0 { id_len = 3 }
-  else { id_len = 4 }
-  if off + id_len > len { return (0, id_len) }
+  if (first & 0x80) != 0 {
+    id_len = 1
+  } else if (first & 0x40) != 0 {
+    id_len = 2
+  } else if (first & 0x20) != 0 {
+    id_len = 3
+  } else {
+    id_len = 4
+  }
+  if off + id_len > len {
+    return (0, id_len)
+  }
   let mut id = 0
-  for i = 0; i < id_len; i = i + 1 { id = (id << 8) | bytes[off + i].to_int() }
+  for i = 0; i < id_len; i = i + 1 {
+    id = (id << 8) | bytes[off + i].to_int()
+  }
   (id, id_len)
 }
 
+///|
 fn read_ebml_size(bytes : Bytes, off : Int, len : Int) -> (Int, Int) {
   guard off < len else { (0, 0) }
   let first = bytes[off].to_int()
   let mut size_len = 1
   let mut mask = 0x80
   for i = 0; i < 8; i = i + 1 {
-    if (first & mask) != 0 { size_len = i + 1; break }
+    if (first & mask) != 0 {
+      size_len = i + 1
+      break
+    }
     mask = mask >> 1
   }
-  if off + size_len > len { return (0, size_len) }
+  if off + size_len > len {
+    return (0, size_len)
+  }
   // Clear the marker bit
   let mut size = first & (mask - 1)
-  for i = 1; i < size_len; i = i + 1 { size = (size << 8) | bytes[off + i].to_int() }
+  for i = 1; i < size_len; i = i + 1 {
+    size = (size << 8) | bytes[off + i].to_int()
+  }
   (size, size_len)
 }
 
+///|
 fn ebml_name(id : Int) -> String {
-  if id == 0x1A45DFA3 { "EBML" }
-  else if id == 0x4286 { "EBMLVersion" }
-  else if id == 0x42F7 { "EBMLReadVersion" }
-  else if id == 0x42F2 { "EBMLMaxIDLength" }
-  else if id == 0x42F3 { "EBMLMaxSizeLength" }
-  else if id == 0x4282 { "DocType" }
-  else if id == 0x4287 { "DocTypeVersion" }
-  else if id == 0x4285 { "DocTypeReadVersion" }
-  else if id == 0x18538067 { "Segment" }
-  else if id == 0x114D9B74 { "SeekHead" }
-  else if id == 0x1549A966 { "Info" }
-  else if id == 0x1654AE6B { "Tracks" }
-  else if id == 0x1F43B675 { "Cluster" }
-  else if id == 0x1254C367 { "Tags" }
-  else if id == 0x1C53BB6B { "Cues" }
-  else if id == 0xE7 { "Void" }
-  else if id == 0xEC { "CRC32" }
-  else { "EBML_0x\{hex(id, 8)}" }
+  if id == 0x1A45DFA3 {
+    "EBML"
+  } else if id == 0x4286 {
+    "EBMLVersion"
+  } else if id == 0x42F7 {
+    "EBMLReadVersion"
+  } else if id == 0x42F2 {
+    "EBMLMaxIDLength"
+  } else if id == 0x42F3 {
+    "EBMLMaxSizeLength"
+  } else if id == 0x4282 {
+    "DocType"
+  } else if id == 0x4287 {
+    "DocTypeVersion"
+  } else if id == 0x4285 {
+    "DocTypeReadVersion"
+  } else if id == 0x18538067 {
+    "Segment"
+  } else if id == 0x114D9B74 {
+    "SeekHead"
+  } else if id == 0x1549A966 {
+    "Info"
+  } else if id == 0x1654AE6B {
+    "Tracks"
+  } else if id == 0x1F43B675 {
+    "Cluster"
+  } else if id == 0x1254C367 {
+    "Tags"
+  } else if id == 0x1C53BB6B {
+    "Cues"
+  } else if id == 0xE7 {
+    "Void"
+  } else if id == 0xEC {
+    "CRC32"
+  } else {
+    "EBML_0x\{hex(id, 8)}"
+  }
 }
 
 // ============== AVI ==============
 
+///|
 fn parse_avi(bytes : Bytes) -> Array[StructField] {
   let len = bytes.length()
   let fields = []
@@ -962,9 +1582,17 @@ fn parse_avi(bytes : Bytes) -> Array[StructField] {
   fields.push(field(4, 4, "FileSize", "\{file_size}", ""))
   fields.push(field(8, 4, "AVI ", "AVI ", "AVI container"))
 
-
   // --- Main AVI Header (avih) ---
-  let avih_off = find_fourcc(bytes, 12, "avih", if len < 512 { len } else { 512 })
+  let avih_off = find_fourcc(
+    bytes,
+    12,
+    "avih",
+    if len < 512 {
+      len
+    } else {
+      512
+    },
+  )
   if avih_off > 0 && avih_off + 64 <= len {
     let microsec = read_u32_le(bytes, avih_off + 8)
     let max_bytes = read_u32_le(bytes, avih_off + 12)
@@ -977,21 +1605,63 @@ fn parse_avi(bytes : Bytes) -> Array[StructField] {
     let scale = read_u32_le(bytes, avih_off + 48)
     let rate = read_u32_le(bytes, avih_off + 52)
     let length = read_u32_le(bytes, avih_off + 60)
-    fields.push(group(avih_off + 8, 56, "Main Header (avih)", "\{width}x\{height}, \{streams} streams, \{total_frames} frames", [
-      field(avih_off + 8, 4, "MicroSecPerFrame", "\{microsec}", "\{if microsec > 0 { "\{1000000 / microsec} fps" } else { "" }}"),
-      field(avih_off + 12, 4, "MaxBytesPerSec", format_size(max_bytes), ""),
-      field(avih_off + 16, 4, "Padding", "\{read_u32_le(bytes, avih_off + 16)}", ""),
-      field(avih_off + 20, 4, "Flags", "0x\{hex(flags, 8)}", if has_idx { "HasIndex" } else { "" }),
-      field(avih_off + 24, 4, "TotalFrames", "\{total_frames}", ""),
-      field(avih_off + 32, 4, "Streams", "\{streams}", ""),
-      field(avih_off + 36, 4, "BufSize", "\{read_u32_le(bytes, avih_off + 36)}", ""),
-      field(avih_off + 40, 4, "Width", "\{width}", ""),
-      field(avih_off + 44, 4, "Height", "\{height}", ""),
-      field(avih_off + 48, 4, "Scale", "\{scale}", "Time scale"),
-      field(avih_off + 52, 4, "Rate", "\{rate}", ""),
-      field(avih_off + 56, 4, "Start", "\{read_u32_le(bytes, avih_off + 56)}", ""),
-      field(avih_off + 60, 4, "Length", "\{length}", "Duration in frames"),
-    ]))
+    fields.push(
+      group(
+        avih_off + 8,
+        56,
+        "Main Header (avih)",
+        "\{width}x\{height}, \{streams} streams, \{total_frames} frames",
+        [
+          field(
+            avih_off + 8,
+            4,
+            "MicroSecPerFrame",
+            "\{microsec}",
+            "\{if microsec > 0 { "\{1000000 / microsec} fps" } else { "" }}",
+          ),
+          field(avih_off + 12, 4, "MaxBytesPerSec", format_size(max_bytes), ""),
+          field(
+            avih_off + 16,
+            4,
+            "Padding",
+            "\{read_u32_le(bytes, avih_off + 16)}",
+            "",
+          ),
+          field(
+            avih_off + 20,
+            4,
+            "Flags",
+            "0x\{hex(flags, 8)}",
+            if has_idx {
+              "HasIndex"
+            } else {
+              ""
+            },
+          ),
+          field(avih_off + 24, 4, "TotalFrames", "\{total_frames}", ""),
+          field(avih_off + 32, 4, "Streams", "\{streams}", ""),
+          field(
+            avih_off + 36,
+            4,
+            "BufSize",
+            "\{read_u32_le(bytes, avih_off + 36)}",
+            "",
+          ),
+          field(avih_off + 40, 4, "Width", "\{width}", ""),
+          field(avih_off + 44, 4, "Height", "\{height}", ""),
+          field(avih_off + 48, 4, "Scale", "\{scale}", "Time scale"),
+          field(avih_off + 52, 4, "Rate", "\{rate}", ""),
+          field(
+            avih_off + 56,
+            4,
+            "Start",
+            "\{read_u32_le(bytes, avih_off + 56)}",
+            "",
+          ),
+          field(avih_off + 60, 4, "Length", "\{length}", "Duration in frames"),
+        ],
+      ),
+    )
   }
 
   // --- Stream Headers (strh + strf) ---
@@ -999,8 +1669,12 @@ fn parse_avi(bytes : Bytes) -> Array[StructField] {
   let mut stream_idx = 0
   for iter = 0; iter < 10; iter = iter + 1 {
     let strh_off = find_fourcc(bytes, search_pos, "strh", len)
-    if strh_off < 0 { break }
-    if strh_off + 56 > len { break }
+    if strh_off < 0 {
+      break
+    }
+    if strh_off + 56 > len {
+      break
+    }
     let fcc_type = fourcc_at(bytes, strh_off + 8)
     let fcc_handler = fourcc_at(bytes, strh_off + 12)
     let str_flags = read_u32_le(bytes, strh_off + 16)
@@ -1012,25 +1686,49 @@ fn parse_avi(bytes : Bytes) -> Array[StructField] {
     let sample_size = read_u32_le(bytes, strh_off + 48)
 
     let type_label = match fcc_type {
-      "vids" => "Video"; "auds" => "Audio"; "mids" => "MIDI"; "txts" => "Text"; _ => fcc_type
+      "vids" => "Video"
+      "auds" => "Audio"
+      "mids" => "MIDI"
+      "txts" => "Text"
+      _ => fcc_type
     }
     let handler_label = match fcc_handler {
-      "DIB " => "Uncompressed"; "MJPG" => "MJPEG"; "H264" => "H.264"; "MP3 " => "MP3"
-      "ac3 " => "AC-3"; "PCM " => "PCM"; "ms  " => "MS-RLE"; _ => fcc_handler
+      "DIB " => "Uncompressed"
+      "MJPG" => "MJPEG"
+      "H264" => "H.264"
+      "MP3 " => "MP3"
+      "ac3 " => "AC-3"
+      "PCM " => "PCM"
+      "ms  " => "MS-RLE"
+      _ => fcc_handler
     }
 
-    fields.push(group(strh_off + 8, 48, "Stream #\{stream_idx}: \{type_label}", "\{handler_label}, \{str_length} frames", [
-      field(strh_off + 8, 4, "fccType", type_label, ""),
-      field(strh_off + 12, 4, "fccHandler", handler_label, "Codec"),
-      field(strh_off + 16, 4, "Flags", "0x\{hex(str_flags, 8)}", ""),
-      field(strh_off + 20, 2, "Priority", "\{read_u16_le(bytes, strh_off + 20)}", ""),
-      field(strh_off + 24, 4, "Scale", "\{str_scale}", ""),
-      field(strh_off + 28, 4, "Rate", "\{str_rate}", ""),
-      field(strh_off + 32, 4, "Start", "\{str_start}", ""),
-      field(strh_off + 36, 4, "Length", "\{str_length}", "Frames"),
-      field(strh_off + 44, 4, "Quality", "\{quality}", ""),
-      field(strh_off + 48, 4, "SampleSize", "\{sample_size}", ""),
-    ]))
+    fields.push(
+      group(
+        strh_off + 8,
+        48,
+        "Stream #\{stream_idx}: \{type_label}",
+        "\{handler_label}, \{str_length} frames",
+        [
+          field(strh_off + 8, 4, "fccType", type_label, ""),
+          field(strh_off + 12, 4, "fccHandler", handler_label, "Codec"),
+          field(strh_off + 16, 4, "Flags", "0x\{hex(str_flags, 8)}", ""),
+          field(
+            strh_off + 20,
+            2,
+            "Priority",
+            "\{read_u16_le(bytes, strh_off + 20)}",
+            "",
+          ),
+          field(strh_off + 24, 4, "Scale", "\{str_scale}", ""),
+          field(strh_off + 28, 4, "Rate", "\{str_rate}", ""),
+          field(strh_off + 32, 4, "Start", "\{str_start}", ""),
+          field(strh_off + 36, 4, "Length", "\{str_length}", "Frames"),
+          field(strh_off + 44, 4, "Quality", "\{quality}", ""),
+          field(strh_off + 48, 4, "SampleSize", "\{sample_size}", ""),
+        ],
+      ),
+    )
 
     // Find strf after this strh (stream format)
     let strf_off = find_fourcc(bytes, strh_off + 48, "strf", len)
@@ -1042,13 +1740,27 @@ fn parse_avi(bytes : Bytes) -> Array[StructField] {
           let vh = read_u32_le(bytes, strf_off + 16)
           let bpp = read_u16_le(bytes, strf_off + 22)
           let compr = fourcc_at(bytes, strf_off + 24)
-          fields.push(group(strf_off + 8, fmt_sz, "Video Format (strf)", "\{vw}x\{vh}, \{bpp}bpp, \{compr}", [
-            field(strf_off + 12, 4, "Width", "\{vw}", ""),
-            field(strf_off + 16, 4, "Height", "\{vh}", ""),
-            field(strf_off + 22, 2, "BitsPerPixel", "\{bpp}", ""),
-            field(strf_off + 24, 4, "Compression", compr, "FourCC"),
-            field(strf_off + 28, 4, "ImageSize", "\{read_u32_le(bytes, strf_off + 28)}", ""),
-          ]))
+          fields.push(
+            group(
+              strf_off + 8,
+              fmt_sz,
+              "Video Format (strf)",
+              "\{vw}x\{vh}, \{bpp}bpp, \{compr}",
+              [
+                field(strf_off + 12, 4, "Width", "\{vw}", ""),
+                field(strf_off + 16, 4, "Height", "\{vh}", ""),
+                field(strf_off + 22, 2, "BitsPerPixel", "\{bpp}", ""),
+                field(strf_off + 24, 4, "Compression", compr, "FourCC"),
+                field(
+                  strf_off + 28,
+                  4,
+                  "ImageSize",
+                  "\{read_u32_le(bytes, strf_off + 28)}",
+                  "",
+                ),
+              ],
+            ),
+          )
         } else if fcc_type == "auds" {
           let fmt_tag = read_u16_le(bytes, strf_off + 8)
           let ch = read_u16_le(bytes, strf_off + 10)
@@ -1056,15 +1768,41 @@ fn parse_avi(bytes : Bytes) -> Array[StructField] {
           let br = read_u32_le(bytes, strf_off + 16)
           let blk = read_u16_le(bytes, strf_off + 20)
           let bps = read_u16_le(bytes, strf_off + 22)
-          let tag_label = if fmt_tag == 1 { "PCM" } else if fmt_tag == 0x55 { "MP3" } else { "0x" + hex(fmt_tag, 4) }
-          fields.push(group(strf_off + 8, fmt_sz, "Audio Format (strf)", "\{tag_label}, \{ch}ch \{sr}Hz \{bps}bit", [
-            field(strf_off + 8, 2, "FormatTag", if fmt_tag == 1 { "PCM" } else if fmt_tag == 0x55 { "MP3" } else { "0x" + hex(fmt_tag, 4) }, ""),
-            field(strf_off + 10, 2, "Channels", "\{ch}", ""),
-            field(strf_off + 12, 4, "SampleRate", "\{sr} Hz", ""),
-            field(strf_off + 16, 4, "ByteRate", "\{br} B/s", ""),
-            field(strf_off + 20, 2, "BlockAlign", "\{blk}", ""),
-            field(strf_off + 22, 2, "BitsPerSample", "\{bps}", ""),
-          ]))
+          let tag_label = if fmt_tag == 1 {
+            "PCM"
+          } else if fmt_tag == 0x55 {
+            "MP3"
+          } else {
+            "0x" + hex(fmt_tag, 4)
+          }
+          fields.push(
+            group(
+              strf_off + 8,
+              fmt_sz,
+              "Audio Format (strf)",
+              "\{tag_label}, \{ch}ch \{sr}Hz \{bps}bit",
+              [
+                field(
+                  strf_off + 8,
+                  2,
+                  "FormatTag",
+                  if fmt_tag == 1 {
+                    "PCM"
+                  } else if fmt_tag == 0x55 {
+                    "MP3"
+                  } else {
+                    "0x" + hex(fmt_tag, 4)
+                  },
+                  "",
+                ),
+                field(strf_off + 10, 2, "Channels", "\{ch}", ""),
+                field(strf_off + 12, 4, "SampleRate", "\{sr} Hz", ""),
+                field(strf_off + 16, 4, "ByteRate", "\{br} B/s", ""),
+                field(strf_off + 20, 2, "BlockAlign", "\{blk}", ""),
+                field(strf_off + 22, 2, "BitsPerSample", "\{bps}", ""),
+              ],
+            ),
+          )
         }
       }
     }
@@ -1079,7 +1817,15 @@ fn parse_avi(bytes : Bytes) -> Array[StructField] {
     let idx_sz = read_u32_le(bytes, idx_off + 4)
     let entry_count = idx_sz / 16
     if entry_count > 0 {
-      fields.push(field(idx_off, idx_sz + 8, "Index (idx1)", "\{entry_count} entries, \{idx_sz} bytes", ""))
+      fields.push(
+        field(
+          idx_off,
+          idx_sz + 8,
+          "Index (idx1)",
+          "\{entry_count} entries, \{idx_sz} bytes",
+          "",
+        ),
+      )
     }
   }
 
@@ -1088,6 +1834,7 @@ fn parse_avi(bytes : Bytes) -> Array[StructField] {
 
 // ============== MP3 ==============
 
+///|
 fn parse_mp3(bytes : Bytes) -> Array[StructField] {
   let len = bytes.length()
   let fields = []
@@ -1097,38 +1844,77 @@ fn parse_mp3(bytes : Bytes) -> Array[StructField] {
   let flags = bytes[5].to_int()
   let tag_size = read_u32_syncsafe(bytes, 6)
 
-  fields.push(group(0, 10, "ID3v2 Header", "ID3v2.\{major}.\{rev}, \{tag_size} bytes", [
-    field(0, 3, "Signature", ver, ""),
-    field(3, 1, "Version", "2.\{major}.\{rev}", ""),
-    field(5, 1, "Flags", "0x\{hex(flags, 2)}", ""),
-    field(6, 4, "Size", "\{tag_size}", "Syncsafe integer"),
-  ]))
+  fields.push(
+    group(0, 10, "ID3v2 Header", "ID3v2.\{major}.\{rev}, \{tag_size} bytes", [
+      field(0, 3, "Signature", ver, ""),
+      field(3, 1, "Version", "2.\{major}.\{rev}", ""),
+      field(5, 1, "Flags", "0x\{hex(flags, 2)}", ""),
+      field(6, 4, "Size", "\{tag_size}", "Syncsafe integer"),
+    ]),
+  )
 
   let total_header = 10 + tag_size
   if total_header < len {
-    fields.push(field(10, tag_size, "ID3v2 Frames", "\{tag_size} bytes", "ID3 tag data"))
+    fields.push(
+      field(10, tag_size, "ID3v2 Frames", "\{tag_size} bytes", "ID3 tag data"),
+    )
     // Try to detect first MPEG frame after ID3 tag
     let data_start = total_header
     if data_start + 2 <= len {
       let sync = read_u16_be(bytes, data_start)
-      if (sync >> 5) == 0x7FF {
+      if sync >> 5 == 0x7FF {
         let mpeg_ver = (sync >> 3) & 3
         let layer = (sync >> 1) & 3
         let _bitrate_idx = bytes[data_start + 2].to_int() >> 4
         let sample_rate_idx = (bytes[data_start + 2].to_int() >> 2) & 3
-        let mpeg_ver_str = match mpeg_ver { 3 => "MPEG1"; 2 => "MPEG2"; _ => "?" }
-        let layer_str = match layer { 3 => "LayerI"; 2 => "LayerII"; 1 => "LayerIII"; _ => "?" }
-        let sr = match (mpeg_ver, sample_rate_idx) {
-          (3, 0) => "44100"; (3, 1) => "48000"; (3, 2) => "32000"
-          (2, 0) => "22050"; (2, 1) => "24000"; (2, 2) => "16000"
+        let mpeg_ver_str = match mpeg_ver {
+          3 => "MPEG1"
+          2 => "MPEG2"
           _ => "?"
         }
-        fields.push(group(data_start, len - data_start, "MPEG Frames", "\{mpeg_ver_str} \{layer_str}, \{sr}Hz", [
-          field(data_start, 2, "Sync", "0x\{hex(sync, 4)}", "Frame sync"),
-          field(data_start + 2, 1, "Bitrate/SR", "0x\{hex(bytes[data_start + 2].to_int(), 2)}", ""),
-        ]))
+        let layer_str = match layer {
+          3 => "LayerI"
+          2 => "LayerII"
+          1 => "LayerIII"
+          _ => "?"
+        }
+        let sr = match (mpeg_ver, sample_rate_idx) {
+          (3, 0) => "44100"
+          (3, 1) => "48000"
+          (3, 2) => "32000"
+          (2, 0) => "22050"
+          (2, 1) => "24000"
+          (2, 2) => "16000"
+          _ => "?"
+        }
+        fields.push(
+          group(
+            data_start,
+            len - data_start,
+            "MPEG Frames",
+            "\{mpeg_ver_str} \{layer_str}, \{sr}Hz",
+            [
+              field(data_start, 2, "Sync", "0x\{hex(sync, 4)}", "Frame sync"),
+              field(
+                data_start + 2,
+                1,
+                "Bitrate/SR",
+                "0x\{hex(bytes[data_start + 2].to_int(), 2)}",
+                "",
+              ),
+            ],
+          ),
+        )
       } else {
-        fields.push(field(data_start, len - data_start, "AudioData", "\{len - data_start} bytes", "MPEG audio"))
+        fields.push(
+          field(
+            data_start,
+            len - data_start,
+            "AudioData",
+            "\{len - data_start} bytes",
+            "MPEG audio",
+          ),
+        )
       }
     }
   }
@@ -1139,15 +1925,20 @@ fn parse_mp3(bytes : Bytes) -> Array[StructField] {
 /// Read syncsafe integer (ID3v2 uses this — each byte has MSB=0).
 fn read_u32_syncsafe(bytes : Bytes, off : Int) -> Int {
   guard off + 4 <= bytes.length() else { 0 }
-  ((bytes[off].to_int() & 0x7F) << 21) | ((bytes[off + 1].to_int() & 0x7F) << 14) |
-  ((bytes[off + 2].to_int() & 0x7F) << 7) | (bytes[off + 3].to_int() & 0x7F)
+  ((bytes[off].to_int() & 0x7F) << 21) |
+  ((bytes[off + 1].to_int() & 0x7F) << 14) |
+  ((bytes[off + 2].to_int() & 0x7F) << 7) |
+  (bytes[off + 3].to_int() & 0x7F)
 }
 
 // ============== ELF ==============
 
+///|
 fn parse_elf(bytes : Bytes) -> Array[StructField] {
   let len = bytes.length()
-  guard len >= 52 else { return [field(0, len, "TRUNCATED", "", "Too small for ELF")] }
+  guard len >= 52 else {
+    return [field(0, len, "TRUNCATED", "", "Too small for ELF")]
+  }
   let fields = []
   let is64 = bytes[4].to_int() == 2
   let isle = bytes[5].to_int() == 1
@@ -1155,19 +1946,56 @@ fn parse_elf(bytes : Bytes) -> Array[StructField] {
   let ei_ver = bytes[6].to_int()
   let ei_osabi = bytes[7].to_int()
   let ei_abiver = bytes[8].to_int()
-  let osabi_s = match ei_osabi { 0 => "UNIX"; 2 => "NetBSD"; 3 => "Linux"; 6 => "Solaris"; 9 => "FreeBSD"; _ => "?" }
-  fields.push(group(0, 16, "ELF Ident", "\{if is64 { "64-bit" } else { "32-bit" }} \{if isle { "LE" } else { "BE" }}, \{osabi_s}", [
-    field(0, 4, "Magic", "7F 45 4C 46", ""),
-    field(4, 1, "ei_class", if is64 { "ELF64" } else { "ELF32" }, ""),
-    field(5, 1, "ei_data", if isle { "LittleEndian" } else { "BigEndian" }, ""),
-    field(6, 1, "ei_version", "\{ei_ver}", ""),
-    field(7, 1, "ei_osabi", osabi_s, ""),
-    field(8, 1, "ei_abiversion", "\{ei_abiver}", ""),
-  ]))
+  let osabi_s = match ei_osabi {
+    0 => "UNIX"
+    2 => "NetBSD"
+    3 => "Linux"
+    6 => "Solaris"
+    9 => "FreeBSD"
+    _ => "?"
+  }
+  fields.push(
+    group(
+      0,
+      16,
+      "ELF Ident",
+      "\{if is64 { "64-bit" } else { "32-bit" }} \{if isle { "LE" } else { "BE" }}, \{osabi_s}",
+      [
+        field(0, 4, "Magic", "7F 45 4C 46", ""),
+        field(4, 1, "ei_class", if is64 { "ELF64" } else { "ELF32" }, ""),
+        field(
+          5,
+          1,
+          "ei_data",
+          if isle {
+            "LittleEndian"
+          } else {
+            "BigEndian"
+          },
+          "",
+        ),
+        field(6, 1, "ei_version", "\{ei_ver}", ""),
+        field(7, 1, "ei_osabi", osabi_s, ""),
+        field(8, 1, "ei_abiversion", "\{ei_abiver}", ""),
+      ],
+    ),
+  )
 
-  let r16 = if isle { fn(b, o) { read_u16_le(b, o) } } else { fn(b, o) { read_u16_be(b, o) } }
-  let r32 = if isle { fn(b, o) { read_u32_le(b, o) } } else { fn(b, o) { read_u32_be(b, o) } }
-  let r64 = if isle { fn(b, o) { read_u64_le(b, o) } } else { fn(b, o) { read_u64_be(b, o) } }
+  let r16 = if isle {
+    fn(b, o) { read_u16_le(b, o) }
+  } else {
+    fn(b, o) { read_u16_be(b, o) }
+  }
+  let r32 = if isle {
+    fn(b, o) { read_u32_le(b, o) }
+  } else {
+    fn(b, o) { read_u32_be(b, o) }
+  }
+  let r64 = if isle {
+    fn(b, o) { read_u64_le(b, o) }
+  } else {
+    fn(b, o) { read_u64_be(b, o) }
+  }
 
   let e_type = r16(bytes, 16)
   let e_machine = r16(bytes, 18)
@@ -1182,24 +2010,115 @@ fn parse_elf(bytes : Bytes) -> Array[StructField] {
   let e_phoff = if is64 { r64(bytes, 32) } else { r32(bytes, 28) }
   let e_shoff = if is64 { r64(bytes, 40) } else { r32(bytes, 32) }
 
-  let tname = match e_type { 1 => "REL"; 2 => "EXEC"; 3 => "DYN"; _ => "?" }
-  let mname = match e_machine { 3 => "i386"; 62 => "AMD64"; 40 => "ARM"; 183 => "ARM64"; _ => "?" }
+  let tname = match e_type {
+    1 => "REL"
+    2 => "EXEC"
+    3 => "DYN"
+    _ => "?"
+  }
+  let mname = match e_machine {
+    3 => "i386"
+    62 => "AMD64"
+    40 => "ARM"
+    183 => "ARM64"
+    _ => "?"
+  }
   let hdr_sz = if is64 { 64 } else { 52 }
 
-  fields.push(group(16, hdr_sz - 16, "ELF Header", "Type:\{tname} Machine:\{mname}", [
-    field(16, 2, "e_type", tname, ""),
-    field(18, 2, "e_machine", mname, ""),
-    field(24, if is64 { 8 } else { 4 }, "e_entry", "0x\{hex(e_entry, 8)}", "Entry point"),
-    field(if is64 { 48 } else { 36 }, 4, "e_flags", "0x\{hex(e_flags, 8)}", ""),
-    field(if is64 { 32 } else { 28 }, if is64 { 8 } else { 4 }, "e_phoff", "0x\{hex(e_phoff, 8)}", "Program header offset"),
-    field(if is64 { 40 } else { 32 }, if is64 { 8 } else { 4 }, "e_shoff", "0x\{hex(e_shoff, 8)}", "Section header offset"),
-    field(if is64 { 52 } else { 40 }, 2, "e_ehsize", "\{e_ehsize}", ""),
-    field(if is64 { 54 } else { 42 }, 2, "e_phentsize", "\{e_phentsize}", ""),
-    field(if is64 { 56 } else { 44 }, 2, "e_phnum", "\{e_phnum}", "Program headers"),
-    field(if is64 { 58 } else { 46 }, 2, "e_shentsize", "\{e_shentsize}", ""),
-    field(if is64 { 60 } else { 48 }, 2, "e_shnum", "\{e_shnum}", "Section headers"),
-    field(if is64 { 62 } else { 50 }, 2, "e_shstrndx", "\{e_shstrndx}", "String table index"),
-  ]))
+  fields.push(
+    group(16, hdr_sz - 16, "ELF Header", "Type:\{tname} Machine:\{mname}", [
+      field(16, 2, "e_type", tname, ""),
+      field(18, 2, "e_machine", mname, ""),
+      field(
+        24,
+        if is64 {
+          8
+        } else {
+          4
+        },
+        "e_entry",
+        "0x\{hex(e_entry, 8)}",
+        "Entry point",
+      ),
+      field(
+        if is64 {
+          48
+        } else {
+          36
+        },
+        4,
+        "e_flags",
+        "0x\{hex(e_flags, 8)}",
+        "",
+      ),
+      field(
+        if is64 {
+          32
+        } else {
+          28
+        },
+        if is64 {
+          8
+        } else {
+          4
+        },
+        "e_phoff",
+        "0x\{hex(e_phoff, 8)}",
+        "Program header offset",
+      ),
+      field(
+        if is64 {
+          40
+        } else {
+          32
+        },
+        if is64 {
+          8
+        } else {
+          4
+        },
+        "e_shoff",
+        "0x\{hex(e_shoff, 8)}",
+        "Section header offset",
+      ),
+      field(if is64 { 52 } else { 40 }, 2, "e_ehsize", "\{e_ehsize}", ""),
+      field(if is64 { 54 } else { 42 }, 2, "e_phentsize", "\{e_phentsize}", ""),
+      field(
+        if is64 {
+          56
+        } else {
+          44
+        },
+        2,
+        "e_phnum",
+        "\{e_phnum}",
+        "Program headers",
+      ),
+      field(if is64 { 58 } else { 46 }, 2, "e_shentsize", "\{e_shentsize}", ""),
+      field(
+        if is64 {
+          60
+        } else {
+          48
+        },
+        2,
+        "e_shnum",
+        "\{e_shnum}",
+        "Section headers",
+      ),
+      field(
+        if is64 {
+          62
+        } else {
+          50
+        },
+        2,
+        "e_shstrndx",
+        "\{e_shstrndx}",
+        "String table index",
+      ),
+    ]),
+  )
 
   // --- Program Headers ---
   if e_phnum > 0 && e_phoff > 0 && e_phoff + e_phnum * e_phentsize <= len {
@@ -1208,49 +2127,156 @@ fn parse_elf(bytes : Bytes) -> Array[StructField] {
       let po = e_phoff + i * e_phentsize
       let p_type = r32(bytes, po)
       let pn = match p_type {
-        0 => "PT_NULL"; 1 => "PT_LOAD"; 2 => "PT_DYNAMIC"; 3 => "PT_INTERP"
-        4 => "PT_NOTE"; 5 => "PT_SHLIB"; 6 => "PT_PHDR"; 7 => "PT_TLS"
+        0 => "PT_NULL"
+        1 => "PT_LOAD"
+        2 => "PT_DYNAMIC"
+        3 => "PT_INTERP"
+        4 => "PT_NOTE"
+        5 => "PT_SHLIB"
+        6 => "PT_PHDR"
+        7 => "PT_TLS"
         _ => "?"
       }
       let pf = if is64 { r32(bytes, po + 4) } else { r32(bytes, po + 24) }
       let r_ = if pf % 8 >= 4 { "R" } else { "" }
-      let w_ = if (pf / 2) % 2 == 1 { "W" } else { "" }
+      let w_ = if pf / 2 % 2 == 1 { "W" } else { "" }
       let x_ = if pf % 2 == 1 { "E" } else { "" }
       let flags_str = r_ + w_ + x_
       let p_offset = if is64 { r64(bytes, po + 8) } else { r32(bytes, po + 4) }
       let p_vaddr = if is64 { r64(bytes, po + 16) } else { r32(bytes, po + 8) }
-      let p_filesz = if is64 { r64(bytes, po + 32) } else { r32(bytes, po + 16) }
+      let p_filesz = if is64 {
+        r64(bytes, po + 32)
+      } else {
+        r32(bytes, po + 16)
+      }
       let p_memsz = if is64 { r64(bytes, po + 40) } else { r32(bytes, po + 20) }
-      phdr_entries.push(group(po, e_phentsize, "\{pn}", "\{format_size(p_filesz)}, flags:\{flags_str}", [
-        field(po, 4, "p_type", pn, ""),
-        field(if is64 { po + 4 } else { po + 24 }, 4, "p_flags", flags_str, "R=4 W=2 E=1"),
-        field(if is64 { po + 8 } else { po + 4 }, if is64 { 8 } else { 4 }, "p_offset", "0x\{hex(p_offset, 8)}", ""),
-        field(if is64 { po + 16 } else { po + 8 }, if is64 { 8 } else { 4 }, "p_vaddr", "0x\{hex(p_vaddr, 8)}", "Virtual address"),
-        field(if is64 { po + 32 } else { po + 16 }, if is64 { 8 } else { 4 }, "p_filesz", format_size(p_filesz), "Size in file"),
-        field(if is64 { po + 40 } else { po + 20 }, if is64 { 8 } else { 4 }, "p_memsz", format_size(p_memsz), "Size in memory"),
-      ]))
+      phdr_entries.push(
+        group(
+          po,
+          e_phentsize,
+          "\{pn}",
+          "\{format_size(p_filesz)}, flags:\{flags_str}",
+          [
+            field(po, 4, "p_type", pn, ""),
+            field(
+              if is64 {
+                po + 4
+              } else {
+                po + 24
+              },
+              4,
+              "p_flags",
+              flags_str,
+              "R=4 W=2 E=1",
+            ),
+            field(
+              if is64 {
+                po + 8
+              } else {
+                po + 4
+              },
+              if is64 {
+                8
+              } else {
+                4
+              },
+              "p_offset",
+              "0x\{hex(p_offset, 8)}",
+              "",
+            ),
+            field(
+              if is64 {
+                po + 16
+              } else {
+                po + 8
+              },
+              if is64 {
+                8
+              } else {
+                4
+              },
+              "p_vaddr",
+              "0x\{hex(p_vaddr, 8)}",
+              "Virtual address",
+            ),
+            field(
+              if is64 {
+                po + 32
+              } else {
+                po + 16
+              },
+              if is64 {
+                8
+              } else {
+                4
+              },
+              "p_filesz",
+              format_size(p_filesz),
+              "Size in file",
+            ),
+            field(
+              if is64 {
+                po + 40
+              } else {
+                po + 20
+              },
+              if is64 {
+                8
+              } else {
+                4
+              },
+              "p_memsz",
+              format_size(p_memsz),
+              "Size in memory",
+            ),
+          ],
+        ),
+      )
     }
-    fields.push(group(e_phoff, e_phnum * e_phentsize, "Program Headers", "\{e_phnum} entries", phdr_entries))
+    fields.push(
+      group(
+        e_phoff,
+        e_phnum * e_phentsize,
+        "Program Headers",
+        "\{e_phnum} entries",
+        phdr_entries,
+      ),
+    )
   }
 
   // --- Section Headers ---
   // Pre-read section name string table
   let shstr = if e_shstrndx > 0 && e_shstrndx < e_shnum && e_shentsize >= 40 {
     let strtab_shoff = e_shoff + e_shstrndx * e_shentsize
-    let strtab_sh_offset = if is64 { r64(bytes, strtab_shoff + 24) } else { r32(bytes, strtab_shoff + 16) }
-    let strtab_sh_size = if is64 { r64(bytes, strtab_shoff + 32) } else { r32(bytes, strtab_shoff + 20) }
+    let strtab_sh_offset = if is64 {
+      r64(bytes, strtab_shoff + 24)
+    } else {
+      r32(bytes, strtab_shoff + 16)
+    }
+    let strtab_sh_size = if is64 {
+      r64(bytes, strtab_shoff + 32)
+    } else {
+      r32(bytes, strtab_shoff + 20)
+    }
     (strtab_sh_offset, strtab_sh_size)
   } else {
     (-1, 0)
   }
 
   fn read_shstr(off : Int, sz : Int, sh_name : Int, bytes : Bytes) -> String {
-    if off < 0 || sh_name < 0 || sh_name >= sz { return "?" }
+    if off < 0 || sh_name < 0 || sh_name >= sz {
+      return "?"
+    }
     let mut end = sh_name
-    while end < sz && bytes[off + end].to_int() != 0 { end = end + 1 }
+    while end < sz && bytes[off + end].to_int() != 0 {
+      end = end + 1
+    }
     let sb = StringBuilder()
     for j = sh_name; j < end; j = j + 1 {
-      match bytes[off + j].to_int().to_char() { Some(c) => sb.write_char(c); None => () }
+      match bytes[off + j].to_int().to_char() {
+        Some(c) => sb.write_char(c)
+        None => ()
+      }
     }
     sb.to_string()
   }
@@ -1263,30 +2289,94 @@ fn parse_elf(bytes : Bytes) -> Array[StructField] {
       let sh_type = r32(bytes, so + 4)
       let sh_flags = if is64 { r64(bytes, so + 8) } else { r32(bytes, so + 8) }
       let sh_addr = if is64 { r64(bytes, so + 16) } else { r32(bytes, so + 12) }
-      let sh_offset = if is64 { r64(bytes, so + 24) } else { r32(bytes, so + 16) }
+      let sh_offset = if is64 {
+        r64(bytes, so + 24)
+      } else {
+        r32(bytes, so + 16)
+      }
       let sh_size = if is64 { r64(bytes, so + 32) } else { r32(bytes, so + 20) }
       let name_str = read_shstr(shstr.0, shstr.1, sh_name, bytes)
       let tn = match sh_type {
-        0 => "SHT_NULL"; 1 => "SHT_PROGBITS"; 2 => "SHT_SYMTAB"; 3 => "SHT_STRTAB"
-        4 => "SHT_RELA"; 5 => "SHT_HASH"; 6 => "SHT_DYNAMIC"; 7 => "SHT_NOTE"
-        8 => "SHT_NOBITS"; 9 => "SHT_REL"; 11 => "SHT_DYNSYM"
+        0 => "SHT_NULL"
+        1 => "SHT_PROGBITS"
+        2 => "SHT_SYMTAB"
+        3 => "SHT_STRTAB"
+        4 => "SHT_RELA"
+        5 => "SHT_HASH"
+        6 => "SHT_DYNAMIC"
+        7 => "SHT_NOTE"
+        8 => "SHT_NOBITS"
+        9 => "SHT_REL"
+        11 => "SHT_DYNSYM"
         _ => "?"
       }
       let fw = if sh_flags % 2 == 1 { "W" } else { "" }
-      let fa = if (sh_flags / 2) % 2 == 1 { "A" } else { "" }
+      let fa = if sh_flags / 2 % 2 == 1 { "A" } else { "" }
       let fx = if sh_flags % 8 >= 4 { "X" } else { "" }
       let fl = fw + fa + fx
       let desc = "\{format_size(sh_size)}\{if fl != "" { " " + fl } else { "" }}"
-      shdr_entries.push(group(so, e_shentsize, "\{name_str}", desc, [
-        field(so, 4, "sh_name", name_str, ""),
-        field(so + 4, 4, "sh_type", tn, ""),
-        field(so + 8, if is64 { 8 } else { 4 }, "sh_flags", fl, "W=1 A=2 X=4"),
-        field(if is64 { so + 16 } else { so + 12 }, if is64 { 8 } else { 4 }, "sh_addr", "0x\{hex(sh_addr, 8)}", ""),
-        field(if is64 { so + 24 } else { so + 16 }, if is64 { 8 } else { 4 }, "sh_offset", "0x\{hex(sh_offset, 8)}", "File offset"),
-        field(if is64 { so + 32 } else { so + 20 }, if is64 { 8 } else { 4 }, "sh_size", format_size(sh_size), ""),
-      ]))
+      shdr_entries.push(
+        group(so, e_shentsize, "\{name_str}", desc, [
+          field(so, 4, "sh_name", name_str, ""),
+          field(so + 4, 4, "sh_type", tn, ""),
+          field(so + 8, if is64 { 8 } else { 4 }, "sh_flags", fl, "W=1 A=2 X=4"),
+          field(
+            if is64 {
+              so + 16
+            } else {
+              so + 12
+            },
+            if is64 {
+              8
+            } else {
+              4
+            },
+            "sh_addr",
+            "0x\{hex(sh_addr, 8)}",
+            "",
+          ),
+          field(
+            if is64 {
+              so + 24
+            } else {
+              so + 16
+            },
+            if is64 {
+              8
+            } else {
+              4
+            },
+            "sh_offset",
+            "0x\{hex(sh_offset, 8)}",
+            "File offset",
+          ),
+          field(
+            if is64 {
+              so + 32
+            } else {
+              so + 20
+            },
+            if is64 {
+              8
+            } else {
+              4
+            },
+            "sh_size",
+            format_size(sh_size),
+            "",
+          ),
+        ]),
+      )
     }
-    fields.push(group(e_shoff, e_shnum * e_shentsize, "Section Headers", "\{e_shnum} sections", shdr_entries))
+    fields.push(
+      group(
+        e_shoff,
+        e_shnum * e_shentsize,
+        "Section Headers",
+        "\{e_shnum} sections",
+        shdr_entries,
+      ),
+    )
   }
   fields
 }
@@ -1297,20 +2387,27 @@ pub fn format_structure(fields : Array[StructField]) -> String {
   format_fields(fields, 0)
 }
 
+///|
 fn format_fields(fields : Array[StructField], indent : Int) -> String {
   let sb = StringBuilder()
   let pfx = StringBuilder()
-  for _i = 0; _i < indent; _i = _i + 1 { pfx.write_string("  ") }
+  for _i = 0; _i < indent; _i = _i + 1 {
+    pfx.write_string("  ")
+  }
   let pad = pfx.to_string()
   for i = 0; i < fields.length(); i = i + 1 {
     let f = fields[i]
     if f.children.length() > 0 {
       sb.write_string("\{pad}0x\{hex(f.offset, 8)}  \{f.name}\n")
-      if f.description != "" { sb.write_string("\{pad}  \{f.description}\n") }
+      if f.description != "" {
+        sb.write_string("\{pad}  \{f.description}\n")
+      }
       sb.write_string(format_fields(f.children, indent))
     } else {
       sb.write_string("\{pad}0x\{hex(f.offset, 8)}  \{f.name} = \{f.value}")
-      if f.description != "" { sb.write_string("  -- \{f.description}") }
+      if f.description != "" {
+        sb.write_string("  -- \{f.description}")
+      }
       sb.write_char('\n')
     }
   }
@@ -1323,12 +2420,19 @@ fn json_escape(s : String) -> String {
   let sb = StringBuilder()
   for i = 0; i < s.length(); i = i + 1 {
     let ch = s.get_char(i).unwrap()
-    if ch == '"' { sb.write_string("\\\"") }
-    else if ch == '\\' { sb.write_string("\\\\") }
-    else if ch == '\n' { sb.write_string("\\n") }
-    else if ch == '\r' { sb.write_string("\\r") }
-    else if ch == '\t' { sb.write_string("\\t") }
-    else { sb.write_char(ch) }
+    if ch == '"' {
+      sb.write_string("\\\"")
+    } else if ch == '\\' {
+      sb.write_string("\\\\")
+    } else if ch == '\n' {
+      sb.write_string("\\n")
+    } else if ch == '\r' {
+      sb.write_string("\\r")
+    } else if ch == '\t' {
+      sb.write_string("\\t")
+    } else {
+      sb.write_char(ch)
+    }
   }
   sb.to_string()
 }
@@ -1343,72 +2447,130 @@ pub fn format_structure_json(fields : Array[StructField]) -> String {
   sb.to_string()
 }
 
-fn format_fields_json(fields : Array[StructField], sb : StringBuilder, depth : Int) -> Unit {
+///|
+fn format_fields_json(
+  fields : Array[StructField],
+  sb : StringBuilder,
+  depth : Int,
+) -> Unit {
   let pad = "  "
   for i = 0; i < fields.length(); i = i + 1 {
     let f = fields[i]
-    for _d = 0; _d < depth; _d = _d + 1 { sb.write_string(pad) }
+    for _d = 0; _d < depth; _d = _d + 1 {
+      sb.write_string(pad)
+    }
     sb.write_string("{\n")
-    for _d = 0; _d <= depth; _d = _d + 1 { sb.write_string(pad) }
+    for _d = 0; _d <= depth; _d = _d + 1 {
+      sb.write_string(pad)
+    }
     sb.write_string("\"offset\": \"0x\{to_hex_string(f.offset, width=8)}\",\n")
-    for _d = 0; _d <= depth; _d = _d + 1 { sb.write_string(pad) }
+    for _d = 0; _d <= depth; _d = _d + 1 {
+      sb.write_string(pad)
+    }
     sb.write_string("\"size\": \{f.size},\n")
-    for _d = 0; _d <= depth; _d = _d + 1 { sb.write_string(pad) }
+    for _d = 0; _d <= depth; _d = _d + 1 {
+      sb.write_string(pad)
+    }
     sb.write_string("\"name\": \"\{json_escape(f.name)}\",\n")
-    for _d = 0; _d <= depth; _d = _d + 1 { sb.write_string(pad) }
+    for _d = 0; _d <= depth; _d = _d + 1 {
+      sb.write_string(pad)
+    }
     sb.write_string("\"value\": \"\{json_escape(f.value)}\",\n")
-    for _d = 0; _d <= depth; _d = _d + 1 { sb.write_string(pad) }
+    for _d = 0; _d <= depth; _d = _d + 1 {
+      sb.write_string(pad)
+    }
     sb.write_string("\"description\": \"\{json_escape(f.description)}\"")
     if f.children.length() > 0 {
       sb.write_string(",\n")
-      for _d = 0; _d <= depth; _d = _d + 1 { sb.write_string(pad) }
+      for _d = 0; _d <= depth; _d = _d + 1 {
+        sb.write_string(pad)
+      }
       sb.write_string("\"children\": [\n")
       format_fields_json(f.children, sb, depth + 2)
-      for _d = 0; _d <= depth; _d = _d + 1 { sb.write_string(pad) }
+      for _d = 0; _d <= depth; _d = _d + 1 {
+        sb.write_string(pad)
+      }
       sb.write_string("]\n")
     } else {
       sb.write_string("\n")
     }
-    for _d = 0; _d < depth; _d = _d + 1 { sb.write_string(pad) }
+    for _d = 0; _d < depth; _d = _d + 1 {
+      sb.write_string(pad)
+    }
     sb.write_string("}")
-    if i + 1 < fields.length() { sb.write_string(",") }
+    if i + 1 < fields.length() {
+      sb.write_string(",")
+    }
     sb.write_string("\n")
   }
 }
 
 // ========== Additional Format Parsers ==========
 
+///|
 fn parse_gzip(bytes : Bytes) -> Array[StructField] {
   let len = bytes.length()
   let fields : Array[StructField] = []
   fields.push(field(0, 2, "GZip Magic", "1F 8B", "GZip signature"))
   let cm = bytes[2].to_int()
-  fields.push(field(2, 1, "Method", "\{cm}", if cm == 8 { "Deflate" } else { "Unknown" }))
+  fields.push(
+    field(2, 1, "Method", "\{cm}", if cm == 8 { "Deflate" } else { "Unknown" }),
+  )
   let flags = bytes[3].to_int()
   let mut flag_str = ""
-  if (flags & 0x01) != 0 { flag_str = flag_str + "TEXT " }
-  if (flags & 0x04) != 0 { flag_str = flag_str + "EXTRA " }
-  if (flags & 0x08) != 0 { flag_str = flag_str + "NAME " }
-  if (flags & 0x10) != 0 { flag_str = flag_str + "COMMENT " }
-  if flag_str == "" { flag_str = "None" }
+  if (flags & 0x01) != 0 {
+    flag_str = flag_str + "TEXT "
+  }
+  if (flags & 0x04) != 0 {
+    flag_str = flag_str + "EXTRA "
+  }
+  if (flags & 0x08) != 0 {
+    flag_str = flag_str + "NAME "
+  }
+  if (flags & 0x10) != 0 {
+    flag_str = flag_str + "COMMENT "
+  }
+  if flag_str == "" {
+    flag_str = "None"
+  }
   fields.push(field(3, 1, "Flags", "0x\{hex(flags, 2)}", flag_str))
   let mtime = read_u32_le(bytes, 4)
   fields.push(field(4, 4, "Modification Time", "\{mtime}", "Unix timestamp"))
   let os = bytes[9].to_int()
-  let os_name = match os { 0 => "FAT"; 3 => "Unix"; 7 => "Macintosh"; 11 => "NTFS"; 255 => "Unknown"; _ => "OS \{os}" }
+  let os_name = match os {
+    0 => "FAT"
+    3 => "Unix"
+    7 => "Macintosh"
+    11 => "NTFS"
+    255 => "Unknown"
+    _ => "OS \{os}"
+  }
   fields.push(field(9, 1, "OS", "\{os}", os_name))
   if (flags & 0x08) != 0 && len > 10 {
     let name = read_str(bytes, 10, 256)
-    fields.push(field(10, name.length(), "Original Name", name, "Original filename"))
+    fields.push(
+      field(10, name.length(), "Original Name", name, "Original filename"),
+    )
   }
   if len >= 8 {
     let orig_size = read_u32_le(bytes, len - 4)
-    fields.push(field(len - 4, 4, "Original Size", "\{orig_size} bytes", format_size(orig_size)))
+    fields.push(
+      field(
+        len - 4,
+        4,
+        "Original Size",
+        "\{orig_size} bytes",
+        format_size(orig_size),
+      ),
+    )
   }
-  fields.push(field(0, len, "Compressed Size", "\{len} bytes", format_size(len)))
+  fields.push(
+    field(0, len, "Compressed Size", "\{len} bytes", format_size(len)),
+  )
   fields
 }
 
+///|
 fn parse_7z(bytes : Bytes) -> Array[StructField] {
   let fields : Array[StructField] = []
   fields.push(field(0, 6, "7z Signature", "37 7A BC AF 27 1C", "7-Zip archive"))
@@ -1416,19 +2578,50 @@ fn parse_7z(bytes : Bytes) -> Array[StructField] {
   let minor = bytes[7].to_int()
   fields.push(field(6, 2, "Version", "\{major}.\{minor}", "Archive version"))
   let header_crc = read_u32_le(bytes, 8)
-  fields.push(field(8, 4, "Header CRC", "0x\{hex(header_crc, 8)}", "Start header CRC32"))
+  fields.push(
+    field(8, 4, "Header CRC", "0x\{hex(header_crc, 8)}", "Start header CRC32"),
+  )
   let next_offset = read_u32_le(bytes, 12)
-  fields.push(field(12, 8, "Next Header Offset", "0x\{hex(next_offset, 8)}", "Offset to main header"))
-  fields.push(field(0, bytes.length(), "File Size", "\{bytes.length()} bytes", format_size(bytes.length())))
+  fields.push(
+    field(
+      12,
+      8,
+      "Next Header Offset",
+      "0x\{hex(next_offset, 8)}",
+      "Offset to main header",
+    ),
+  )
+  fields.push(
+    field(
+      0,
+      bytes.length(),
+      "File Size",
+      "\{bytes.length()} bytes",
+      format_size(bytes.length()),
+    ),
+  )
   fields
 }
 
+///|
 fn parse_bzip2(bytes : Bytes) -> Array[StructField] {
   let len = bytes.length()
   let fields : Array[StructField] = []
   fields.push(field(0, 2, "BZip2 Magic", "BZ", "BZip2 signature"))
   let ver = bytes[2].to_int()
-  fields.push(field(2, 1, "Version", "h", if ver == 0x68 { "Huffman coding" } else { "Unknown" }))
+  fields.push(
+    field(
+      2,
+      1,
+      "Version",
+      "h",
+      if ver == 0x68 {
+        "Huffman coding"
+      } else {
+        "Unknown"
+      },
+    ),
+  )
   let block = bytes[3].to_int() - 0x30
   fields.push(field(3, 1, "Block Size", "\{block * 100} KB", "100K x \{block}"))
 
@@ -1444,16 +2637,37 @@ fn parse_bzip2(bytes : Bytes) -> Array[StructField] {
     let blk_off = results[i]
     if blk_off >= pos && blk_off + 10 <= len {
       // Gap between blocks (or from header to first block)
-      if blk_off > pos { fields.push(field(pos, blk_off - pos, "Data", "\{blk_off - pos} bytes", "")) }
+      if blk_off > pos {
+        fields.push(
+          field(pos, blk_off - pos, "Data", "\{blk_off - pos} bytes", ""),
+        )
+      }
       let crc = read_u32_be(bytes, blk_off + 6)
       let mut blk_end = len
-      if i + 1 < results.length() { blk_end = results[i + 1] }
-      else if eos_results.length() > 0 { blk_end = eos_results[0] }
-      fields.push(group(blk_off, blk_end - blk_off, "Block #\{blk_num}", "CRC: 0x\{hex(crc, 8)}, \{format_size(blk_end - blk_off - 10)} compressed", [
-        field(blk_off, 6, "BlockMagic", "31 41 59 26 53 59", ""),
-        field(blk_off + 6, 4, "BlockCRC", "0x\{hex(crc, 8)}", ""),
-        field(blk_off + 10, blk_end - blk_off - 10, "CompressedData", "\{format_size(blk_end - blk_off - 10)}", ""),
-      ]))
+      if i + 1 < results.length() {
+        blk_end = results[i + 1]
+      } else if eos_results.length() > 0 {
+        blk_end = eos_results[0]
+      }
+      fields.push(
+        group(
+          blk_off,
+          blk_end - blk_off,
+          "Block #\{blk_num}",
+          "CRC: 0x\{hex(crc, 8)}, \{format_size(blk_end - blk_off - 10)} compressed",
+          [
+            field(blk_off, 6, "BlockMagic", "31 41 59 26 53 59", ""),
+            field(blk_off + 6, 4, "BlockCRC", "0x\{hex(crc, 8)}", ""),
+            field(
+              blk_off + 10,
+              blk_end - blk_off - 10,
+              "CompressedData",
+              "\{format_size(blk_end - blk_off - 10)}",
+              "",
+            ),
+          ],
+        ),
+      )
       blk_num = blk_num + 1
       pos = blk_end
     }
@@ -1461,15 +2675,41 @@ fn parse_bzip2(bytes : Bytes) -> Array[StructField] {
   // EOS marker
   for i = 0; i < eos_results.length(); i = i + 1 {
     if eos_results[i] >= pos && eos_results[i] + 10 <= len {
-      if eos_results[i] > pos { fields.push(field(pos, eos_results[i] - pos, "Padding", "\{eos_results[i] - pos} bytes", "")) }
+      if eos_results[i] > pos {
+        fields.push(
+          field(
+            pos,
+            eos_results[i] - pos,
+            "Padding",
+            "\{eos_results[i] - pos} bytes",
+            "",
+          ),
+        )
+      }
       let eos_crc = read_u32_be(bytes, eos_results[i] + 6)
-      fields.push(group(eos_results[i], 10, "EOS Marker", "CRC: 0x\{hex(eos_crc, 8)}", [
-        field(eos_results[i], 6, "EOSMagic", "17 72 45 38 50 90", "End of stream"),
-        field(eos_results[i] + 6, 4, "EOS CRC", "0x\{hex(eos_crc, 8)}", "Combined CRC"),
-      ]))
+      fields.push(
+        group(eos_results[i], 10, "EOS Marker", "CRC: 0x\{hex(eos_crc, 8)}", [
+          field(
+            eos_results[i],
+            6,
+            "EOSMagic",
+            "17 72 45 38 50 90",
+            "End of stream",
+          ),
+          field(
+            eos_results[i] + 6,
+            4,
+            "EOS CRC",
+            "0x\{hex(eos_crc, 8)}",
+            "Combined CRC",
+          ),
+        ]),
+      )
       pos = eos_results[i] + 10
     }
   }
-  if pos < len { fields.push(field(pos, len - pos, "Trailing", "\{len - pos} bytes", "")) }
+  if pos < len {
+    fields.push(field(pos, len - pos, "Trailing", "\{len - pos} bytes", ""))
+  }
   fields
 }

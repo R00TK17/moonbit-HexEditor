@@ -4,12 +4,12 @@
 ///|
 /// Configuration for hex dump display formatting.
 struct HexViewConfig {
-  bytes_per_row : Int     // bytes per row (default 16)
-  show_ascii : Bool       // show ASCII column
-  uppercase_hex : Bool    // use uppercase hex digits
-  show_offset : Bool      // show offset column
-  offset_width : Int      // width of offset column in hex digits
-  group_bytes : Int       // bytes per group for spacing (0 = no grouping)
+  bytes_per_row : Int // bytes per row (default 16)
+  show_ascii : Bool // show ASCII column
+  uppercase_hex : Bool // use uppercase hex digits
+  show_offset : Bool // show offset column
+  offset_width : Int // width of offset column in hex digits
+  group_bytes : Int // bytes per group for spacing (0 = no grouping)
 }
 
 ///|
@@ -139,7 +139,13 @@ pub fn format_hex_row(
   // Offset column
   if config.show_offset {
     sb.write_string("0x")
-    sb.write_string(format_offset(base_offset, width=config.offset_width, uppercase=config.uppercase_hex))
+    sb.write_string(
+      format_offset(
+        base_offset,
+        width=config.offset_width,
+        uppercase=config.uppercase_hex,
+      ),
+    )
     sb.write_string("  ")
   }
 
@@ -148,7 +154,9 @@ pub fn format_hex_row(
     if config.group_bytes > 0 && i > 0 && i % config.group_bytes == 0 {
       sb.write_char(' ')
     }
-    sb.write_string(format_byte_hex(data[start + i], uppercase=config.uppercase_hex))
+    sb.write_string(
+      format_byte_hex(data[start + i], uppercase=config.uppercase_hex),
+    )
     sb.write_char(' ')
   }
 
@@ -159,7 +167,9 @@ pub fn format_hex_row(
       sb.write_string("   ")
     }
     // Extra space for group boundary in the padding
-    if config.group_bytes > 0 && length <= config.group_bytes && config.bytes_per_row > config.group_bytes {
+    if config.group_bytes > 0 &&
+      length <= config.group_bytes &&
+      config.bytes_per_row > config.group_bytes {
       sb.write_char(' ')
     }
   }
@@ -293,5 +303,5 @@ fn ipow10(n : Int) -> Int {
 ///|
 /// Converts a number to a fixed-width hex string (useful for UI).
 pub fn to_hex_string(n : Int, width? : Int = 2) -> String {
-  format_offset(n, width=width)
+  format_offset(n, width~)
 }

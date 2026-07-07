@@ -25,7 +25,15 @@ jobs:
         run: moon update
 
       - name: Check (type-check)
-        run: moon check --target native
+        run: moon check
+
+      - name: Format check
+        run: moon fmt --check
+
+      - name: Info & diff check
+        run: |
+          moon info
+          git diff --exit-code
 
       - name: Build (native)
         run: moon build --target native
@@ -34,7 +42,7 @@ jobs:
         run: moon build --target wasm-gc cmd/wasm
 
       - name: Test
-        run: moon test --target native
+        run: moon test
 
   windows:
     runs-on: windows-latest
@@ -64,7 +72,15 @@ jobs:
         run: moon update
 
       - name: Check (type-check)
-        run: moon check --target native
+        run: moon check
+
+      - name: Format check
+        run: moon fmt --check
+
+      - name: Info & diff check
+        run: |
+          moon info
+          git diff --exit-code
 
       - name: Build (native)
         run: moon build --target native
@@ -73,4 +89,4 @@ jobs:
         run: moon build --target wasm-gc cmd/wasm
 
       - name: Test
-        run: moon test --target native
+        run: moon test

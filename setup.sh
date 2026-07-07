@@ -64,7 +64,7 @@ moon update 2>/dev/null || true
 # 4. Build
 echo ""
 echo "[4/5] Building..."
-moon build --target native
+moon build
 echo "  ✓ Native build OK"
 moon build --target wasm-gc cmd/wasm
 echo "  ✓ Wasm-GC build OK"
@@ -72,7 +72,7 @@ echo "  ✓ Wasm-GC build OK"
 # 5. Test
 echo ""
 echo "[5/5] Running tests..."
-RESULT=$(moon test --target native 2>&1 | tail -1)
+RESULT=$(moon test 2>&1 | tail -1)
 echo "  $RESULT"
 
 echo ""
@@ -86,13 +86,13 @@ echo '     export PATH="$HOME/.moon/bin:$PATH"'
 echo ""
 echo " Usage:"
 echo "   # TUI mode"
-echo "   moon run --target native cmd/main -- <file>"
+echo "   moon run cmd/main -- <file>"
 echo ""
 echo "   # CLI commands"
-echo "   moon run --target native cmd/main -- view <file>"
-echo "   moon run --target native cmd/main -- struct <file>"
-echo "   moon run --target native cmd/main -- scan <file>"
-echo "   moon run --target native cmd/main -- help"
+echo "   moon run cmd/main -- view <file>"
+echo "   moon run cmd/main -- struct <file>"
+echo "   moon run cmd/main -- scan <file>"
+echo "   moon run cmd/main -- help"
 echo ""
 echo "   # Wasm-GC CLI"
 echo "   moon run --target wasm-gc cmd/wasm -- struct <file>"

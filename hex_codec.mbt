@@ -1,17 +1,27 @@
 // Encoding and decoding codecs: Base64, URL, Unicode, Hex
 
+///|
 const HEX_UPPER = "0123456789ABCDEF"
+
+///|
 const B64_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
 
 ///|
 fn b64_index(c : Char) -> Int {
   let i = c.to_int()
-  if i >= 'A'.to_int() && i <= 'Z'.to_int() { i - 'A'.to_int() }
-  else if i >= 'a'.to_int() && i <= 'z'.to_int() { i - 'a'.to_int() + 26 }
-  else if i >= '0'.to_int() && i <= '9'.to_int() { i - '0'.to_int() + 52 }
-  else if c == '+' { 62 }
-  else if c == '/' { 63 }
-  else { -1 }
+  if i >= 'A'.to_int() && i <= 'Z'.to_int() {
+    i - 'A'.to_int()
+  } else if i >= 'a'.to_int() && i <= 'z'.to_int() {
+    i - 'a'.to_int() + 26
+  } else if i >= '0'.to_int() && i <= '9'.to_int() {
+    i - '0'.to_int() + 52
+  } else if c == '+' {
+    62
+  } else if c == '/' {
+    63
+  } else {
+    -1
+  }
 }
 
 ///|
@@ -20,7 +30,10 @@ fn is_url_unreserved(b : Int) -> Bool {
   (b >= 0x41 && b <= 0x5A) || // A-Z
   (b >= 0x61 && b <= 0x7A) || // a-z
   (b >= 0x30 && b <= 0x39) || // 0-9
-  b == 0x2D || b == 0x5F || b == 0x2E || b == 0x7E // - _ . ~
+  b == 0x2D ||
+  b == 0x5F ||
+  b == 0x2E ||
+  b == 0x7E // - _ . ~
 }
 
 // ========== Base64 Encoding ==========
@@ -38,8 +51,20 @@ pub fn base64_encode(data : Bytes) -> String {
     let n = (b0 << 16) | (b1 << 8) | b2
     sb.write_char(B64_CHARS.get_char((n >> 18) & 63).unwrap())
     sb.write_char(B64_CHARS.get_char((n >> 12) & 63).unwrap())
-    sb.write_char(if i + 1 < len { B64_CHARS.get_char((n >> 6) & 63).unwrap() } else { '=' })
-    sb.write_char(if i + 2 < len { B64_CHARS.get_char(n & 63).unwrap() } else { '=' })
+    sb.write_char(
+      if i + 1 < len {
+        B64_CHARS.get_char((n >> 6) & 63).unwrap()
+      } else {
+        '='
+      },
+    )
+    sb.write_char(
+      if i + 2 < len {
+        B64_CHARS.get_char(n & 63).unwrap()
+      } else {
+        '='
+      },
+    )
     i = i + 3
   }
   sb.to_string()
@@ -49,19 +74,35 @@ pub fn base64_encode(data : Bytes) -> String {
 /// Decode Base64 string to bytes.
 pub fn base64_decode(text : String) -> Bytes? {
   let len = text.length()
-  if len % 4 != 0 { return None }
+  if len % 4 != 0 {
+    return None
+  }
   let bytes : Array[Byte] = []
   let mut i = 0
   while i < len {
     let v0 = b64_index(text.get_char(i).unwrap())
     let v1 = b64_index(text.get_char(i + 1).unwrap())
-    let v2 = if text.get_char(i + 2).unwrap() == '=' { 0 } else { b64_index(text.get_char(i + 2).unwrap()) }
-    let v3 = if text.get_char(i + 3).unwrap() == '=' { 0 } else { b64_index(text.get_char(i + 3).unwrap()) }
-    if v0 < 0 || v1 < 0 || v2 < 0 || v3 < 0 { return None }
+    let v2 = if text.get_char(i + 2).unwrap() == '=' {
+      0
+    } else {
+      b64_index(text.get_char(i + 2).unwrap())
+    }
+    let v3 = if text.get_char(i + 3).unwrap() == '=' {
+      0
+    } else {
+      b64_index(text.get_char(i + 3).unwrap())
+    }
+    if v0 < 0 || v1 < 0 || v2 < 0 || v3 < 0 {
+      return None
+    }
     let n = (v0 << 18) | (v1 << 12) | (v2 << 6) | v3
     bytes.push(((n >> 16) & 0xFF).to_byte())
-    if text.get_char(i + 2).unwrap() != '=' { bytes.push(((n >> 8) & 0xFF).to_byte()) }
-    if text.get_char(i + 3).unwrap() != '=' { bytes.push((n & 0xFF).to_byte()) }
+    if text.get_char(i + 2).unwrap() != '=' {
+      bytes.push(((n >> 8) & 0xFF).to_byte())
+    }
+    if text.get_char(i + 3).unwrap() != '=' {
+      bytes.push((n & 0xFF).to_byte())
+    }
     i = i + 4
   }
   Some(Bytes::makei(bytes.length(), k => bytes[k]))
@@ -99,10 +140,14 @@ pub fn url_decode(text : String) -> Bytes? {
   while i < len {
     let ch = text.get_char(i).unwrap()
     if ch == '%' {
-      if i + 2 >= len { return None }
+      if i + 2 >= len {
+        return None
+      }
       let h = text.get_char(i + 1).unwrap()
       let l = text.get_char(i + 2).unwrap()
-      if !is_hex_digit(h) || !is_hex_digit(l) { return None }
+      if !is_hex_digit(h) || !is_hex_digit(l) {
+        return None
+      }
       let val = (hex_char_to_int(h) << 4) | hex_char_to_int(l)
       out.push(val.to_byte())
       i = i + 3
@@ -111,7 +156,9 @@ pub fn url_decode(text : String) -> Bytes? {
       i = i + 1
     } else {
       let code = ch.to_int()
-      if code > 127 { return None }
+      if code > 127 {
+        return None
+      }
       out.push(code.to_byte())
       i = i + 1
     }
@@ -152,7 +199,10 @@ pub fn unicode_decode(text : String) -> Bytes? {
         let h2 = text.get_char(i + 3).unwrap()
         let h1 = text.get_char(i + 4).unwrap()
         let h0 = text.get_char(i + 5).unwrap()
-        if !is_hex_digit(h3) || !is_hex_digit(h2) || !is_hex_digit(h1) || !is_hex_digit(h0) {
+        if !is_hex_digit(h3) ||
+          !is_hex_digit(h2) ||
+          !is_hex_digit(h1) ||
+          !is_hex_digit(h0) {
           return None
         }
         let val = (hex_char_to_int(h3) << 12) |
@@ -175,7 +225,9 @@ pub fn unicode_decode(text : String) -> Bytes? {
       }
     } else {
       let code = ch.to_int()
-      if code > 127 { return None }
+      if code > 127 {
+        return None
+      }
       out.push(code.to_byte())
       i = i + 1
     }
@@ -191,7 +243,9 @@ pub fn unicode_decode(text : String) -> Bytes? {
 pub fn hex_encode(data : Bytes) -> String {
   let sb = StringBuilder()
   for i = 0; i < data.length(); i = i + 1 {
-    if i > 0 { sb.write_char(' ') }
+    if i > 0 {
+      sb.write_char(' ')
+    }
     sb.write_char(HEX_UPPER.get_char((data[i].to_int() >> 4) & 0xF).unwrap())
     sb.write_char(HEX_UPPER.get_char(data[i].to_int() & 0xF).unwrap())
   }

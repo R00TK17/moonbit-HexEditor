@@ -17,15 +17,31 @@ pub struct EntropyBlock {
 ///|
 /// Accurate log2 using range reduction + 6-term Taylor series.
 fn log2_accurate(x : Double) -> Double {
-  if x <= 0.0 { return 0.0 }
+  if x <= 0.0 {
+    return 0.0
+  }
   // Range reduction: x = m * 2^e where 1 <= m < 2
   let mut m = x
   let mut e = 0
-  while m >= 2.0 { m = m / 2.0; e = e + 1 }
-  while m < 1.0 { m = m * 2.0; e = e - 1 }
+  while m >= 2.0 {
+    m = m / 2.0
+    e = e + 1
+  }
+  while m < 1.0 {
+    m = m * 2.0
+    e = e - 1
+  }
   // ln(1+f) for f = m-1 in [0,1), Horner form, 6 terms
   let f = m - 1.0
-  let ln_m = f * (1.0 + f * (-0.5 + f * (0.33333333333333 + f * (-0.25 + f * (0.2 + f * (-0.16666666666667))))))
+  let ln_m = f *
+    (
+      1.0 +
+      f *
+      (
+        -0.5 +
+        f * (0.33333333333333 + f * (-0.25 + f * (0.2 + f * -0.16666666666667)))
+      )
+    )
   e.to_double() + ln_m / 0.6931471805599453
 }
 
@@ -62,7 +78,9 @@ pub fn entropy_scan(bytes : Bytes) -> Array[EntropyBlock] {
     if bsize == 256 {
       // Full block: pure table lookup, no log2 calls
       for k = 0; k < 256; k = k + 1 {
-        if counts[k] > 0 { h = h + table[counts[k]] }
+        if counts[k] > 0 {
+          h = h + table[counts[k]]
+        }
       }
     } else {
       // Partial block: compute with accurate log2

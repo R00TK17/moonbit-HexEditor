@@ -9,7 +9,7 @@ Terminal hex editor and binary file analysis toolkit written in MoonBit.
 - **Hex Editor TUI** — interactive terminal UI with gap-buffer O(1) editing, undo/redo, clipboard
 - **20 Format Parsers** — JPEG, PNG, GIF, BMP, WAV, FLAC, MP3, OGG, AVI, MP4, WebM/MKV, ZIP, RAR, TAR, ZLIB, GZip, 7z, BZip2, PE, ELF
 - **Wildcard Search** — BMH exact, Shift-Or bit-parallel (??), greedy segment (*, *N)
-- **Signature Scanner** — Aho-Corasick multi-pattern matching with 14 per-format validators
+- **Signature Scanner** — Aho-Corasick multi-pattern matching with 18 per-format validators
 - **Entropy Analysis** — Shannon entropy on 256-byte blocks (precomputed lookup table)
 - **Codecs** — Base64, URL percent-encoding, Unicode escape, Hex encode/decode
 - **Strings Extraction** — printable ASCII sequences ≥ 4 chars
@@ -26,32 +26,46 @@ chmod +x setup.sh && ./setup.sh   # Linux
 # .\setup.ps1                     # Windows
 
 # CLI usage
-moon run --target native cmd/main -- struct file.bin
-moon run --target native cmd/main -- scan file.bin
-moon run --target native cmd/main -- entropy file.bin
+moon run cmd/main -- struct file.bin
+moon run cmd/main -- scan file.bin
+moon run cmd/main -- entropy file.bin
 
 # TUI mode
-moon run --target native cmd/main -- file.bin
+moon run cmd/main -- file.bin
 ```
 
 ## Usage as a Library
 
-```moonbit
+```moonbit nocheck
 // Parse binary file structure
+
+///|
 let fields = @R00TK17/hex_editor.parse_structure(bytes)
 
 // Scan for embedded file signatures
+
+///|
 let matches = @R00TK17/hex_editor.scan_signatures(bytes)
 
 // Shannon entropy analysis (256-byte blocks)
+
+///|
 let blocks = @R00TK17/hex_editor.entropy_scan(bytes)
 
 // Search with wildcards
+
+///|
 let result = @R00TK17/hex_editor.find_hex_pattern(bytes, "FF ?? ?? EE")
+
+///|
 let result = @R00TK17/hex_editor.find_text_pattern(bytes, "He*ld")
 
 // Codecs
+
+///|
 let b64 = @R00TK17/hex_editor.base64_encode(bytes)
+
+///|
 let decoded = @R00TK17/hex_editor.base64_decode(b64)
 ```
 

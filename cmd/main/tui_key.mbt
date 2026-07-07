@@ -78,7 +78,12 @@ pub fn TuiState::new(file_path : String?, buffer : @lib.HexBuffer) -> TuiState {
   {
     offset: 0,
     msg: match file_path {
-      Some(p) => if buffer.length() > 0 { "\{basename(p)} | \{@lib.format_size(buffer.length())}" } else { "" }
+      Some(p) =>
+        if buffer.length() > 0 {
+          "\{basename(p)} | \{@lib.format_size(buffer.length())}"
+        } else {
+          ""
+        }
       None => ""
     },
     results: [],
@@ -92,28 +97,61 @@ pub fn TuiState::new(file_path : String?, buffer : @lib.HexBuffer) -> TuiState {
     edit_ascii: false,
     edit_modified: false,
     insert_mode: false,
-    select_mode: false, select_start: 0,
+    select_mode: false,
+    select_start: 0,
     clipboard: [],
     esc_pending: false,
     struct_view: false,
     struct_offset: 0,
-    struct_lines: [], struct_done: false,
+    struct_lines: [],
+    struct_done: false,
     bookmark_view: false,
     bookmark_sel: 0,
     bookmark_scroll: 0,
     bookmarks: FixedArray::make(21, None),
-    scan_view: false, scan_sel: 0, scan_scroll: 0,
-    scan_offsets: [], scan_names: [], scan_sizes: [], scan_done: false,
-    entropy_view: false, entropy_sel: 0, entropy_blocks: [], entropy_done: false,
-    strings_view: false, strings_sel: 0, strings_scroll: 0, strings_matches: [], strings_done: false,
+    scan_view: false,
+    scan_sel: 0,
+    scan_scroll: 0,
+    scan_offsets: [],
+    scan_names: [],
+    scan_sizes: [],
+    scan_done: false,
+    entropy_view: false,
+    entropy_sel: 0,
+    entropy_blocks: [],
+    entropy_done: false,
+    strings_view: false,
+    strings_sel: 0,
+    strings_scroll: 0,
+    strings_matches: [],
+    strings_done: false,
     undo_stack: [],
     redo_stack: [],
-    codec_view: false, codec_type: 0, codec_encode: true,
-    codec_input: "", codec_result: "",
-    file_slots: [{ buffer, path: match file_path { Some(p) => p; None => "(new)" }, offset: 0 }],
-    active_file: 0, file_list_view: false, file_list_sel: 0, pending_switch: -1,
-    browser_view: false, browser_path: "", browser_names: [], browser_is_dir: [],
-    browser_sel: 0, browser_scroll: 0,
+    codec_view: false,
+    codec_type: 0,
+    codec_encode: true,
+    codec_input: "",
+    codec_result: "",
+    file_slots: [
+      {
+        buffer,
+        path: match file_path {
+          Some(p) => p
+          None => "(new)"
+        },
+        offset: 0,
+      },
+    ],
+    active_file: 0,
+    file_list_view: false,
+    file_list_sel: 0,
+    pending_switch: -1,
+    browser_view: false,
+    browser_path: "",
+    browser_names: [],
+    browser_is_dir: [],
+    browser_sel: 0,
+    browser_scroll: 0,
   }
 }
 
@@ -121,48 +159,55 @@ pub fn TuiState::new(file_path : String?, buffer : @lib.HexBuffer) -> TuiState {
 /// Recompute codec result from current input, type, and mode.
 fn codec_recompute(state : TuiState) -> Unit {
   let input = state.codec_input
-  if input == "" { state.codec_result = ""; return }
+  if input == "" {
+    state.codec_result = ""
+    return
+  }
   if state.codec_encode {
     let data = ascii_to_bytes(input)
     state.codec_result = match state.codec_type {
       0 => @lib.base64_encode(data)
       1 => @lib.url_encode(data)
       2 => @lib.unicode_encode(data)
-      _ => @lib.hex_encode(data)  // Hex: bytes → "48 65 6C"
+      _ => @lib.hex_encode(data) // Hex: bytes → "48 65 6C"
+    }
+  } else if state.codec_type == 3 {
+    // Hex → Text
+    match @lib.parse_hex_string(input) {
+      Some(bytes) => {
+        let sb = StringBuilder()
+        for i = 0; i < bytes.length(); i = i + 1 {
+          let b = bytes[i].to_int()
+          if b >= 0x20 && b <= 0x7E {
+            sb.write_char(b.to_char().unwrap())
+          } else {
+            sb.write_char('.')
+          }
+        }
+        state.codec_result = sb.to_string()
+      }
+      None => state.codec_result = "(invalid hex)"
     }
   } else {
-    if state.codec_type == 3 {
-      // Hex → Text
-      match @lib.parse_hex_string(input) {
-        Some(bytes) => {
-          let sb = StringBuilder()
-          for i = 0; i < bytes.length(); i = i + 1 {
-            let b = bytes[i].to_int()
-            if b >= 0x20 && b <= 0x7E { sb.write_char(b.to_char().unwrap()) }
-            else { sb.write_char('.') }
+    let decoded : Bytes? = match state.codec_type {
+      0 => @lib.base64_decode(input)
+      1 => @lib.url_decode(input)
+      _ => @lib.unicode_decode(input)
+    }
+    match decoded {
+      Some(bytes) => {
+        let sb = StringBuilder()
+        for i = 0; i < bytes.length(); i = i + 1 {
+          let b = bytes[i].to_int()
+          if b >= 0x20 && b <= 0x7E {
+            sb.write_char(b.to_char().unwrap())
+          } else {
+            sb.write_char('.')
           }
-          state.codec_result = sb.to_string()
         }
-        None => state.codec_result = "(invalid hex)"
+        state.codec_result = sb.to_string()
       }
-    } else {
-      let decoded : Bytes? = match state.codec_type {
-        0 => @lib.base64_decode(input)
-        1 => @lib.url_decode(input)
-        _ => @lib.unicode_decode(input)
-      }
-      match decoded {
-        Some(bytes) => {
-          let sb = StringBuilder()
-          for i = 0; i < bytes.length(); i = i + 1 {
-            let b = bytes[i].to_int()
-            if b >= 0x20 && b <= 0x7E { sb.write_char(b.to_char().unwrap()) }
-            else { sb.write_char('.') }
-          }
-          state.codec_result = sb.to_string()
-        }
-        None => state.codec_result = "(invalid)"
-      }
+      None => state.codec_result = "(invalid)"
     }
   }
 }
@@ -209,23 +254,37 @@ pub fn handle_key(
   screen_rows : Int,
 ) -> Unit {
   // Only clear status message on real keypress, not on timeout (-10)
-  if key != -10 { state.msg = "" }
+  if key != -10 {
+    state.msg = ""
+  }
 
   // ====== Scan popup ======
   if state.scan_view && key == -1 {
-    if state.scan_sel > 0 { state.scan_sel = state.scan_sel - 1 }
-    if state.scan_sel < state.scan_scroll { state.scan_scroll = state.scan_sel }
+    if state.scan_sel > 0 {
+      state.scan_sel = state.scan_sel - 1
+    }
+    if state.scan_sel < state.scan_scroll {
+      state.scan_scroll = state.scan_sel
+    }
   } else if state.scan_view && key == -2 {
     let total = state.scan_offsets.length()
-    if state.scan_sel + 1 < total { state.scan_sel = state.scan_sel + 1 }
+    if state.scan_sel + 1 < total {
+      state.scan_sel = state.scan_sel + 1
+    }
     let max_visible = if screen_rows > 1 { screen_rows - 1 } else { 1 }
     if state.scan_sel >= state.scan_scroll + max_visible {
       state.scan_scroll = state.scan_sel - max_visible + 1
     }
   } else if state.scan_view && key == -3 {
     let page = if screen_rows > 2 { screen_rows - 2 } else { 1 }
-    if state.scan_sel >= page { state.scan_sel = state.scan_sel - page } else { state.scan_sel = 0 }
-    if state.scan_sel < state.scan_scroll { state.scan_scroll = state.scan_sel }
+    if state.scan_sel >= page {
+      state.scan_sel = state.scan_sel - page
+    } else {
+      state.scan_sel = 0
+    }
+    if state.scan_sel < state.scan_scroll {
+      state.scan_scroll = state.scan_sel
+    }
   } else if state.scan_view && key == -4 {
     let total = state.scan_offsets.length()
     let page = if screen_rows > 2 { screen_rows - 2 } else { 1 }
@@ -238,32 +297,55 @@ pub fn handle_key(
   } else if state.scan_view && key == 13 {
     let total = state.scan_offsets.length()
     if total > 0 && state.scan_sel < total {
-      state.offset = (state.scan_offsets[state.scan_sel] / 16) * 16
+      state.offset = state.scan_offsets[state.scan_sel] / 16 * 16
       state.scan_view = false
-      state.msg = "Jumped to " + state.scan_names[state.scan_sel] + " (" + @lib.format_size(state.scan_sizes[state.scan_sel]) + ")"
+      state.msg = "Jumped to " +
+        state.scan_names[state.scan_sel] +
+        " (" +
+        @lib.format_size(state.scan_sizes[state.scan_sel]) +
+        ")"
     }
   } else if state.scan_view && (key == 'x'.to_int() || key == 'X'.to_int()) {
     let total = state.scan_offsets.length()
     if total > 0 && state.scan_sel < total {
       let data = buffer.to_bytes()
-      let base = match buffer.get_file_path() { Some(p) => p; None => "output" }
-      state.msg = @lib.extract_region(data, state.scan_offsets[state.scan_sel], state.scan_names[state.scan_sel], base)
+      let base = match buffer.get_file_path() {
+        Some(p) => p
+        None => "output"
+      }
+      state.msg = @lib.extract_region(
+        data,
+        state.scan_offsets[state.scan_sel],
+        state.scan_names[state.scan_sel],
+        base,
+      )
     }
   } else if state.scan_view && key == 27 {
-    state.scan_view = false; state.msg = "Hex view"
+    state.scan_view = false
+    state.msg = "Hex view"
   } else if state.scan_view && (key == 'q'.to_int() || key == 'Q'.to_int()) {
     state.running = false
-  } else if state.scan_view && key != 'w'.to_int() && key != 'W'.to_int() { () }
+  } else if state.scan_view && key != 'w'.to_int() && key != 'W'.to_int() {
+    ()
+  }
 
   // ====== Entropy popup ======
   if state.entropy_view && key == -1 {
-    if state.entropy_sel > 0 { state.entropy_sel = state.entropy_sel - 1 }
+    if state.entropy_sel > 0 {
+      state.entropy_sel = state.entropy_sel - 1
+    }
   } else if state.entropy_view && key == -2 {
     let total = state.entropy_blocks.length()
-    if state.entropy_sel + 1 < total { state.entropy_sel = state.entropy_sel + 1 }
+    if state.entropy_sel + 1 < total {
+      state.entropy_sel = state.entropy_sel + 1
+    }
   } else if state.entropy_view && key == -3 {
     let page = if screen_rows > 2 { screen_rows - 2 } else { 1 }
-    if state.entropy_sel >= page { state.entropy_sel = state.entropy_sel - page } else { state.entropy_sel = 0 }
+    if state.entropy_sel >= page {
+      state.entropy_sel = state.entropy_sel - page
+    } else {
+      state.entropy_sel = 0
+    }
   } else if state.entropy_view && key == -4 {
     let total = state.entropy_blocks.length()
     let page = if screen_rows > 2 { screen_rows - 2 } else { 1 }
@@ -272,33 +354,59 @@ pub fn handle_key(
   } else if state.entropy_view && key == 13 {
     let total = state.entropy_blocks.length()
     if total > 0 && state.entropy_sel < total {
-      state.offset = (state.entropy_blocks[state.entropy_sel].start / 16) * 16
+      state.offset = state.entropy_blocks[state.entropy_sel].start / 16 * 16
       state.entropy_view = false
-      state.msg = "Jumped to 0x" + @lib.to_hex_string(state.entropy_blocks[state.entropy_sel].start, width=8)
+      state.msg = "Jumped to 0x" +
+        @lib.to_hex_string(
+          state.entropy_blocks[state.entropy_sel].start,
+          width=8,
+        )
     }
-  } else if state.entropy_view && (key == 'h'.to_int() || key == 'H'.to_int() || key == 27) {
-    state.entropy_view = false; state.msg = "Hex view"
+  } else if state.entropy_view &&
+    (key == 'h'.to_int() || key == 'H'.to_int() || key == 27) {
+    state.entropy_view = false
+    state.msg = "Hex view"
   } else if state.entropy_view && (key == 'q'.to_int() || key == 'Q'.to_int()) {
     state.running = false
-  } else if state.entropy_view { ()
-  // ====== Strings popup ======
+  } else if state.entropy_view {
+    ()
+    // ====== Strings popup ======
   } else if state.strings_view && key == -2 {
     let total = state.strings_matches.length()
-    if total > 0 && state.strings_sel < total - 1 { state.strings_sel = state.strings_sel + 1 }
-    if state.strings_sel >= state.strings_scroll + screen_rows - 1 { state.strings_scroll = state.strings_sel - screen_rows + 2 }
+    if total > 0 && state.strings_sel < total - 1 {
+      state.strings_sel = state.strings_sel + 1
+    }
+    if state.strings_sel >= state.strings_scroll + screen_rows - 1 {
+      state.strings_scroll = state.strings_sel - screen_rows + 2
+    }
   } else if state.strings_view && key == -1 {
-    if state.strings_sel > 0 { state.strings_sel = state.strings_sel - 1 }
-    if state.strings_sel < state.strings_scroll { state.strings_scroll = state.strings_sel }
+    if state.strings_sel > 0 {
+      state.strings_sel = state.strings_sel - 1
+    }
+    if state.strings_sel < state.strings_scroll {
+      state.strings_scroll = state.strings_sel
+    }
   } else if state.strings_view && key == -3 {
     let page = if screen_rows > 2 { screen_rows - 2 } else { 1 }
-    state.strings_sel = if state.strings_sel >= page { state.strings_sel - page } else { 0 }
-    if state.strings_sel < state.strings_scroll { state.strings_scroll = state.strings_sel }
+    state.strings_sel = if state.strings_sel >= page {
+      state.strings_sel - page
+    } else {
+      0
+    }
+    if state.strings_sel < state.strings_scroll {
+      state.strings_scroll = state.strings_sel
+    }
   } else if state.strings_view && key == -4 {
     let page = if screen_rows > 2 { screen_rows - 2 } else { 1 }
     let total = state.strings_matches.length()
-    if total > 0 && state.strings_sel + page < total - 1 { state.strings_sel = state.strings_sel + page }
-    else if total > 0 { state.strings_sel = total - 1 }
-    if state.strings_sel >= state.strings_scroll + screen_rows - 1 { state.strings_scroll = state.strings_sel - screen_rows + 2 }
+    if total > 0 && state.strings_sel + page < total - 1 {
+      state.strings_sel = state.strings_sel + page
+    } else if total > 0 {
+      state.strings_sel = total - 1
+    }
+    if state.strings_sel >= state.strings_scroll + screen_rows - 1 {
+      state.strings_scroll = state.strings_sel - screen_rows + 2
+    }
   } else if state.strings_view && key == 13 {
     let total = state.strings_matches.length()
     if total > 0 && state.strings_sel < total {
@@ -306,45 +414,70 @@ pub fn handle_key(
       state.results = [m.offset]
       state.match_len = m.text.length()
       state.result_idx = 0
-      state.offset = scroll_to_show(m.offset, state.offset, buffer.length(), screen_rows)
+      state.offset = scroll_to_show(
+        m.offset,
+        state.offset,
+        buffer.length(),
+        screen_rows,
+      )
       state.strings_view = false
       state.msg = "String at 0x" + @lib.to_hex_string(m.offset, width=8)
     }
   } else if state.strings_view && (key == 'e'.to_int() || key == 'E'.to_int()) {
     let text = @lib.format_strings_export(state.strings_matches)
-    let base = match buffer.get_file_path() { Some(p) => p; None => "output" }
+    let base = match buffer.get_file_path() {
+      Some(p) => p
+      None => "output"
+    }
     let path = base + ".strings.txt"
-    try { @fs.write_bytes_to_file(path, ascii_to_bytes(text)) }
-    catch { @fs.IOError::IOError(e) => { state.msg = "Export failed: \{e}"; return } }
+    @fs.write_bytes_to_file(path, ascii_to_bytes(text)) catch {
+      @fs.IOError::IOError(e) => {
+        state.msg = "Export failed: \{e}"
+        return
+      }
+    }
     state.msg = "Exported: \{basename(path)}"
-  } else if state.strings_view && (key == 's'.to_int() || key == 'S'.to_int() || key == 27) {
-    state.strings_view = false; state.msg = "Hex view"
+  } else if state.strings_view &&
+    (key == 's'.to_int() || key == 'S'.to_int() || key == 27) {
+    state.strings_view = false
+    state.msg = "Hex view"
   } else if state.strings_view && (key == 'q'.to_int() || key == 'Q'.to_int()) {
     state.running = false
-  } else if state.strings_view { ()
-  // ====== Codec popup ======
+  } else if state.strings_view {
+    ()
+    // ====== Codec popup ======
   } else if state.codec_view {
     handle_codec_key(state, key)
-  // ====== Bookmark popup (in tui_bookmark.mbt) ======
-  } else if state.bookmark_view && handle_bookmark_popup_key(state, key, screen_rows) {
+    // ====== Bookmark popup (in tui_bookmark.mbt) ======
+  } else if state.bookmark_view &&
+    handle_bookmark_popup_key(state, key, screen_rows) {
     ()
-  } else if state.file_list_view && handle_file_list_key(state, key, screen_rows) {
+  } else if state.file_list_view &&
+    handle_file_list_key(state, key, screen_rows) {
     ()
   } else if state.browser_view && handle_browser_key(state, key, screen_rows) {
     ()
 
-  // ====== Struct view mode ======
+    // ====== Struct view mode ======
   } else if state.struct_view && key == -1 {
     let (total, _max) = get_struct_info(buffer)
-    if total > screen_rows && state.struct_offset > 0 { state.struct_offset = state.struct_offset - 1 }
+    if total > screen_rows && state.struct_offset > 0 {
+      state.struct_offset = state.struct_offset - 1
+    }
   } else if state.struct_view && key == -2 {
     let (total, _max) = get_struct_info(buffer)
     let max_off = if total > screen_rows { total - screen_rows } else { 0 }
-    if state.struct_offset < max_off { state.struct_offset = state.struct_offset + 1 }
+    if state.struct_offset < max_off {
+      state.struct_offset = state.struct_offset + 1
+    }
   } else if state.struct_view && key == -3 {
     let (total, _max) = get_struct_info(buffer)
     if total > screen_rows {
-      if state.struct_offset >= screen_rows { state.struct_offset = state.struct_offset - screen_rows } else { state.struct_offset = 0 }
+      if state.struct_offset >= screen_rows {
+        state.struct_offset = state.struct_offset - screen_rows
+      } else {
+        state.struct_offset = 0
+      }
     }
   } else if state.struct_view && key == -4 {
     let (total, _max) = get_struct_info(buffer)
@@ -359,29 +492,43 @@ pub fn handle_key(
     let bytes = buffer.to_bytes()
     let fields = @lib.parse_structure(bytes)
     let json = @lib.format_structure_json(fields)
-    let base = match buffer.get_file_path() { Some(p) => p; None => "output" }
+    let base = match buffer.get_file_path() {
+      Some(p) => p
+      None => "output"
+    }
     let path = base + ".struct.json"
-    try { @fs.write_bytes_to_file(path, ascii_to_bytes(json)) }
-    catch { @fs.IOError::IOError(e) => { state.msg = "Export failed: \{e}"; return } }
+    @fs.write_bytes_to_file(path, ascii_to_bytes(json)) catch {
+      @fs.IOError::IOError(e) => {
+        state.msg = "Export failed: \{e}"
+        return
+      }
+    }
     state.msg = "Exported: \{basename(path)}"
-  } else if state.struct_view && (key == 't'.to_int() || key == 'T'.to_int() || key == 27) {
+  } else if state.struct_view &&
+    (key == 't'.to_int() || key == 'T'.to_int() || key == 27) {
     state.struct_view = false
     state.msg = "Hex view"
   } else if state.struct_view && (key == 'q'.to_int() || key == 'Q'.to_int()) {
     state.running = false
   } else if state.struct_view {
     ()
-  } else if (state.scan_view || state.entropy_view || state.strings_view) && key != 'w'.to_int() && key != 'W'.to_int() && key != 's'.to_int() && key != 'S'.to_int() {
+  } else if (state.scan_view || state.entropy_view || state.strings_view) &&
+    key != 'w'.to_int() &&
+    key != 'W'.to_int() &&
+    key != 's'.to_int() &&
+    key != 'S'.to_int() {
     ()
 
-  // ====== Edit mode keys ======
+    // ====== Edit mode keys ======
   } else if state.edit_mode && key == 27 {
     if state.edit_modified && !state.esc_pending {
       state.esc_pending = true
       state.msg = "Unsaved edits! Press Esc again to discard, Ctrl+X to save"
     } else {
       let was_modified = state.edit_modified
-      if was_modified { revert_all_edits(buffer, state.undo_stack) }
+      if was_modified {
+        revert_all_edits(buffer, state.undo_stack)
+      }
       state.edit_mode = false
       state.edit_modified = false
       state.insert_mode = false
@@ -389,120 +536,251 @@ pub fn handle_key(
       state.esc_pending = false
       state.undo_stack = []
       state.redo_stack = []
-      state.msg = if was_modified { "Edit mode off (changes discarded)" } else { "Edit mode off" }
+      state.msg = if was_modified {
+        "Edit mode off (changes discarded)"
+      } else {
+        "Edit mode off"
+      }
     }
-
   } else if state.edit_mode && key == -1 {
-    if state.edit_off >= 16 { state.edit_off = state.edit_off - 16 }
-    if state.edit_off < state.offset { state.offset = (state.edit_off / 16) * 16 }
-    if state.offset < 0 { state.offset = 0 }
-
+    if state.edit_off >= 16 {
+      state.edit_off = state.edit_off - 16
+    }
+    if state.edit_off < state.offset {
+      state.offset = state.edit_off / 16 * 16
+    }
+    if state.offset < 0 {
+      state.offset = 0
+    }
   } else if state.edit_mode && key == -2 {
-    if state.edit_off + 16 < buffer.length() { state.edit_off = state.edit_off + 16 }
+    if state.edit_off + 16 < buffer.length() {
+      state.edit_off = state.edit_off + 16
+    }
     let visible_end = state.offset + screen_rows * 16
-    if state.edit_off >= visible_end { state.offset = ((state.edit_off - (screen_rows - 1) * 16) / 16) * 16 }
-    if state.offset < 0 { state.offset = 0 }
-
+    if state.edit_off >= visible_end {
+      state.offset = (state.edit_off - (screen_rows - 1) * 16) / 16 * 16
+    }
+    if state.offset < 0 {
+      state.offset = 0
+    }
   } else if state.edit_mode && key == -3 {
-    if state.edit_off > 0 { state.edit_off = state.edit_off - 1 }
-    if state.edit_off < state.offset { state.offset = (state.edit_off / 16) * 16 }
-    if state.offset < 0 { state.offset = 0 }
-
+    if state.edit_off > 0 {
+      state.edit_off = state.edit_off - 1
+    }
+    if state.edit_off < state.offset {
+      state.offset = state.edit_off / 16 * 16
+    }
+    if state.offset < 0 {
+      state.offset = 0
+    }
   } else if state.edit_mode && key == -4 {
-    if state.edit_off + 1 < buffer.length() { state.edit_off = state.edit_off + 1 }
+    if state.edit_off + 1 < buffer.length() {
+      state.edit_off = state.edit_off + 1
+    }
     let visible_end = state.offset + screen_rows * 16
-    if state.edit_off >= visible_end { state.offset = ((state.edit_off - (screen_rows - 1) * 16) / 16) * 16 }
-    if state.offset < 0 { state.offset = 0 }
-
+    if state.edit_off >= visible_end {
+      state.offset = (state.edit_off - (screen_rows - 1) * 16) / 16 * 16
+    }
+    if state.offset < 0 {
+      state.offset = 0
+    }
   } else if state.edit_mode && key == 9 {
     state.edit_ascii = !state.edit_ascii
     state.edit_nibble = None
-    state.msg = if state.edit_ascii { "ASCII input mode" } else { "Hex input mode" }
-
+    state.msg = if state.edit_ascii {
+      "ASCII input mode"
+    } else {
+      "Hex input mode"
+    }
   } else if state.edit_mode && key == -9 {
     state.edit_modified = true
     state.esc_pending = false
-    let old = match buffer.get_byte(state.edit_off) { Some(b) => b; None => b'\x00' }
+    let old = match buffer.get_byte(state.edit_off) {
+      Some(b) => b
+      None => b'\x00'
+    }
     state.undo_stack.push(undo_op(2, state.edit_off, old))
-    state.redo_stack = []; state.scan_done = false; state.strings_done = false; state.entropy_done = false; state.struct_done = false
+    state.redo_stack = []
+    state.scan_done = false
+    state.strings_done = false
+    state.entropy_done = false
+    state.struct_done = false
     buffer.delete_byte(state.edit_off) |> ignore
-    if state.edit_off >= buffer.length() && state.edit_off > 0 { state.edit_off = state.edit_off - 1 }
+    if state.edit_off >= buffer.length() && state.edit_off > 0 {
+      state.edit_off = state.edit_off - 1
+    }
     state.results = []
     state.match_len = 0
     state.match_lens = []
     state.msg = "Deleted 1 byte\{depth_suffix(state.undo_stack.length(), state.redo_stack.length())}"
-
   } else if state.edit_mode && key == -11 { // Insert key: toggle insert/overwrite
     state.insert_mode = !state.insert_mode
     state.msg = if state.insert_mode { "Insert mode" } else { "Overwrite mode" }
-
   } else if state.edit_mode && key == 25 { // Ctrl+Y: toggle selection
-    if state.select_mode { state.select_mode = false; state.msg = "Selection cancelled" }
-    else { state.select_mode = true; state.select_start = state.edit_off; state.msg = "Selection started (Ctrl+N to copy)" }
-
-  } else if state.edit_mode && !state.edit_ascii && key >= '0'.to_int() && key <= '9'.to_int() {
-    state.edit_modified = true; state.esc_pending = false; state.redo_stack = []; state.scan_done = false; state.strings_done = false; state.entropy_done = false; state.struct_done = false
-    if state.insert_mode {
-      let (new_off, new_nib, msg) = handle_hex_input_insert(buffer, state.edit_off, state.edit_nibble, key, state)
-      state.edit_off = new_off; state.edit_nibble = new_nib; state.msg = msg
+    if state.select_mode {
+      state.select_mode = false
+      state.msg = "Selection cancelled"
     } else {
-      let (new_off, new_nib, new_msg, undo) = handle_hex_input(buffer, state.edit_off, state.edit_nibble, key)
-      state.edit_off = new_off; state.edit_nibble = new_nib
-      match undo { Some(op) => state.undo_stack.push(op); None => () }
+      state.select_mode = true
+      state.select_start = state.edit_off
+      state.msg = "Selection started (Ctrl+N to copy)"
+    }
+  } else if state.edit_mode &&
+    !state.edit_ascii &&
+    key >= '0'.to_int() &&
+    key <= '9'.to_int() {
+    state.edit_modified = true
+    state.esc_pending = false
+    state.redo_stack = []
+    state.scan_done = false
+    state.strings_done = false
+    state.entropy_done = false
+    state.struct_done = false
+    if state.insert_mode {
+      let (new_off, new_nib, msg) = handle_hex_input_insert(
+        buffer,
+        state.edit_off,
+        state.edit_nibble,
+        key,
+        state,
+      )
+      state.edit_off = new_off
+      state.edit_nibble = new_nib
+      state.msg = msg
+    } else {
+      let (new_off, new_nib, new_msg, undo) = handle_hex_input(
+        buffer,
+        state.edit_off,
+        state.edit_nibble,
+        key,
+      )
+      state.edit_off = new_off
+      state.edit_nibble = new_nib
+      match undo {
+        Some(op) => state.undo_stack.push(op)
+        None => ()
+      }
       state.msg = "\{new_msg}\{depth_suffix(state.undo_stack.length(), state.redo_stack.length())}"
     }
-
-  } else if state.edit_mode && !state.edit_ascii && key >= 'a'.to_int() && key <= 'f'.to_int() {
-    state.edit_modified = true; state.esc_pending = false; state.redo_stack = []; state.scan_done = false; state.strings_done = false; state.entropy_done = false; state.struct_done = false
+  } else if state.edit_mode &&
+    !state.edit_ascii &&
+    key >= 'a'.to_int() &&
+    key <= 'f'.to_int() {
+    state.edit_modified = true
+    state.esc_pending = false
+    state.redo_stack = []
+    state.scan_done = false
+    state.strings_done = false
+    state.entropy_done = false
+    state.struct_done = false
     if state.insert_mode {
-      let (new_off, new_nib, msg) = handle_hex_input_insert(buffer, state.edit_off, state.edit_nibble, key, state)
-      state.edit_off = new_off; state.edit_nibble = new_nib; state.msg = msg
+      let (new_off, new_nib, msg) = handle_hex_input_insert(
+        buffer,
+        state.edit_off,
+        state.edit_nibble,
+        key,
+        state,
+      )
+      state.edit_off = new_off
+      state.edit_nibble = new_nib
+      state.msg = msg
     } else {
-      let (new_off, new_nib, new_msg, undo) = handle_hex_input(buffer, state.edit_off, state.edit_nibble, key)
-      state.edit_off = new_off; state.edit_nibble = new_nib
-      match undo { Some(op) => state.undo_stack.push(op); None => () }
+      let (new_off, new_nib, new_msg, undo) = handle_hex_input(
+        buffer,
+        state.edit_off,
+        state.edit_nibble,
+        key,
+      )
+      state.edit_off = new_off
+      state.edit_nibble = new_nib
+      match undo {
+        Some(op) => state.undo_stack.push(op)
+        None => ()
+      }
       state.msg = "\{new_msg}\{depth_suffix(state.undo_stack.length(), state.redo_stack.length())}"
     }
-
-  } else if state.edit_mode && !state.edit_ascii && key >= 'A'.to_int() && key <= 'F'.to_int() {
-    state.edit_modified = true; state.esc_pending = false; state.redo_stack = []; state.scan_done = false; state.strings_done = false; state.entropy_done = false; state.struct_done = false
+  } else if state.edit_mode &&
+    !state.edit_ascii &&
+    key >= 'A'.to_int() &&
+    key <= 'F'.to_int() {
+    state.edit_modified = true
+    state.esc_pending = false
+    state.redo_stack = []
+    state.scan_done = false
+    state.strings_done = false
+    state.entropy_done = false
+    state.struct_done = false
     let lower = key + ('a'.to_int() - 'A'.to_int())
     if state.insert_mode {
-      let (new_off, new_nib, msg) = handle_hex_input_insert(buffer, state.edit_off, state.edit_nibble, lower, state)
-      state.edit_off = new_off; state.edit_nibble = new_nib; state.msg = msg
+      let (new_off, new_nib, msg) = handle_hex_input_insert(
+        buffer,
+        state.edit_off,
+        state.edit_nibble,
+        lower,
+        state,
+      )
+      state.edit_off = new_off
+      state.edit_nibble = new_nib
+      state.msg = msg
     } else {
-      let (new_off, new_nib, new_msg, undo) = handle_hex_input(buffer, state.edit_off, state.edit_nibble, lower)
-      state.edit_off = new_off; state.edit_nibble = new_nib
-      match undo { Some(op) => state.undo_stack.push(op); None => () }
+      let (new_off, new_nib, new_msg, undo) = handle_hex_input(
+        buffer,
+        state.edit_off,
+        state.edit_nibble,
+        lower,
+      )
+      state.edit_off = new_off
+      state.edit_nibble = new_nib
+      match undo {
+        Some(op) => state.undo_stack.push(op)
+        None => ()
+      }
       state.msg = "\{new_msg}\{depth_suffix(state.undo_stack.length(), state.redo_stack.length())}"
     }
-
   } else if state.edit_mode && state.edit_ascii && key >= 32 && key <= 126 {
-    state.edit_modified = true; state.esc_pending = false; state.edit_nibble = None; state.redo_stack = []; state.scan_done = false; state.strings_done = false; state.entropy_done = false; state.struct_done = false
+    state.edit_modified = true
+    state.esc_pending = false
+    state.edit_nibble = None
+    state.redo_stack = []
+    state.scan_done = false
+    state.strings_done = false
+    state.entropy_done = false
+    state.struct_done = false
     let ch = key.to_char().unwrap()
     if state.insert_mode {
       buffer.insert_byte(state.edit_off, ch.to_int().to_byte()) |> ignore
       state.undo_stack.push(undo_op(1, state.edit_off, ch.to_int().to_byte()))
       state.msg = "Inserted '\{ch}' (0x\{@lib.format_byte_hex(ch.to_int().to_byte())})\{depth_suffix(state.undo_stack.length(), state.redo_stack.length())}"
-      if state.edit_off + 1 < buffer.length() { state.edit_off = state.edit_off + 1 }
+      if state.edit_off + 1 < buffer.length() {
+        state.edit_off = state.edit_off + 1
+      }
     } else {
-      let old = match buffer.get_byte(state.edit_off) { Some(b) => b; None => b'\x00' }
+      let old = match buffer.get_byte(state.edit_off) {
+        Some(b) => b
+        None => b'\x00'
+      }
       state.undo_stack.push(undo_op(0, state.edit_off, old))
       buffer.set_byte(state.edit_off, ch.to_int().to_byte()) |> ignore
       state.msg = "Set '\{ch}' (0x\{@lib.format_byte_hex(ch.to_int().to_byte())})\{depth_suffix(state.undo_stack.length(), state.redo_stack.length())}"
-      if state.edit_off + 1 < buffer.length() { state.edit_off = state.edit_off + 1 }
+      if state.edit_off + 1 < buffer.length() {
+        state.edit_off = state.edit_off + 1
+      }
     }
 
-  // Ctrl+Z: Undo
+    // Ctrl+Z: Undo
   } else if state.edit_mode && key == 26 {
     let (new_undo, popped) = pop_last(state.undo_stack)
     match popped {
-      None => state.msg = "Nothing to undo (undo:0 redo:\{state.redo_stack.length()})"
+      None =>
+        state.msg = "Nothing to undo (undo:0 redo:\{state.redo_stack.length()})"
       Some(op) => {
         state.undo_stack = new_undo
         let redo_op = apply_undo(buffer, op)
         state.redo_stack.push(redo_op)
-        let depth = depth_suffix(state.undo_stack.length(), state.redo_stack.length())
+        let depth = depth_suffix(
+          state.undo_stack.length(),
+          state.redo_stack.length(),
+        )
         if op.kind == 0 {
           state.msg = "Undo: restored 0x\{@lib.format_byte_hex(op.old_byte)}\{depth}"
         } else if op.kind == 1 {
@@ -515,22 +793,41 @@ pub fn handle_key(
         state.edit_off = op.offset
         state.edit_modified = state.undo_stack.length() > 0
         if !state.edit_modified {
-          if state.scan_offsets.length() > 0 { state.scan_done = true }
-          if state.strings_matches.length() > 0 { state.strings_done = true }
-          if state.entropy_blocks.length() > 0 { state.entropy_done = true }
-          if state.struct_lines.length() > 0 { state.struct_done = true }
+          if state.scan_offsets.length() > 0 {
+            state.scan_done = true
+          }
+          if state.strings_matches.length() > 0 {
+            state.strings_done = true
+          }
+          if state.entropy_blocks.length() > 0 {
+            state.entropy_done = true
+          }
+          if state.struct_lines.length() > 0 {
+            state.struct_done = true
+          }
         }
       }
     }
 
-  // Ctrl+N: Copy selection
+    // Ctrl+N: Copy selection
   } else if state.edit_mode && key == 14 {
     if state.select_mode {
-      let s = if state.select_start < state.edit_off { state.select_start } else { state.edit_off }
-      let e = if state.select_start > state.edit_off { state.select_start } else { state.edit_off }
+      let s = if state.select_start < state.edit_off {
+        state.select_start
+      } else {
+        state.edit_off
+      }
+      let e = if state.select_start > state.edit_off {
+        state.select_start
+      } else {
+        state.edit_off
+      }
       state.clipboard.clear()
       for i = s; i <= e; i = i + 1 {
-        match buffer.get_byte(i) { Some(b) => state.clipboard.push(b); None => () }
+        match buffer.get_byte(i) {
+          Some(b) => state.clipboard.push(b)
+          None => ()
+        }
       }
       let n = state.clipboard.length()
       state.select_mode = false
@@ -538,57 +835,93 @@ pub fn handle_key(
         let sb = StringBuilder()
         for i = 0; i < n && i < 20; i = i + 1 {
           let b = state.clipboard[i].to_int()
-          if b >= 0x20 && b <= 0x7E { sb.write_char(b.to_char().unwrap()) } else { sb.write_char('.') }
+          if b >= 0x20 && b <= 0x7E {
+            sb.write_char(b.to_char().unwrap())
+          } else {
+            sb.write_char('.')
+          }
         }
         state.msg = "Copied \{n} bytes: \{sb.to_string()}"
       } else {
         let sb = StringBuilder()
         for i = 0; i < n && i < 8; i = i + 1 {
-          if i > 0 { sb.write_char(' ') }
-          sb.write_string(@lib.format_byte_hex(state.clipboard[i], uppercase=true))
+          if i > 0 {
+            sb.write_char(' ')
+          }
+          sb.write_string(
+            @lib.format_byte_hex(state.clipboard[i], uppercase=true),
+          )
         }
-        if n > 8 { sb.write_string(" ...") }
+        if n > 8 {
+          sb.write_string(" ...")
+        }
         state.msg = "Copied \{n} bytes: \{sb.to_string()}"
       }
     } else {
       state.msg = "No selection (Ctrl+Y to select)"
     }
 
-  // Ctrl+L: Paste (single compound undo op)
+    // Ctrl+L: Paste (single compound undo op)
   } else if state.edit_mode && key == 12 {
     let n = state.clipboard.length()
     if n > 0 {
-      state.edit_modified = true; state.esc_pending = false
-      state.redo_stack = []; state.scan_done = false; state.strings_done = false; state.entropy_done = false; state.struct_done = false
+      state.edit_modified = true
+      state.esc_pending = false
+      state.redo_stack = []
+      state.scan_done = false
+      state.strings_done = false
+      state.entropy_done = false
+      state.struct_done = false
       if state.insert_mode {
         for i = 0; i < n; i = i + 1 {
           buffer.insert_byte(state.edit_off + i, state.clipboard[i]) |> ignore
         }
-        state.undo_stack.push({ kind: 4, offset: state.edit_off, old_byte: b'\x00', old_bytes: [], count: n })
+        state.undo_stack.push({
+          kind: 4,
+          offset: state.edit_off,
+          old_byte: b'\x00',
+          old_bytes: [],
+          count: n,
+        })
       } else {
         let old_bytes : Array[Byte] = []
         for i = 0; i < n; i = i + 1 {
           if state.edit_off + i < buffer.length() {
-            let old = match buffer.get_byte(state.edit_off + i) { Some(b) => b; None => b'\x00' }
+            let old = match buffer.get_byte(state.edit_off + i) {
+              Some(b) => b
+              None => b'\x00'
+            }
             old_bytes.push(old)
             buffer.set_byte(state.edit_off + i, state.clipboard[i]) |> ignore
           }
         }
-        state.undo_stack.push({ kind: 3, offset: state.edit_off, old_byte: b'\x00', old_bytes, count: old_bytes.length() })
+        state.undo_stack.push({
+          kind: 3,
+          offset: state.edit_off,
+          old_byte: b'\x00',
+          old_bytes,
+          count: old_bytes.length(),
+        })
       }
       state.msg = "Pasted \{n} bytes\{depth_suffix(state.undo_stack.length(), state.redo_stack.length())}"
-    } else { state.msg = "Clipboard empty" }
+    } else {
+      state.msg = "Clipboard empty"
+    }
 
-  // Ctrl+R: Redo
+    // Ctrl+R: Redo
   } else if state.edit_mode && key == 18 {
     let (new_redo, popped) = pop_last(state.redo_stack)
     match popped {
-      None => state.msg = "Nothing to redo (undo:\{state.undo_stack.length()} redo:0)"
+      None =>
+        state.msg = "Nothing to redo (undo:\{state.undo_stack.length()} redo:0)"
       Some(op) => {
         state.redo_stack = new_redo
         let undo_op = apply_redo(buffer, op)
         state.undo_stack.push(undo_op)
-        let depth = depth_suffix(state.undo_stack.length(), state.redo_stack.length())
+        let depth = depth_suffix(
+          state.undo_stack.length(),
+          state.redo_stack.length(),
+        )
         if op.kind == 0 {
           state.msg = "Redo: restored 0x\{@lib.format_byte_hex(op.old_byte)}\{depth}"
         } else if op.kind == 1 {
@@ -600,53 +933,87 @@ pub fn handle_key(
         state.edit_modified = true
       }
     }
-
   } else if state.edit_mode && key == 24 {
     match buffer.get_file_path() {
-      Some(p) => {
+      Some(p) =>
         try {
           buffer.save(path=p)
-          state.edit_modified = false; state.undo_stack = []; state.redo_stack = []; state.msg = "Saved: \{p}"
+          state.edit_modified = false
+          state.undo_stack = []
+          state.redo_stack = []
+          state.msg = "Saved: \{p}"
         } catch {
           @fs.IOError::IOError(m) => state.msg = "Save error: \{m}"
           _ => state.msg = "Unknown save error"
         }
-      }
       None => state.msg = "No file path to save"
     }
-
   } else if state.edit_mode {
     ()
 
-  // ====== Normal mode keys ======
+    // ====== Normal mode keys ======
   } else if key == 27 {
-    if state.results.length() > 0 { state.results = []; state.match_len = 0; state.match_lens = []; state.msg = "Search cleared" }
+    if state.results.length() > 0 {
+      state.results = []
+      state.match_len = 0
+      state.match_lens = []
+      state.msg = "Search cleared"
+    }
   } else if key == 'q'.to_int() || key == 'Q'.to_int() {
     state.running = false
-
-  } else if !state.bookmark_view && !state.scan_view && !state.strings_view && key == -1 {
-    if state.offset >= 16 { state.offset = state.offset - 16 }
-
-  } else if !state.bookmark_view && !state.scan_view && !state.strings_view && key == -2 {
-    if state.offset + 16 < buffer.length() { state.offset = state.offset + 16 }
-
-  } else if !state.bookmark_view && !state.scan_view && !state.strings_view && key == -3 {
+  } else if !state.bookmark_view &&
+    !state.scan_view &&
+    !state.strings_view &&
+    key == -1 {
+    if state.offset >= 16 {
+      state.offset = state.offset - 16
+    }
+  } else if !state.bookmark_view &&
+    !state.scan_view &&
+    !state.strings_view &&
+    key == -2 {
+    if state.offset + 16 < buffer.length() {
+      state.offset = state.offset + 16
+    }
+  } else if !state.bookmark_view &&
+    !state.scan_view &&
+    !state.strings_view &&
+    key == -3 {
     let page = screen_rows * 16
-    if state.offset >= page { state.offset = state.offset - page } else { state.offset = 0 }
-
-  } else if !state.bookmark_view && !state.scan_view && !state.strings_view && key == -4 {
+    if state.offset >= page {
+      state.offset = state.offset - page
+    } else {
+      state.offset = 0
+    }
+  } else if !state.bookmark_view &&
+    !state.scan_view &&
+    !state.strings_view &&
+    key == -4 {
     let page = screen_rows * 16
-    if state.offset + page < buffer.length() { state.offset = state.offset + page }
-    else { let last_off = if buffer.length() > 0 { ((buffer.length() - 1) / 16) * 16 } else { 0 }; if state.offset < last_off { state.offset = last_off } }
-
-  } else if !state.bookmark_view && !state.scan_view && !state.strings_view && key == -7 {
+    if state.offset + page < buffer.length() {
+      state.offset = state.offset + page
+    } else {
+      let last_off = if buffer.length() > 0 {
+        (buffer.length() - 1) / 16 * 16
+      } else {
+        0
+      }
+      if state.offset < last_off {
+        state.offset = last_off
+      }
+    }
+  } else if !state.bookmark_view &&
+    !state.scan_view &&
+    !state.strings_view &&
+    key == -7 {
     state.offset = 0
-
-  } else if !state.bookmark_view && !state.scan_view && !state.strings_view && key == -8 {
+  } else if !state.bookmark_view &&
+    !state.scan_view &&
+    !state.strings_view &&
+    key == -8 {
     let len = buffer.length()
     let rows = if len > 0 { (len - 1) / 16 } else { 0 }
     state.offset = rows * 16
-
   } else if key == '/'.to_int() {
     let pattern = tui_read_line("Hex search: ")
     if pattern != "" {
@@ -656,15 +1023,23 @@ pub fn handle_key(
           state.results = offsets
           state.match_lens = lens
           if offsets.length() > 0 {
-            state.result_idx = 0; state.match_len = lens[0]
-            state.offset = scroll_to_show(offsets[0], state.offset, buffer.length(), screen_rows)
+            state.result_idx = 0
+            state.match_len = lens[0]
+            state.offset = scroll_to_show(
+              offsets[0],
+              state.offset,
+              buffer.length(),
+              screen_rows,
+            )
             state.msg = "Hex: \{offsets.length()} matches (n:next)"
-          } else { state.msg = "Not found"; state.match_len = 0 }
+          } else {
+            state.msg = "Not found"
+            state.match_len = 0
+          }
         }
         None => state.msg = "Invalid hex pattern"
       }
     }
-
   } else if key == 'f'.to_int() || key == 'F'.to_int() {
     let pattern = tui_read_line("Text search: ")
     if pattern != "" {
@@ -674,33 +1049,53 @@ pub fn handle_key(
           state.results = offsets
           state.match_lens = lens
           if offsets.length() > 0 {
-            state.result_idx = 0; state.match_len = lens[0]
-            state.offset = scroll_to_show(offsets[0], state.offset, buffer.length(), screen_rows)
+            state.result_idx = 0
+            state.match_len = lens[0]
+            state.offset = scroll_to_show(
+              offsets[0],
+              state.offset,
+              buffer.length(),
+              screen_rows,
+            )
             state.msg = "Text: \{offsets.length()} matches (n:next)"
-          } else { state.msg = "Not found"; state.match_len = 0 }
+          } else {
+            state.msg = "Not found"
+            state.match_len = 0
+          }
         }
         None => state.msg = "Invalid text pattern"
       }
     }
-
   } else if key == 'n'.to_int() || key == 'N'.to_int() {
     let total = state.results.length()
     if total > 0 {
       state.result_idx = state.result_idx + 1
-      if state.result_idx >= total { state.result_idx = 0 }
-      state.offset = scroll_to_show(state.results[state.result_idx], state.offset, buffer.length(), screen_rows)
+      if state.result_idx >= total {
+        state.result_idx = 0
+      }
+      state.offset = scroll_to_show(
+        state.results[state.result_idx],
+        state.offset,
+        buffer.length(),
+        screen_rows,
+      )
       state.msg = "Match \{state.result_idx + 1}/\{total}"
     }
-
   } else if key == 'p'.to_int() || key == 'P'.to_int() {
     let total = state.results.length()
     if total > 0 {
       state.result_idx = state.result_idx - 1
-      if state.result_idx < 0 { state.result_idx = total - 1 }
-      state.offset = scroll_to_show(state.results[state.result_idx], state.offset, buffer.length(), screen_rows)
+      if state.result_idx < 0 {
+        state.result_idx = total - 1
+      }
+      state.offset = scroll_to_show(
+        state.results[state.result_idx],
+        state.offset,
+        buffer.length(),
+        screen_rows,
+      )
       state.msg = "Match \{state.result_idx + 1}/\{total}"
     }
-
   } else if key == 'g'.to_int() || key == 'G'.to_int() {
     let input = tui_read_line("Goto offset (hex, #N bookmark): ")
     if input != "" {
@@ -708,36 +1103,57 @@ pub fn handle_key(
       if string_starts_with(input, "#") {
         let num_str = input[1:].to_owned()
         match parse_int(num_str) {
-          Some(n) if n >= 0 && n <= 20 => match state.bookmarks[n] {
-            None => state.msg = "Bookmark #" + n.to_string() + " is empty"
-            Some(off) => {
-              state.offset = (off / 16) * 16
-              state.msg = "Jumped to #" + n.to_string() + ": 0x" + @lib.to_hex_string(off, width=8)
+          Some(n) if n >= 0 && n <= 20 =>
+            match state.bookmarks[n] {
+              None => state.msg = "Bookmark #" + n.to_string() + " is empty"
+              Some(off) => {
+                state.offset = off / 16 * 16
+                state.msg = "Jumped to #" +
+                  n.to_string() +
+                  ": 0x" +
+                  @lib.to_hex_string(off, width=8)
+              }
             }
-          }
-          Some(n) => state.msg = "Bookmark #" + n.to_string() + " out of range (0-20)"
+          Some(n) =>
+            state.msg = "Bookmark #" + n.to_string() + " out of range (0-20)"
           None => state.msg = "Invalid bookmark number"
         }
       } else {
-        let off = if string_starts_with(input, "0x") || string_starts_with(input, "0X") {
+        let off = if string_starts_with(input, "0x") ||
+          string_starts_with(input, "0X") {
           parse_int(input)
-        } else { parse_hex_int(input) }
+        } else {
+          parse_hex_int(input)
+        }
         match off {
-          Some(o) if o >= 0 && o < buffer.length() => state.offset = (o / 16) * 16
+          Some(o) if o >= 0 && o < buffer.length() => state.offset = o / 16 * 16
           Some(_) => state.msg = "Offset out of range"
           None => state.msg = "Invalid offset"
         }
       }
     }
-
   } else if key == 'e'.to_int() || key == 'E'.to_int() {
     if buffer.length() > 0 {
-      let target = if state.results.length() > 0 && state.result_idx < state.results.length() { state.results[state.result_idx] } else { state.offset }
-      state.edit_mode = true; state.edit_off = target; state.edit_nibble = None; state.edit_ascii = false
-      state.offset = scroll_to_show(target, state.offset, buffer.length(), screen_rows)
+      let target = if state.results.length() > 0 &&
+        state.result_idx < state.results.length() {
+        state.results[state.result_idx]
+      } else {
+        state.offset
+      }
+      state.edit_mode = true
+      state.edit_off = target
+      state.edit_nibble = None
+      state.edit_ascii = false
+      state.offset = scroll_to_show(
+        target,
+        state.offset,
+        buffer.length(),
+        screen_rows,
+      )
       state.msg = "Entered edit mode"
-    } else { state.msg = "Nothing to edit" }
-
+    } else {
+      state.msg = "Nothing to edit"
+    }
   } else if key == 't'.to_int() || key == 'T'.to_int() {
     if state.struct_view {
       state.struct_view = false
@@ -749,7 +1165,9 @@ pub fn handle_key(
         let fields = @lib.parse_structure(bytes)
         if fields.length() > 0 {
           state.struct_lines = split_text_lines(@lib.format_structure(fields))
-        } else { state.struct_lines = [] }
+        } else {
+          state.struct_lines = []
+        }
         state.struct_done = true // always mark done, even if empty
       }
       state.struct_view = true
@@ -758,30 +1176,43 @@ pub fn handle_key(
       state.msg = "Structure view\{suffix}"
     }
 
-  // Bookmark keys (in tui_bookmark.mbt)
+    // Bookmark keys (in tui_bookmark.mbt)
   } else if handle_bookmark_normal_key(state, key) {
     ()
   } else if handle_file_list_normal_key(state, key) {
     ()
-
   } else if key == 'w'.to_int() || key == 'W'.to_int() {
     if state.scan_view {
-      state.scan_view = false; state.msg = "Hex view"
+      state.scan_view = false
+      state.msg = "Hex view"
     } else if state.scan_done {
       state.scan_view = true
       state.msg = "Binary scan view (cached)"
-      state.results = state.scan_offsets; state.match_len = 8; state.result_idx = 0
+      state.results = state.scan_offsets
+      state.match_len = 8
+      state.result_idx = 0
     } else {
       let matches = @lib.scan_signatures(buffer.to_bytes())
-      state.scan_offsets = []; state.scan_names = []; state.scan_sizes = []
+      state.scan_offsets = []
+      state.scan_names = []
+      state.scan_sizes = []
       for i = 0; i < matches.length(); i = i + 1 {
         state.scan_offsets.push(matches[i].offset)
         state.scan_names.push(matches[i].name)
         state.scan_sizes.push(matches[i].size)
       }
-      state.scan_sel = 0; state.scan_scroll = 0; state.scan_done = true
-      if matches.length() > 0 { state.scan_view = true; state.msg = "Binary scan view" } else { state.msg = "No signatures found" }
-      state.results = state.scan_offsets; state.match_len = 8; state.result_idx = 0
+      state.scan_sel = 0
+      state.scan_scroll = 0
+      state.scan_done = true
+      if matches.length() > 0 {
+        state.scan_view = true
+        state.msg = "Binary scan view"
+      } else {
+        state.msg = "No signatures found"
+      }
+      state.results = state.scan_offsets
+      state.match_len = 8
+      state.result_idx = 0
     }
   } else if key == 'h'.to_int() || key == 'H'.to_int() {
     let was_cached = state.entropy_done
@@ -798,7 +1229,8 @@ pub fn handle_key(
     if !state.strings_done {
       state.strings_matches = @lib.find_strings(buffer.to_bytes())
       state.strings_done = true
-      state.strings_sel = 0; state.strings_scroll = 0
+      state.strings_sel = 0
+      state.strings_scroll = 0
     }
     state.strings_view = true
     let n = state.strings_matches.length()

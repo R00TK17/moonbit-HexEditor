@@ -9,9 +9,13 @@ pub fn handle_file_list_key(
 ) -> Bool {
   let total = state.file_slots.length()
   if key == -1 { // up
-    if state.file_list_sel > 0 { state.file_list_sel = state.file_list_sel - 1 }
+    if state.file_list_sel > 0 {
+      state.file_list_sel = state.file_list_sel - 1
+    }
   } else if key == -2 { // down
-    if state.file_list_sel + 1 < total { state.file_list_sel = state.file_list_sel + 1 }
+    if state.file_list_sel + 1 < total {
+      state.file_list_sel = state.file_list_sel + 1
+    }
   } else if key == 13 { // enter: switch to selected file
     if state.file_list_sel < total && state.file_list_sel != state.active_file {
       state.pending_switch = state.file_list_sel
@@ -23,7 +27,11 @@ pub fn handle_file_list_key(
       let removing = state.file_list_sel
       let _ = state.file_slots.remove(removing)
       if state.active_file == removing {
-        let new_active = if removing >= state.file_slots.length() { state.file_slots.length() - 1 } else { removing }
+        let new_active = if removing >= state.file_slots.length() {
+          state.file_slots.length() - 1
+        } else {
+          removing
+        }
         state.pending_switch = new_active
       } else if state.active_file > removing {
         state.active_file = state.active_file - 1
@@ -47,10 +55,7 @@ pub fn handle_file_list_key(
 
 ///|
 /// Handle Tab key in normal mode to open file list.
-pub fn handle_file_list_normal_key(
-  state : TuiState,
-  key : Int,
-) -> Bool {
+pub fn handle_file_list_normal_key(state : TuiState, key : Int) -> Bool {
   if key == 9 { // Tab
     if state.file_slots.length() > 1 {
       state.file_list_view = true
@@ -72,7 +77,11 @@ pub fn to_absolute_path(path : String) -> String {
   let buf = Bytes::make(4096, b'\x00')
   let path_bytes = str_to_bytes(path)
   let n = tui_realpath(path_bytes, buf, 4096)
-  if n > 0 { utf8_to_string(buf, 0, n) } else { path }
+  if n > 0 {
+    utf8_to_string(buf, 0, n)
+  } else {
+    path
+  }
 }
 
 ///|
@@ -82,35 +91,53 @@ pub fn basename(path : String) -> String {
   let mut last_sep = -1
   for i = 0; i < len; i = i + 1 {
     let ch = path.get_char(i).unwrap()
-    if ch == '/' || ch == '\\' { last_sep = i }
+    if ch == '/' || ch == '\\' {
+      last_sep = i
+    }
   }
-  if last_sep >= 0 && last_sep + 1 < len { path[last_sep + 1:].to_owned() } else { path }
+  if last_sep >= 0 && last_sep + 1 < len {
+    path[last_sep + 1:].to_owned()
+  } else {
+    path
+  }
 }
 
 ///|
 /// Join directory path with a file/dir name. Uses \ on Windows, / on Linux.
 fn join_path(dir : String, name : String) -> String {
-  if dir.length() == 0 { return name }
+  if dir.length() == 0 {
+    return name
+  }
   let last = dir.get_char(dir.length() - 1).unwrap()
   // Detect separator from existing path
   let sep = if dir.contains("\\") { "\\" } else { "/" }
-  if last == '/' || last == '\\' { dir + name } else { dir + sep + name }
+  if last == '/' || last == '\\' {
+    dir + name
+  } else {
+    dir + sep + name
+  }
 }
 
 ///|
 /// Get parent directory path.
 fn parent_path(path : String) -> String {
   let len = path.length()
-  if len <= 1 { return path }
+  if len <= 1 {
+    return path
+  }
   // Skip trailing separator
   let mut end = len - 1
   let ch = path.get_char(end).unwrap()
-  if ch == '/' || ch == '\\' { end = end - 1 }
+  if ch == '/' || ch == '\\' {
+    end = end - 1
+  }
   // Find last separator
   let mut i = end
   while i >= 0 {
     let c = path.get_char(i).unwrap()
-    if c == '/' || c == '\\' { return path[:i].to_owned() }
+    if c == '/' || c == '\\' {
+      return path[:i].to_owned()
+    }
     i = i - 1
   }
   path
@@ -130,27 +157,34 @@ pub fn refresh_browser(state : TuiState) -> Unit {
   let mut pos = 0
   while pos < n {
     let t = buf[pos].to_int()
-    if pos + 2 > n { break }
+    if pos + 2 > n {
+      break
+    }
     pos = pos + 2 // skip "X:"
     // Find end of name (next \n)
     let name_start = pos
-    while pos < n && buf[pos].to_int() != 0x0A { pos = pos + 1 }
+    while pos < n && buf[pos].to_int() != 0x0A {
+      pos = pos + 1
+    }
     let name = utf8_to_string(buf, name_start, pos)
     pos = pos + 1 // skip \n
-    if name == ".." || t == 'D'.to_int() { dirs.push(name) }
-    else { files.push(name) }
+    if name == ".." || t == 'D'.to_int() {
+      dirs.push(name)
+    } else {
+      files.push(name)
+    }
   }
   // Build sorted list: .. first, then dirs (excluding ..), then files
   state.browser_names.push("..")
   state.browser_is_dir.push(true)
   for i = 0; i < dirs.length(); i = i + 1 {
-    if dirs[i] != ".." {  // skip .. from C output, already prepended
+    if dirs[i] != ".." { // skip .. from C output, already prepended
       state.browser_names.push(dirs[i])
       state.browser_is_dir.push(true)
     }
   }
   for i = 0; i < files.length(); i = i + 1 {
-    if files[i] != ".." {  // skip .. if misclassified as file on Linux
+    if files[i] != ".." { // skip .. if misclassified as file on Linux
       state.browser_names.push(files[i])
       state.browser_is_dir.push(false)
     }
@@ -170,19 +204,36 @@ fn utf8_to_string(buf : Bytes, start : Int, end : Int) -> String {
   while i < end {
     let b = buf[i].to_int()
     if b < 0x80 {
-      match b.to_char() { Some(c) => sb.write_char(c); None => () }
+      match b.to_char() {
+        Some(c) => sb.write_char(c)
+        None => ()
+      }
       i = i + 1
     } else if b < 0xE0 && i + 1 < end {
       let cp = ((b & 0x1F) << 6) | (buf[i + 1].to_int() & 0x3F)
-      match cp.to_char() { Some(c) => sb.write_char(c); None => () }
+      match cp.to_char() {
+        Some(c) => sb.write_char(c)
+        None => ()
+      }
       i = i + 2
     } else if b < 0xF0 && i + 2 < end {
-      let cp = ((b & 0x0F) << 12) | ((buf[i + 1].to_int() & 0x3F) << 6) | (buf[i + 2].to_int() & 0x3F)
-      match cp.to_char() { Some(c) => sb.write_char(c); None => () }
+      let cp = ((b & 0x0F) << 12) |
+        ((buf[i + 1].to_int() & 0x3F) << 6) |
+        (buf[i + 2].to_int() & 0x3F)
+      match cp.to_char() {
+        Some(c) => sb.write_char(c)
+        None => ()
+      }
       i = i + 3
     } else if i + 3 < end {
-      let cp = ((b & 0x07) << 18) | ((buf[i + 1].to_int() & 0x3F) << 12) | ((buf[i + 2].to_int() & 0x3F) << 6) | (buf[i + 3].to_int() & 0x3F)
-      match cp.to_char() { Some(c) => sb.write_char(c); None => () }
+      let cp = ((b & 0x07) << 18) |
+        ((buf[i + 1].to_int() & 0x3F) << 12) |
+        ((buf[i + 2].to_int() & 0x3F) << 6) |
+        (buf[i + 3].to_int() & 0x3F)
+      match cp.to_char() {
+        Some(c) => sb.write_char(c)
+        None => ()
+      }
       i = i + 4
     } else {
       i = i + 1 // skip invalid byte
@@ -196,7 +247,9 @@ fn utf8_to_string(buf : Bytes, start : Int, end : Int) -> String {
 fn get_cwd_string() -> String {
   let buf = Bytes::make(1024, b'\x00')
   let n = tui_get_cwd(buf, 1024)
-  if n <= 0 { return "." }
+  if n <= 0 {
+    return "."
+  }
   utf8_to_string(buf, 0, n)
 }
 
@@ -209,10 +262,16 @@ pub fn handle_browser_key(
 ) -> Bool {
   let total = state.browser_names.length()
   if key == -1 { // up
-    if state.browser_sel > 0 { state.browser_sel = state.browser_sel - 1 }
-    if state.browser_sel < state.browser_scroll { state.browser_scroll = state.browser_sel }
+    if state.browser_sel > 0 {
+      state.browser_sel = state.browser_sel - 1
+    }
+    if state.browser_sel < state.browser_scroll {
+      state.browser_scroll = state.browser_sel
+    }
   } else if key == -2 { // down
-    if state.browser_sel + 1 < total { state.browser_sel = state.browser_sel + 1 }
+    if state.browser_sel + 1 < total {
+      state.browser_sel = state.browser_sel + 1
+    }
     let max_visible = if screen_rows > 1 { screen_rows - 1 } else { 1 }
     if state.browser_sel >= state.browser_scroll + max_visible {
       state.browser_scroll = state.browser_sel - max_visible + 1
@@ -276,7 +335,9 @@ pub fn handle_browser_key(
 fn get_home_string() -> String {
   let buf = Bytes::make(1024, b'\x00')
   let n = tui_get_home(buf, 1024)
-  if n <= 0 { return "." }
+  if n <= 0 {
+    return "."
+  }
   utf8_to_string(buf, 0, n)
 }
 
@@ -286,7 +347,12 @@ fn sanitize_name(path : String) -> String {
   let sb = StringBuilder()
   for i = 0; i < path.length(); i = i + 1 {
     let ch = path.get_char(i).unwrap()
-    if (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') || ch == '.' || ch == '-' || ch == '_' {
+    if (ch >= 'a' && ch <= 'z') ||
+      (ch >= 'A' && ch <= 'Z') ||
+      (ch >= '0' && ch <= '9') ||
+      ch == '.' ||
+      ch == '-' ||
+      ch == '_' {
       sb.write_char(ch)
     } else {
       sb.write_char('_')
@@ -309,20 +375,35 @@ fn parse_int_from_bytes(data : Bytes, start : Int, end : Int) -> Int {
   let mut val = 0
   let mut neg = false
   let mut i = start
-  if i < end && data[i].to_int() == 0x2D { neg = true; i = i + 1 } // '-'
+  if i < end && data[i].to_int() == 0x2D {
+    neg = true
+    i = i + 1
+  } // '-'
   while i < end {
     let d = data[i].to_int() - 0x30
-    if d < 0 || d > 9 { break }
+    if d < 0 || d > 9 {
+      break
+    }
     val = val * 10 + d
     i = i + 1
   }
-  if neg { -val } else { val }
+  if neg {
+    -val
+  } else {
+    val
+  }
 }
 
 ///|
 /// Save bookmarks and scroll offset to marks file.
-pub fn save_file_state(file_path : String, offset : Int, bookmarks : FixedArray[Int?]) -> Unit {
-  if file_path == "(new)" || file_path == "" { return }
+pub fn save_file_state(
+  file_path : String,
+  offset : Int,
+  bookmarks : FixedArray[Int?],
+) -> Unit {
+  if file_path == "(new)" || file_path == "" {
+    return
+  }
   let marks_dir = join_path(get_home_string(), ".hexedit")
   tui_mkdir_p(str_to_bytes(marks_dir))
   let marks_path = get_marks_path(file_path)
@@ -336,31 +417,46 @@ pub fn save_file_state(file_path : String, offset : Int, bookmarks : FixedArray[
   }
   let content = sb.to_string()
   let bytes = ascii_to_bytes(content)
-  try { @fs.write_bytes_to_file(marks_path, bytes) }
-  catch { @fs.IOError::IOError(_) => () }
+  @fs.write_bytes_to_file(marks_path, bytes) catch {
+    @fs.IOError::IOError(_) => ()
+  }
 }
 
 ///|
 /// Load bookmarks and scroll offset from marks file. Returns saved offset (0 if none).
 pub fn load_file_state(file_path : String, bookmarks : FixedArray[Int?]) -> Int {
-  if file_path == "(new)" || file_path == "" { return 0 }
+  if file_path == "(new)" || file_path == "" {
+    return 0
+  }
   let marks_path = get_marks_path(file_path)
-  if !@fs.path_exists(marks_path) { return 0 }
+  if !@fs.path_exists(marks_path) {
+    return 0
+  }
   let mut data : Bytes = Bytes::new(0)
-  try { data = @fs.read_file_to_bytes(marks_path) } catch { _ => return 0 }
+  try {
+    data = @fs.read_file_to_bytes(marks_path)
+  } catch {
+    _ => return 0
+  }
   let mut offset = 0
   let len = data.length()
   let mut pos = 0
   while pos < len {
     // Find line start and end
     let line_start = pos
-    while pos < len && data[pos].to_int() != 0x0A { pos = pos + 1 }
+    while pos < len && data[pos].to_int() != 0x0A {
+      pos = pos + 1
+    }
     let line_end = pos
     pos = pos + 1 // skip \n
     // Find '=' in line
     let mut eq = line_start
-    while eq < line_end && data[eq].to_int() != 0x3D { eq = eq + 1 }
-    if eq >= line_end { continue }
+    while eq < line_end && data[eq].to_int() != 0x3D {
+      eq = eq + 1
+    }
+    if eq >= line_end {
+      continue
+    }
     // Parse key
     let key_len = eq - line_start
     let val_start = eq + 1

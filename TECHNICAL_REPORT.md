@@ -38,12 +38,12 @@
 | 　├ Native CLI/TUI | 2,874 行（9 个文件） |
 | 　└ Wasm CLI | 201 行（1 个文件） |
 | MoonBit 测试代码 | 1,577 行（4 个文件） |
-| C FFI 层 | **458 行**（tui_stub.c，17 个 FFI 函数） |
+| C FFI 层 | **458 行**（tui_stub.c，19 个 FFI 函数） |
 | 支持的二进制格式 | 20 种 |
 | 测试用例数 | 176 个（全部通过） |
 | 支持的操作系统 | Windows 11、Linux |
 | 编译目标 | Native（x86_64）+ Wasm-GC |
-| 外部依赖 | 仅 moonbitlang/x v0.4.45 |
+| 外部依赖 | moonbitlang/x v0.4.45 |
 
 ---
 
@@ -154,7 +154,7 @@ C FFI 层（`tui_stub.c`）封装了 Windows 和 Linux 的差异：
 
 ### 3.2 签名扫描：Aho-Corasick + 置信度验证
 
-十四进制文件签名检测分两阶段进行：
+二进制文件签名检测分两阶段进行：
 
 **阶段一：Aho-Corasick 多模式匹配**
 
@@ -288,7 +288,7 @@ Wasm-GC 版本（`cmd/wasm/main.mbt`）复用全部核心库，去掉 TUI 和 FF
 ### 4.1 测试总览
 
 ```
-$ moon test --target native
+$ moon test
 
 Total tests: 176, passed: 176, failed: 0.
 ```
@@ -352,7 +352,7 @@ Total tests: 176, passed: 176, failed: 0.
 
 本项目是 **MoonBit 语言在系统编程领域最全面的实践案例之一**，在一个统一代码库中验证了：
 
-- **C FFI 互操作**：17 个 extern 函数，封装 Windows conio / Linux termios，验证了 MoonBit 与 C 生态的无缝集成能力
+- **C FFI 互操作**：19 个 extern 函数，封装 Windows conio / Linux termios，验证了 MoonBit 与 C 生态的无缝集成能力
 - **裸终端控制**：不依赖 ncurses 等第三方库，纯 ANSI 转义序列 + 平台 API，证明 MoonBit 可以实现底层系统编程
 - **跨平台编译**：同一套代码编译到 x86_64 Native 和 Wasm-GC 两个目标，零修改共享核心库
 - **算法表达力**：Aho-Corasick 自动机、Shift-Or 位并行、Boyer-Moore-Horspool 等经典算法均在 MoonBit 中自然表达
@@ -428,7 +428,7 @@ hex_editor/
 │   ├── tui_bookmark.mbt     # 书签弹窗（21 槽位）
 │   └── tui_stub.c           # C FFI 桩（终端 / mmap / 目录 / UTF-8）
 ├── cmd/wasm/main.mbt        # Wasm-GC CLI（轻量版，无 TUI）
-├── testfile/                # 24 个测试文件（全部支持格式）
+├── testfile/                # 25 个测试文件（全部支持格式）
 ├── setup.sh / setup.ps1     # 一键搭建脚本
 ├── README.md / README_CN.md # 中英文文档
 └── moon.mod / moon.pkg      # 模块配置

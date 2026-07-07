@@ -1,5 +1,6 @@
 import {
   "R00TK17/hex_editor" @lib,
+  "moonbitlang/core/debug",
   "moonbitlang/x/fs",
   "moonbitlang/x/sys",
 }

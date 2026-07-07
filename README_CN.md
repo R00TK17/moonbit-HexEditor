@@ -20,7 +20,7 @@
 
 | 工具 | 版本 | 用途 |
 |------|------|------|
-| [MoonBit](https://www.moonbitlang.com/download/) | 0.1.20260529+ | 编译器与构建工具 |
+| [MoonBit](https://www.moonbitlang.com/download/) | 0.1.20260703+ | 编译器与构建工具 |
 | GCC | 任意近期版本 | C FFI 编译 |
 | Git | 任意 | 克隆仓库 |
 
@@ -76,27 +76,27 @@ moon update
 **4. 构建（两个目标）**
 
 ```bash
-moon build --target native
+moon build
 moon build --target wasm-gc cmd/wasm
 ```
 
 **5. 运行测试**
 
 ```bash
-moon test --target native          # 176 个测试
+moon test          # 176 个测试
 ```
 
 **6. 启动**
 
 ```bash
 # TUI 模式
-moon run --target native cmd/main -- testfile/test.png
+moon run cmd/main -- testfile/test.png
 
 # CLI 命令
-moon run --target native cmd/main -- view <文件>
-moon run --target native cmd/main -- struct <文件>
-moon run --target native cmd/main -- scan <文件>
-moon run --target native cmd/main -- help
+moon run cmd/main -- view <文件>
+moon run cmd/main -- struct <文件>
+moon run cmd/main -- scan <文件>
+moon run cmd/main -- help
 
 # Wasm-GC CLI（轻量，无 TUI）
 moon run --target wasm-gc cmd/wasm -- struct <文件>
@@ -113,6 +113,29 @@ chmod +x demo.sh && ./demo.sh
 ```
 
 自动运行 6 个代表性命令（struct、scan、view、entropy、encode、search），使用项目自带的测试文件。
+
+### 作为库使用
+
+```bash
+moon add R00TK17/hex_editor
+```
+
+```moonbit
+// 解析二进制文件结构（20 种格式自动识别）
+let fields = @R00TK17/hex_editor.parse_structure(bytes)
+
+// 签名扫描（18 种格式验证器，Aho-Corasick 自动机）
+let matches = @R00TK17/hex_editor.scan_signatures(bytes)
+
+// 香农熵分析（256 字节块，查找表优化）
+let blocks = @R00TK17/hex_editor.entropy_scan(bytes)
+
+// 通配符搜索
+let result = @R00TK17/hex_editor.find_hex_pattern(bytes, "FF ?? ?? EE")
+
+// 编解码：Base64 / URL / Unicode / Hex
+let b64 = @R00TK17/hex_editor.base64_encode(bytes)
+```
 
 ## 功能特性
 
@@ -149,17 +172,17 @@ chmod +x demo.sh && ./demo.sh
 
 ### CLI 命令
 ```
-moon run --target native cmd/main -- view [-b 8|16] <文件>  快速十六进制查看
-moon run --target native cmd/main -- info <文件>      文件信息与类型识别
-moon run --target native cmd/main -- search [-x|-a] <f> <p>  搜索（hex/文本）
-moon run --target native cmd/main -- struct <文件>    结构解析
-moon run --target native cmd/main -- strings <文件>   字符串提取
-moon run --target native cmd/main -- entropy <文件>   熵分析
-moon run --target native cmd/main -- scan <文件>      签名扫描
-moon run --target native cmd/main -- encode <类型> <文件>   编码 (base64/url/unicode/hex)
-moon run --target native cmd/main -- decode <类型> <文件>   解码 (base64/url/unicode/hex)
-moon run --target native cmd/main -- base64 <文件>          Base64 编码（别名）
-moon run --target native cmd/main -- unbase64 <文件>        Base64 解码（别名）
+moon run cmd/main -- view [-b 8|16] <文件>  快速十六进制查看
+moon run cmd/main -- info <文件>      文件信息与类型识别
+moon run cmd/main -- search [-x|-a] <f> <p>  搜索（hex/文本）
+moon run cmd/main -- struct <文件>    结构解析
+moon run cmd/main -- strings <文件>   字符串提取
+moon run cmd/main -- entropy <文件>   熵分析
+moon run cmd/main -- scan <文件>      签名扫描
+moon run cmd/main -- encode <类型> <文件>   编码 (base64/url/unicode/hex)
+moon run cmd/main -- decode <类型> <文件>   解码 (base64/url/unicode/hex)
+moon run cmd/main -- base64 <文件>          Base64 编码（别名）
+moon run cmd/main -- unbase64 <文件>        Base64 解码（别名）
 ```
 
 ### Wasm-GC CLI（轻量版，无 TUI，无 FFI）
@@ -177,7 +200,7 @@ moon run --target wasm-gc cmd/wasm -- decode <类型> <输入>    解码
 ### 输出示例
 
 ```
-$ moon run --target native cmd/main -- struct testfile/test.png
+$ moon run cmd/main -- struct testfile/test.png
 File: testfile/test.png (1.8 MB)
 
 0x00000000  Signature = 89 50 4E 47 0D 0A 1A 0A  -- PNG signature
@@ -186,12 +209,12 @@ File: testfile/test.png (1.8 MB)
 0x00000530  IDAT = 1048576 bytes  -- Image data block
 0x001D0E32  IEND = 0 bytes  -- Image end
 
-$ moon run --target native cmd/main -- scan testfile/hidden.jpg
+$ moon run cmd/main -- scan testfile/hidden.jpg
 0x00000000  JPEG image (83.8 KB)
 0x0000A41A  Trailing data (82 B)
 2 signatures found
 
-$ moon run --target native cmd/main -- encode base64 Hello
+$ moon run cmd/main -- encode base64 Hello
 SGVsbG8=
 ```
 
@@ -213,19 +236,19 @@ SGVsbG8=
 
 ```bash
 # 代码修改后重新构建
-moon build --target native
+moon build
 
 # 运行测试
-moon test --target native
+moon test
 
 # 启动 TUI
-moon run --target native cmd/main -- 文件.bin
-moon run --target native cmd/main                  # 空编辑器
+moon run cmd/main -- 文件.bin
+moon run cmd/main                  # 空编辑器
 
 # CLI 一次性命令（不进入 TUI）
-moon run --target native cmd/main -- view 文件.bin
-moon run --target native cmd/main -- struct 文件.bin
-moon run --target native cmd/main -- scan 文件.bin
+moon run cmd/main -- view 文件.bin
+moon run cmd/main -- struct 文件.bin
+moon run cmd/main -- scan 文件.bin
 ```
 
 ### TUI 快捷键
@@ -304,7 +327,7 @@ hex_editor/
 ├── cmd/wasm/
 │   └── main.mbt                 # Wasm-GC CLI 入口（轻量版，无 FFI）
 ├── testfile/                    # 25 个测试文件（覆盖所有支持格式）
-├── .github/workflows/ci.yml     # CI：检查 → 构建 (native+wasm) → 测试 (Linux+Win)
+├── .github/workflows/ci.yml     # CI：检查 → 格式 → info+diff → 构建 (native+wasm) → 测试 (Linux+Win)
 ├── setup.sh / setup.ps1         # 一键搭建脚本
 ├── demo.sh / demo.ps1           # 运行 6 个 CLI 演示命令
 └── TECHNICAL_REPORT.md          # 初赛技术说明文档
@@ -315,7 +338,7 @@ hex_editor/
 ## 依赖
 
 - [moonbitlang/x](https://github.com/moonbitlang/x) — 文件I/O与系统API
-- MoonBit 0.1.20260529+
+- MoonBit 0.1.20260703+
 
 ## 许可证
 

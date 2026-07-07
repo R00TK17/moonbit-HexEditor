@@ -1,0 +1,116 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "R00TK17/hex_editor"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn base64_decode(String) -> Bytes?
+
+pub fn base64_encode(Bytes) -> String
+
+pub fn entropy_scan(Bytes) -> Array[EntropyBlock]
+
+pub fn extract_region(Bytes, Int, String, String) -> String
+
+pub fn find_all_bytes(Bytes, Bytes) -> Array[Int]
+
+pub fn find_hex_pattern(Bytes, String) -> (Array[Int], Array[Int])?
+
+pub fn find_strings(Bytes) -> Array[StringMatch]
+
+pub fn find_text_pattern(Bytes, String) -> (Array[Int], Array[Int])?
+
+pub fn format_ascii(Byte) -> Char
+
+pub fn format_buffer_info(HexBuffer) -> String
+
+pub fn format_byte_hex(Byte, uppercase? : Bool) -> String
+
+pub fn format_hex_dump(HexBuffer, start_offset? : Int, length? : Int, config? : HexViewConfig) -> String
+
+pub fn format_hex_row(FixedArray[Byte], Int, Int, Int, HexViewConfig) -> String
+
+pub fn format_offset(Int, width? : Int, uppercase? : Bool) -> String
+
+pub fn format_size(Int) -> String
+
+pub fn format_strings_export(Array[StringMatch]) -> String
+
+pub fn format_structure(Array[StructField]) -> String
+
+pub fn format_structure_json(Array[StructField]) -> String
+
+pub fn hex_decode(String) -> Bytes?
+
+pub fn hex_encode(Bytes) -> String
+
+pub fn parse_hex_string(String) -> Bytes?
+
+pub fn parse_structure(Bytes) -> Array[StructField]
+
+pub fn scan_signatures(Bytes) -> Array[ScanMatch]
+
+pub fn to_hex_string(Int, width? : Int) -> String
+
+pub fn unicode_decode(String) -> Bytes?
+
+pub fn unicode_encode(Bytes) -> String
+
+pub fn url_decode(String) -> Bytes?
+
+pub fn url_encode(Bytes) -> String
+
+// Errors
+
+// Types and methods
+pub struct EntropyBlock {
+  start : Int
+  end : Int
+  entropy : Double
+} derive(@debug.Debug)
+
+type HexBuffer
+pub fn HexBuffer::byte_at(Self, Int) -> Byte
+pub fn HexBuffer::data_ref(Self) -> FixedArray[Byte]
+pub fn HexBuffer::delete_byte(Self, Int) -> Bool
+pub fn HexBuffer::from_bytes(Bytes) -> Self
+pub fn HexBuffer::from_file(String) -> Self raise
+pub fn HexBuffer::get_byte(Self, Int) -> Byte?
+pub fn HexBuffer::get_file_path(Self) -> String?
+pub fn HexBuffer::insert_byte(Self, Int, Byte) -> Bool
+pub fn HexBuffer::is_empty(Self) -> Bool
+pub fn HexBuffer::is_modified(Self) -> Bool
+pub fn HexBuffer::length(Self) -> Int
+pub fn HexBuffer::new() -> Self
+pub fn HexBuffer::save(Self, path? : String) -> Unit raise
+pub fn HexBuffer::set_byte(Self, Int, Byte) -> Bool
+pub fn HexBuffer::set_file_path(Self, String) -> Unit
+pub fn HexBuffer::to_bytes(Self) -> Bytes
+pub fn HexBuffer::to_fixedarray(Self) -> FixedArray[Byte]
+
+type HexViewConfig
+pub fn HexViewConfig::default() -> Self
+pub fn HexViewConfig::with_ascii(Self, Bool) -> Self
+pub fn HexViewConfig::with_bytes_per_row(Self, Int) -> Self
+pub fn HexViewConfig::with_uppercase(Self, Bool) -> Self
+
+pub struct ScanMatch {
+  offset : Int
+  name : String
+  mut size : Int
+  mut confidence : Int
+} derive(@debug.Debug)
+
+pub struct StringMatch {
+  offset : Int
+  text : String
+} derive(@debug.Debug)
+
+type StructField derive(@debug.Debug)
+
+// Type aliases
+
+// Traits
+
