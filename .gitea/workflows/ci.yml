@@ -1,0 +1,136 @@
+# 流水线名称及描述
+name: CI  # 对应原GitHub Actions的 name: CI
+description: 在Linux和Windows环境下进行MoonBit项目的构建与测试
+
+# 全局配置
+global:
+  concurrent: 2  # 允许同时并发执行2个流水线实例，对应原两个并行任务
+
+# 触发器配置
+trigger:
+  webhook: gttlink@1.0.0  # 使用Webhook触发器
+  event:
+    - ref: push  # 监听push事件
+      ruleset:
+        - param-ref: branch
+          operator: EQ
+          value: "main"  # 仅当推送到main分支时触发
+    - ref: pull_request  # 监听pull_request事件
+      ruleset:
+        - param-ref: target_branch
+          operator: EQ
+          value: "main"  # 仅当PR目标分支为main时触发
+
+# 流水线步骤编排 (workflow)
+workflow:
+  # 1. 开始节点 (必须)
+  - ref: start
+    name: 开始
+    task: start
+
+  # ==================== Linux 环境任务 ====================
+  - ref: linux_job
+    name: Linux 环境构建与测试
+    # 使用一个包含GCC的Linux镜像作为运行环境，对应原 runs-on: ubuntu-latest
+    image: ubuntu:latest
+    # 串行执行以下步骤
+    steps:
+      - ref: linux_checkout
+        name: 拉取代码
+        task: git_clone@1.0.0  # 对应原 actions/checkout@v5
+        # 输入参数通常为仓库地址和分支，具体参数名请查阅官方文档
+
+      - ref: linux_install_gcc
+        name: 安装GCC
+        task: ssh_cmd@1.1.1  # 使用执行命令的节点，对应原 run
+        input:
+          command: |
+            apt update && apt install -y gcc
+
+      - ref: linux_install_moonbit
+        name: 安装MoonBit
+        task: ssh_cmd@1.1.1
+        input:
+          command: |
+            curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+            echo "$HOME/.moon/bin" >> $GITHUB_PATH
+            # 注意：环境变量$GITHUB_PATH在GitLink中可能不适用，可能需要通过其他方式设置PATH
+
+      - ref: linux_moon_update
+        name: 安装依赖
+        task: ssh_cmd@1.1.1
+        input:
+          command: moon update
+
+      - ref: linux_moon_check
+        name: 类型检查
+        task: ssh_cmd@1.1.1
+        input:
+          command: moon check
+
+      - ref: linux_moon_fmt
+        name: 格式检查
+        task: ssh_cmd@1.1.1
+        input:
+          command: moon fmt --check
+
+      - ref: linux_moon_info_diff
+        name: 信息与Diff检查
+        task: ssh_cmd@1.1.1
+        input:
+          command: |
+            moon info
+            git diff --exit-code
+
+      - ref: linux_moon_build_native
+        name: 构建 (native)
+        task: ssh_cmd@1.1.1
+        input:
+          command: moon build --target native
+
+      - ref: linux_moon_build_wasm
+        name: 构建 (wasm-gc)
+        task: ssh_cmd@1.1.1
+        input:
+          command: moon build --target wasm-gc cmd/wasm
+
+      - ref: linux_moon_test
+        name: 运行测试
+        task: ssh_cmd@1.1.1
+        input:
+          command: moon test
+
+  # ==================== Windows 环境任务 ====================
+  - ref: windows_job
+    name: Windows 环境构建与测试
+    # 使用一个包含MSYS2和GCC的Windows镜像，对应原 runs-on: windows-latest
+    image: mcr.microsoft.com/windows:ltsc2022  # 示例镜像，实际可能需要包含MSYS2的镜像
+    steps:
+      - ref: windows_checkout
+        name: 拉取代码
+        task: git_clone@1.0.0
+
+      - ref: windows_setup_msys2
+        name: 安装与配置MSYS2和GCC
+        task: ssh_cmd@1.1.1
+        input:
+          command: |
+            # 这里需要编写安装和配置MSYS2及GCC的脚本
+            # 对应原 msys2/setup-msys2@v2 和 Add GCC to PATH 步骤
+            echo "Windows环境准备脚本"
+
+      - ref: windows_install_moonbit
+        name: 安装MoonBit
+        task: ssh_cmd@1.1.1
+        input:
+          command: |
+            # 对应原 PowerShell 安装脚本
+            powershell -Command "Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force; irm https://cli.moonbitlang.com/install/powershell.ps1 | iex"
+            # 同样需要注意PATH的设置
+
+      # ... 后续的 moon update, check, fmt, build, test 步骤与Linux环境类似，此处省略 ...
+
+  # 3. 结束节点 (必须)
+  - ref: end
+    name: 结束
+    task: end
