@@ -21,6 +21,7 @@
 | 熵分析 | 256 字节块香农熵，颜色柱状图可视化 | ✓ |
 | 字符串提取 | 可打印 ASCII 序列提取（≥4 字节），跳转高亮 | ✓ |
 | 编解码 | Base64 / URL / Unicode / Hex 编解码，交互式弹窗实时预览 | ✓ |
+| 哈希/校验和 | MD5 / SHA1 / SHA256 / SHA224 / SM3（国密），`m` 键弹窗，`Enter` 复制 | ✓ |
 | 多文件支持 | Tab 文件列表弹窗，独立切换/关闭多个文件 | ✓ |
 | 文件浏览器 | 目录导航、文件打开（`o` 键），UTF-8 中文文件名支持 | ✓ |
 | 导出功能 | 结构信息导出 JSON、字符串导出文本 | ✓ |
@@ -33,14 +34,14 @@
 
 | 指标 | 数值 |
 |------|------|
-| 有效 MoonBit 代码 | **6,202 行**（18 个源文件） |
-| 　├ 核心库（Native + Wasm 共享） | 3,127 行（8 个文件） |
+| 有效 MoonBit 代码 | **6,295 行**（19 个源文件） |
+| 　├ 核心库（Native + Wasm 共享） | 3,220 行（9 个文件） |
 | 　├ Native CLI/TUI | 2,874 行（9 个文件） |
 | 　└ Wasm CLI | 201 行（1 个文件） |
 | MoonBit 测试代码 | 1,577 行（4 个文件） |
 | C FFI 层 | **458 行**（tui_stub.c，19 个 FFI 函数） |
 | 支持的二进制格式 | 20 种 |
-| 测试用例数 | 176 个（全部通过） |
+| 测试用例数 | 177 个（全部通过） |
 | 支持的操作系统 | Windows 11、Linux |
 | 编译目标 | Native（x86_64）+ Wasm-GC |
 | 外部依赖 | moonbitlang/x v0.4.45 |
@@ -68,6 +69,7 @@
 │  ├─ 签名扫描 (hex_scan.mbt)                          │
 │  ├─ 显示格式 (hex_view.mbt)                          │
 │  ├─ 编解码器 (hex_codec.mbt)                         │
+│  ├─ 哈希/校验和 (hex_hash.mbt)                       │
 │  ├─ 熵分析 (hex_entropy.mbt)                         │
 │  └─ 字符串提取 (hex_strings.mbt)                     │
 ├─────────────────────────────────────────────────────┤
@@ -277,9 +279,19 @@ H = -Σ (count_k / 256) × log2(count_k / 256)   [完整块]
 
 Wasm-GC 版本（`cmd/wasm/main.mbt`）复用全部核心库，去掉 TUI 和 FFI 依赖：
 
-- 支持 view / struct / scan / strings / entropy / search / encode / decode / help 共 9 个 CLI 命令
+- 支持 view / struct / scan / strings / entropy / search / encode / decode / hash / help 共 10 个 CLI 命令
 - 使用 MoonBit 的 `println` 直接输出，无终端控制依赖
 - 同一套 20 种格式解析器和搜索算法，零代码重复
+
+### 3.8 哈希/校验和：crypto 库封装
+
+哈希功能完全复用 `moonbitlang/x/crypto` 的纯 MoonBit 实现（MD5 / SHA1 / SHA224 / SHA256 / SM3），仅做薄封装与统一小写 hex 输出：
+
+- `md5_hex` / `sha1_hex` / `sha256_hex` / `sha224_hex` / `sm3_hex`：将 `Bytes` 摘要转为小写 hex 字符串
+- `hash_all`：一次性计算全部 5 种摘要，供 CLI 与 TUI 复用
+- `HashResult { name, value }`：结构化结果，TUI 弹窗据此渲染并支持 `Enter` 复制
+
+由于 crypto 库为纯 MoonBit（无 FFI），该模块在 Native 与 Wasm-GC 两个目标下零修改共享，`cmd/wasm` 同样获得 `hash` 命令。摘要值经标准向量（"abc" / 空串）与系统 `md5sum` / `sha256sum` 交叉验证一致。
 
 ---
 
@@ -290,10 +302,10 @@ Wasm-GC 版本（`cmd/wasm/main.mbt`）复用全部核心库，去掉 TUI 和 FF
 ```
 $ moon test
 
-Total tests: 176, passed: 176, failed: 0.
+Total tests: 177, passed: 177, failed: 0.
 ```
 
-全部 176 个测试用例通过，覆盖核心库全部模块。
+全部 177 个测试用例通过，覆盖核心库全部模块。
 
 ### 4.2 测试覆盖矩阵
 
@@ -303,6 +315,7 @@ Total tests: 176, passed: 176, failed: 0.
 | Gap Buffer 机制 | 2 | hex_editor.mbt | 跨位置插入间隙移动、大量插入触发扩容 |
 | 显示格式化 | 8 | hex_view.mbt | 字节 hex/ASCII、偏移、尺寸、hex dump、已知值验证 |
 | 编解码 | 16 | hex_codec.mbt | Base64/URL/Unicode/Hex 往返测试、已知向量、非法输入 |
+| 哈希/校验和 | 1 | hex_hash.mbt | MD5/SHA1/SHA256/SHA224/SM3 标准向量验证 |
 | 搜索算法 | 14 | hex_search.mbt | BMH 精确位置、hex 模式解析、`??`/`*`/`*N` 通配符、文本模式、`\` 转义 |
 | 格式扫描与解析 | 23 | hex_scan + hex_struct | 18 格式签名扫描 + 20 格式结构解析 + JPEG 结构验证 + Zlib FCHECK + 容器抑制 + 新格式(OGG/MP3/FLAC/WebM) |
 | 隐写与混合 | 2 | hex_scan.mbt | hidden.jpg 嵌入检测、mergejp.jpg 多文件合并 |
@@ -326,7 +339,7 @@ Total tests: 176, passed: 176, failed: 0.
 
 ### 4.4 跨平台验证
 
-| 平台 | 编译 | 测试 (176 cases) | TUI 交互 | CLI 命令 | Wasm-GC |
+| 平台 | 编译 | 测试 (177 cases) | TUI 交互 | CLI 命令 | Wasm-GC |
 |------|------|----------------|---------|---------|---------|
 | Windows 11 | ✓ | ✓ 全部通过 | ✓ | ✓ | ✓ |
 | Linux | ✓ | ✓ 全部通过 | ✓ | ✓ | ✓ |
@@ -356,7 +369,7 @@ Total tests: 176, passed: 176, failed: 0.
 - **裸终端控制**：不依赖 ncurses 等第三方库，纯 ANSI 转义序列 + 平台 API，证明 MoonBit 可以实现底层系统编程
 - **跨平台编译**：同一套代码编译到 x86_64 Native 和 Wasm-GC 两个目标，零修改共享核心库
 - **算法表达力**：Aho-Corasick 自动机、Shift-Or 位并行、Boyer-Moore-Horspool 等经典算法均在 MoonBit 中自然表达
-- **大型工程组织**：18 个源文件、约 6,200 行代码、176 个测试用例，证明 MoonBit 具备中型项目的工程化能力
+- **大型工程组织**：19 个源文件、约 6,300 行代码、177 个测试用例，证明 MoonBit 具备中型项目的工程化能力
 
 ### 5.2 搜索算法的三级自适应调度
 
@@ -390,8 +403,9 @@ Total tests: 176, passed: 176, failed: 0.
 3. `h` 熵分析 → 通过信息熵分布识别加密/压缩区域
 4. `t` 结构解析 → 深入查看 20 种格式的内部结构
 5. `c` 编解码 → 交互式 Base64/URL/Unicode/Hex 转换
-6. `x` 数据提取 → 导出检测到的嵌入文件
-7. `e` 导出 → 结构信息输出 JSON、字符串输出文本
+6. `m` 哈希/校验和 → 一键计算 MD5/SHA1/SHA256/SHA224/SM3
+7. `x` 数据提取 → 导出检测到的嵌入文件
+8. `e` 导出 → 结构信息输出 JSON、字符串输出文本
 
 所有分析结果带缓存机制：在编辑操作前，重复打开扫描/字符串/熵视图保持上次位置和结果。
 
@@ -417,11 +431,12 @@ hex_editor/
 ├── hex_strings.mbt          # 可打印 ASCII 字符串提取
 ├── hex_entropy.mbt          # 香农熵分析（查找表优化）
 ├── hex_codec.mbt            # Base64 / URL / Unicode / Hex 编解码
-├── hex_editor_test.mbt      # 176 个测试用例
+├── hex_hash.mbt             # 哈希/校验和：MD5 / SHA1 / SHA256 / SHA224 / SM3
+├── hex_editor_test.mbt      # 177 个测试用例
 ├── cmd/main/
-│   ├── main.mbt             # CLI 入口（14 个子命令）
+│   ├── main.mbt             # CLI 入口（15 个子命令）
 │   ├── tui.mbt              # TUI 主循环、FFI 声明、mmap 加载
-│   ├── tui_draw.mbt         # 全屏渲染（hex dump + 8 个弹窗）
+│   ├── tui_draw.mbt         # 全屏渲染（hex dump + 9 个弹窗）
 │   ├── tui_key.mbt          # 按键分发（全部模式的事件处理器）
 │   ├── tui_edit.mbt         # 编辑模式、撤销/重做系统
 │   ├── tui_files.mbt        # 文件浏览器、多文件管理、书签持久化

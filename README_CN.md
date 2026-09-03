@@ -83,7 +83,7 @@ moon build --target wasm-gc cmd/wasm
 **5. 运行测试**
 
 ```bash
-moon test          # 176 个测试
+moon test          # 177 个测试
 ```
 
 **6. 启动**
@@ -163,6 +163,7 @@ let b64 = @R00TK17/hex_editor.base64_encode(bytes)
 - 提取与检测：`x` 键提取选中段，尾部数据自动告警
 - 导出：`e` 键在结构/字符串视图 — 结构为 JSON，字符串为纯文本
 - 编解码弹窗：`c` 键，交互式 Base64/URL/Unicode/Hex 编解码，实时预览
+- 哈希/校验和：`m` 键，MD5/SHA1/SHA256/SHA224/SM3（国密），`Enter` 复制到状态栏
 - 多文件支持：同时打开多个文件，`Tab` 文件列表弹窗，独立切换/关闭
 - 文件浏览器：`o` 键打开目录浏览，`Enter` 打开/进入，`o` 输入路径，支持中文文件名
 - 书签持久化：书签 + 滚动位置自动保存到 `~/.hexedit/`，下次打开自动恢复
@@ -179,6 +180,7 @@ moon run cmd/main -- struct <文件>    结构解析
 moon run cmd/main -- strings <文件>   字符串提取
 moon run cmd/main -- entropy <文件>   熵分析
 moon run cmd/main -- scan <文件>      签名扫描
+moon run cmd/main -- hash <文件>      哈希/校验和 (MD5/SHA1/SHA256/SHA224/SM3)
 moon run cmd/main -- encode <类型> <文件>   编码 (base64/url/unicode/hex)
 moon run cmd/main -- decode <类型> <文件>   解码 (base64/url/unicode/hex)
 moon run cmd/main -- base64 <文件>          Base64 编码（别名）
@@ -190,6 +192,7 @@ moon run cmd/main -- unbase64 <文件>        Base64 解码（别名）
 moon run --target wasm-gc cmd/wasm -- view <文件>            Hex dump（前 256 字节）
 moon run --target wasm-gc cmd/wasm -- struct <文件>           结构解析
 moon run --target wasm-gc cmd/wasm -- scan <文件>             签名扫描
+moon run --target wasm-gc cmd/wasm -- hash <文件>             哈希/校验和
 moon run --target wasm-gc cmd/wasm -- search <文件> <模式>    搜索
 moon run --target wasm-gc cmd/wasm -- strings <文件>          字符串
 moon run --target wasm-gc cmd/wasm -- entropy <文件>          熵分析
@@ -271,6 +274,7 @@ moon run cmd/main -- scan 文件.bin
 | `h` | 熵分析 | | |
 | `s` | 字符串提取 | | |
 | `c` | 编解码 | | |
+| `m` | 哈希/校验和 | | |
 | `o` | 文件浏览器 | | |
 | `Tab` | 文件列表（多文件） | | |
 
@@ -285,6 +289,8 @@ moon run cmd/main -- scan 文件.bin
 字符串提取：`↑↓←→` 导航、`Enter` 跳转+高亮、`s`/`Esc` 关闭。
 
 编解码：`←→` 切换类型（Base64/URL/Unicode/Hex）、`Tab` 切换编码/解码、直接输入文本、`Esc` 关闭。
+
+哈希：`↑↓` 选择、`Enter` 复制到状态栏、`m`/`Esc` 关闭。
 
 文件浏览器（`o`）：`↑↓` 导航、`Enter` 打开文件/进入目录、`o` 输入路径、`Esc` 取消。
 
@@ -309,7 +315,8 @@ hex_editor/
 ├── hex_strings.mbt              # 可打印 ASCII 字符串提取
 ├── hex_entropy.mbt              # 香农熵分析（256 字节块）
 ├── hex_codec.mbt                # 编解码：Base64、URL、Unicode、Hex
-├── hex_editor_test.mbt          # 176 个单元 + 集成测试
+├── hex_hash.mbt                 # 哈希/校验和：MD5、SHA1、SHA256、SHA224、SM3
+├── hex_editor_test.mbt          # 177 个单元 + 集成测试
 ├── cmd/main/
 │   ├── main.mbt                 # CLI 入口（view/info/struct/strings/entropy/scan）
 │   ├── helpers.mbt              # CLI 参数解析、文件加载、类型检测

@@ -18,6 +18,7 @@ fn main {
     "strings" => cmd_strings(argv)
     "entropy" => cmd_entropy(argv)
     "scan" => cmd_scan(argv)
+    "hash" => cmd_hash(argv)
     "base64" => cmd_base64(argv)
     "unbase64" => cmd_unbase64(argv)
     "encode" => cmd_encode(argv)
@@ -338,6 +339,57 @@ fn cmd_scan(argv : Array[String]) -> Unit {
 }
 
 ///|
+/// Pad a string on the right to a minimum width.
+fn pad_right(s : String, width : Int) -> String {
+  let sb = StringBuilder()
+  sb.write_string(s)
+  for _i = s.length(); _i < width; _i = _i + 1 {
+    sb.write_char(' ')
+  }
+  sb.to_string()
+}
+
+///|
+/// Hash / checksum command.
+fn cmd_hash(argv : Array[String]) -> Unit {
+  let path = match find_file_arg(argv, "hash") {
+    Some(p) => p
+    None => {
+      println("Usage: hash <file> [--md5|--sha1|--sha256|--sha224|--sm3|--all]")
+      return
+    }
+  }
+  match load_file(path) {
+    Err(m) => {
+      println("Error: \{m}")
+      return
+    }
+    Ok(buf) => {
+      let data = buf.to_bytes()
+      let results = @lib.hash_all(data)
+      let filters = [
+        has_flag(argv, "--md5"),
+        has_flag(argv, "--sha1"),
+        has_flag(argv, "--sha256"),
+        has_flag(argv, "--sha224"),
+        has_flag(argv, "--sm3"),
+      ]
+      let any_specific = filters[0] ||
+        filters[1] ||
+        filters[2] ||
+        filters[3] ||
+        filters[4]
+      println("File: \{path} (\{@lib.format_size(buf.length())})")
+      for i = 0; i < results.length(); i = i + 1 {
+        if !any_specific || filters[i] {
+          println(pad_right(results[i].name, 8) + results[i].value)
+        }
+      }
+    }
+  }
+}
+
+///|
 fn hl_print_hex(
   buf : @lib.HexBuffer,
   ctx : Int,
@@ -594,6 +646,7 @@ fn cmd_help() -> Unit {
   println("  strings <file>                String extraction")
   println("  entropy <file>                Entropy analysis")
   println("  scan <file>                   Signature scan")
+  println("  hash <file>                   Hash (MD5/SHA1/SHA256/SHA224/SM3)")
   println("  encode <type> <file|string>   Encode (base64/url/unicode/hex)")
   println("  decode <type> <file|string>   Decode (base64/url/unicode/hex)")
   println("  help                          This help")
@@ -604,7 +657,9 @@ fn cmd_help() -> Unit {
   println("")
   println("TUI Keys:")
   println("  q:quit  o:open  g:goto  e:edit  /:hex  f:text  n/p:match")
-  println("  t:struct  w:scan  s:strings  h:entropy  c:codec  Tab:files")
+  println(
+    "  t:struct  w:scan  s:strings  h:entropy  c:codec  m:hash  Tab:files",
+  )
   println("  Edit: Ins:ins/ovr  Ctrl+Y:sel  Ctrl+N:copy  Ctrl+L:paste")
   println("        Ctrl+Z:undo  Ctrl+R:redo  Ctrl+X:save  Del:delete")
 }

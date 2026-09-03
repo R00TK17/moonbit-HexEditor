@@ -47,6 +47,10 @@ struct TuiState {
   mut entropy_sel : Int
   mut entropy_blocks : Array[@lib.EntropyBlock]
   mut entropy_done : Bool
+  mut hash_view : Bool
+  mut hash_sel : Int
+  mut hash_results : Array[@lib.HashResult]
+  mut hash_done : Bool
   mut strings_view : Bool
   mut strings_sel : Int
   mut strings_scroll : Int
@@ -120,6 +124,10 @@ pub fn TuiState::new(file_path : String?, buffer : @lib.HexBuffer) -> TuiState {
     entropy_sel: 0,
     entropy_blocks: [],
     entropy_done: false,
+    hash_view: false,
+    hash_sel: 0,
+    hash_results: [],
+    hash_done: false,
     strings_view: false,
     strings_sel: 0,
     strings_scroll: 0,
@@ -445,6 +453,30 @@ pub fn handle_key(
     state.running = false
   } else if state.strings_view {
     ()
+    // ====== Hash popup ======
+  } else if state.hash_view && key == -1 {
+    if state.hash_sel > 0 {
+      state.hash_sel = state.hash_sel - 1
+    }
+  } else if state.hash_view && key == -2 {
+    let total = state.hash_results.length()
+    if state.hash_sel + 1 < total {
+      state.hash_sel = state.hash_sel + 1
+    }
+  } else if state.hash_view && key == 13 {
+    let total = state.hash_results.length()
+    if total > 0 && state.hash_sel < total {
+      let r = state.hash_results[state.hash_sel]
+      state.msg = "\{r.name} = \{r.value}"
+    }
+  } else if state.hash_view &&
+    (key == 'm'.to_int() || key == 'M'.to_int() || key == 27) {
+    state.hash_view = false
+    state.msg = "Hex view"
+  } else if state.hash_view && (key == 'q'.to_int() || key == 'Q'.to_int()) {
+    state.running = false
+  } else if state.hash_view {
+    ()
     // ====== Codec popup ======
   } else if state.codec_view {
     handle_codec_key(state, key)
@@ -605,6 +637,7 @@ pub fn handle_key(
     state.strings_done = false
     state.entropy_done = false
     state.struct_done = false
+    state.hash_done = false
     buffer.delete_byte(state.edit_off) |> ignore
     if state.edit_off >= buffer.length() && state.edit_off > 0 {
       state.edit_off = state.edit_off - 1
@@ -636,6 +669,7 @@ pub fn handle_key(
     state.strings_done = false
     state.entropy_done = false
     state.struct_done = false
+    state.hash_done = false
     if state.insert_mode {
       let (new_off, new_nib, msg) = handle_hex_input_insert(
         buffer,
@@ -673,6 +707,7 @@ pub fn handle_key(
     state.strings_done = false
     state.entropy_done = false
     state.struct_done = false
+    state.hash_done = false
     if state.insert_mode {
       let (new_off, new_nib, msg) = handle_hex_input_insert(
         buffer,
@@ -710,6 +745,7 @@ pub fn handle_key(
     state.strings_done = false
     state.entropy_done = false
     state.struct_done = false
+    state.hash_done = false
     let lower = key + ('a'.to_int() - 'A'.to_int())
     if state.insert_mode {
       let (new_off, new_nib, msg) = handle_hex_input_insert(
@@ -746,6 +782,7 @@ pub fn handle_key(
     state.strings_done = false
     state.entropy_done = false
     state.struct_done = false
+    state.hash_done = false
     let ch = key.to_char().unwrap()
     if state.insert_mode {
       buffer.insert_byte(state.edit_off, ch.to_int().to_byte()) |> ignore
@@ -1241,6 +1278,16 @@ pub fn handle_key(
     state.codec_input = ""
     state.codec_result = ""
     state.msg = "Codec"
+  } else if key == 'm'.to_int() || key == 'M'.to_int() {
+    let was_cached = state.hash_done
+    if !state.hash_done {
+      state.hash_results = @lib.hash_all(buffer.to_bytes())
+      state.hash_done = true
+      state.hash_sel = 0
+    }
+    state.hash_view = true
+    let suffix = if was_cached { " (cached)" } else { "" }
+    state.msg = "Hash / checksum\{suffix}"
   } else if key == '?'.to_int() {
     state.msg = "q:quit g:goto /:hex f:text n/p:match e:edit t:struct b:bookmark h:entropy"
   }

@@ -83,7 +83,7 @@ moon build --target wasm-gc cmd/wasm
 **5. Run tests**
 
 ```bash
-moon test          # 176 tests
+moon test          # 177 tests
 ```
 
 **6. Launch**
@@ -163,6 +163,7 @@ let b64 = @R00TK17/hex_editor.base64_encode(bytes)
 - Extraction: `x` key to dump selected match, trailing data detection
 - Export: `e` key in struct/strings views — structure as JSON, strings as text
 - Codec popup: `c` key, interactive Base64/URL/Unicode/Hex encode/decode with live preview
+- Hash/checksum: `m` key, MD5/SHA1/SHA256/SHA224/SM3, `Enter` copies to status bar
 - Multi-file: open multiple files, `Tab` file list popup, switch/close files independently
 - File browser: `o` key opens directory browser with navigation, `Enter` open/enter, `o` type path directly
 - Bookmark persistence: bookmarks + scroll position auto-saved to `~/.hexedit/`, restored on next open
@@ -178,6 +179,7 @@ moon run cmd/main -- struct <file>    Structure analysis
 moon run cmd/main -- strings <file>   String extraction
 moon run cmd/main -- entropy <file>   Entropy analysis
 moon run cmd/main -- scan <file>      Signature scan
+moon run cmd/main -- hash <file>      Hash (MD5/SHA1/SHA256/SHA224/SM3)
 moon run cmd/main -- encode <type> <f>   Encode (base64/url/unicode/hex)
 moon run cmd/main -- decode <type> <f>   Decode (base64/url/unicode/hex)
 moon run cmd/main -- base64 <file>       Base64 encode (alias)
@@ -189,6 +191,7 @@ moon run cmd/main -- unbase64 <file>     Base64 decode (alias)
 moon run --target wasm-gc cmd/wasm -- view <file>            Hex dump (first 256 bytes)
 moon run --target wasm-gc cmd/wasm -- struct <file>           Structure analysis
 moon run --target wasm-gc cmd/wasm -- scan <file>             Signature scan
+moon run --target wasm-gc cmd/wasm -- hash <file>             Hash / checksum
 moon run --target wasm-gc cmd/wasm -- search <file> <pattern> Search
 moon run --target wasm-gc cmd/wasm -- strings <file>          Strings
 moon run --target wasm-gc cmd/wasm -- entropy <file>          Entropy
@@ -270,6 +273,7 @@ moon run cmd/main -- scan file.bin
 | `h` | Entropy analysis | | |
 | `s` | Strings extraction | | |
 | `c` | Codec (encode/decode) | | |
+| `m` | Hash / checksum | | |
 | `o` | File browser | | |
 | `Tab` | File list (multi-file) | | |
 
@@ -284,6 +288,8 @@ Entropy scan: `↑↓←→` navigate, `Enter` jump to block, `h`/`Esc` close.
 Strings: `↑↓←→` navigate, `Enter` jump+highlight, `s`/`Esc` close.
 
 Codec: `←→` switch type (Base64/URL/Unicode/Hex), `Tab` toggle encode/decode, type text, `Esc` close.
+
+Hash: `↑↓` select, `Enter` copy to status bar, `m`/`Esc` close.
 
 File browser (`o`): `↑↓` navigate, `Enter` open file / enter dir, `o` type path, `Esc` cancel.
 
@@ -308,7 +314,8 @@ hex_editor/
 ├── hex_strings.mbt              # Printable ASCII string extraction
 ├── hex_entropy.mbt              # Shannon entropy analysis (256-byte blocks)
 ├── hex_codec.mbt                # Codecs: Base64, URL, Unicode, Hex encoding/decoding
-├── hex_editor_test.mbt          # 176 unit + integration tests
+├── hex_hash.mbt                 # Hash/checksum: MD5, SHA1, SHA256, SHA224, SM3
+├── hex_editor_test.mbt          # 177 unit + integration tests
 ├── cmd/main/
 │   ├── main.mbt                 # CLI entry (view/info/struct/strings/entropy/scan)
 │   ├── helpers.mbt              # CLI argument parsing, file loading, type detection

@@ -121,6 +121,9 @@ fn draw_screen(
   strings_sel : Int,
   strings_scroll : Int,
   strings_matches : Array[@lib.StringMatch],
+  hash_view : Bool,
+  hash_sel : Int,
+  hash_results : Array[@lib.HashResult],
   codec_view : Bool,
   codec_type : Int,
   codec_encode : Bool,
@@ -153,6 +156,8 @@ fn draw_screen(
     draw_strings_popup(
       sb, strings_sel, strings_scroll, strings_matches, screen_rows, term_cols,
     )
+  } else if hash_view {
+    draw_hash_popup(sb, hash_sel, hash_results, screen_rows)
   } else if codec_view {
     draw_codec_popup(
       sb, codec_type, codec_encode, codec_input, codec_result, screen_rows, term_cols,
@@ -394,6 +399,14 @@ fn draw_screen(
       clip("q:quit Enter:jump e:export s:close", w) +
       " \u001b[0m\u001b[K",
     )
+  } else if hash_view {
+    let row = screen_rows + 2
+    sb.write_string("\u001b[" + row.to_string() + ";1H")
+    sb.write_string(
+      "\u001b[47;30m " +
+      clip("q:quit  Enter:copy  m:close", w) +
+      " \u001b[0m\u001b[K",
+    )
   } else if codec_view {
     let row = screen_rows + 2
     sb.write_string("\u001b[" + row.to_string() + ";1H")
@@ -447,7 +460,8 @@ fn draw_screen(
     sb.write_string(
       "\u001b[47;30m " +
       clip(
-        "w:scan s:strings h:entropy t:struct b:bookmark c:codec Tab:files", w,
+        "w:scan s:strings h:entropy t:struct b:bookmark c:codec m:hash Tab:files",
+        w,
       ) +
       " \u001b[0m\u001b[K",
     )
@@ -609,6 +623,46 @@ fn draw_strings_popup(
   let displayed = end - scroll
   let remaining = if screen_rows > displayed + 1 {
     screen_rows - displayed - 1
+  } else {
+    0
+  }
+  for _i = 0; _i < remaining; _i = _i + 1 {
+    sb.write_string("  \u001b[K\r\n")
+  }
+}
+
+///|
+/// Pad a string on the right to a fixed 8-char column.
+fn pad8(text : String) -> String {
+  let sb = StringBuilder()
+  sb.write_string(text)
+  for _i = text.length(); _i < 8; _i = _i + 1 {
+    sb.write_char(' ')
+  }
+  sb.to_string()
+}
+
+///|
+/// Draw the hash / checksum popup.
+fn draw_hash_popup(
+  sb : StringBuilder,
+  sel : Int,
+  results : Array[@lib.HashResult],
+  screen_rows : Int,
+) -> Unit {
+  sb.write_string("  -- Hash / Checksum --\u001b[K\r\n")
+  for i = 0; i < results.length(); i = i + 1 {
+    let r = results[i]
+    let marker = if i == sel { "> " } else { "  " }
+    let line = marker + pad8(r.name) + r.value
+    if i == sel {
+      sb.write_string("  \u001b[44;37m" + line + "\u001b[0m\u001b[K\r\n")
+    } else {
+      sb.write_string("  " + line + "\u001b[K\r\n")
+    }
+  }
+  let remaining = if screen_rows > results.length() + 1 {
+    screen_rows - results.length() - 1
   } else {
     0
   }

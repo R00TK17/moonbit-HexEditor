@@ -210,6 +210,9 @@ pub fn run_tui(file_path : String?) -> Unit {
       state.strings_sel,
       state.strings_scroll,
       state.strings_matches,
+      state.hash_view,
+      state.hash_sel,
+      state.hash_results,
       state.codec_view,
       state.codec_type,
       state.codec_encode,
@@ -275,6 +278,7 @@ pub fn run_tui(file_path : String?) -> Unit {
       state.scan_done = false
       state.strings_done = false
       state.entropy_done = false
+      state.hash_done = false
       state.results = []
       state.match_len = 0
       state.match_lens = []

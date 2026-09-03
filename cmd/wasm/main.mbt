@@ -17,6 +17,7 @@ fn main {
     "view" => cmd_view(args)
     "struct" => cmd_struct(args)
     "scan" => cmd_scan(args)
+    "hash" => cmd_hash(args)
     "strings" => cmd_strings(args)
     "entropy" => cmd_entropy(args)
     "search" => cmd_search(args)
@@ -124,6 +125,26 @@ fn cmd_scan(args : Array[String]) -> Unit {
     )
   }
   println("\{matches.length()} signatures found")
+}
+
+///|
+fn cmd_hash(args : Array[String]) -> Unit {
+  let path = match find_arg(args, "hash") {
+    Some(p) => p
+    None => {
+      println("Usage: hash <file>")
+      return
+    }
+  }
+  let data = match load(path) {
+    Some(d) => d
+    None => return
+  }
+  let results = @lib.hash_all(data)
+  println("File: \{path} (\{@lib.format_size(data.length())})")
+  for i = 0; i < results.length(); i = i + 1 {
+    println("\{results[i].name}  \{results[i].value}")
+  }
 }
 
 ///|
@@ -335,6 +356,7 @@ fn print_help() -> Unit {
   println("  view <file>              Hex dump (first 256 bytes)")
   println("  struct <file>            Structure analysis")
   println("  scan <file>              Signature scan")
+  println("  hash <file>              Hash (MD5/SHA1/SHA256/SHA224/SM3)")
   println("  strings <file>           String extraction")
   println("  entropy <file>           Entropy analysis")
   println("  search <file> <pattern>  Search (hex: FF ?? 00 | text)")
