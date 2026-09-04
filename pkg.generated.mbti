@@ -42,15 +42,27 @@ pub fn format_structure(Array[StructField]) -> String
 
 pub fn format_structure_json(Array[StructField]) -> String
 
+pub fn hash_all(Bytes) -> Array[HashResult]
+
 pub fn hex_decode(String) -> Bytes?
 
 pub fn hex_encode(Bytes) -> String
+
+pub fn md5_hex(Bytes) -> String
 
 pub fn parse_hex_string(String) -> Bytes?
 
 pub fn parse_structure(Bytes) -> Array[StructField]
 
 pub fn scan_signatures(Bytes) -> Array[ScanMatch]
+
+pub fn sha1_hex(Bytes) -> String
+
+pub fn sha224_hex(Bytes) -> String
+
+pub fn sha256_hex(Bytes) -> String
+
+pub fn sm3_hex(Bytes) -> String
 
 pub fn to_hex_string(Int, width? : Int) -> String
 
@@ -69,6 +81,11 @@ pub struct EntropyBlock {
   start : Int
   end : Int
   entropy : Double
+} derive(@debug.Debug)
+
+pub struct HashResult {
+  name : String
+  value : String
 } derive(@debug.Debug)
 
 type HexBuffer
@@ -113,4 +130,3 @@ type StructField derive(@debug.Debug)
 // Type aliases
 
 // Traits
-

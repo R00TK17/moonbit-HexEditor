@@ -58,4 +58,3 @@ type UndoOp derive(@debug.Debug)
 // Type aliases
 
 // Traits
-
