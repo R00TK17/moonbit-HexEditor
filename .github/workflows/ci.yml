@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 env:
-  MOONBIT_INSTALL_VERSION: "0.10.3+16975d007"
+  MOONBIT_INSTALL_VERSION: "0.10.0+84519ca0a"
 
 jobs:
   linux:
