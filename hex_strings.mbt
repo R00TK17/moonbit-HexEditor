@@ -39,7 +39,7 @@ pub fn find_strings(bytes : Bytes) -> Array[StringMatch] {
     }
     let text = sb.to_string()
     if text.length() >= 4 {
-      results.push({ offset: start, text })
+      results.push({ offset: start, text, })
     }
   }
   results

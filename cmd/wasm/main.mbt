@@ -2,7 +2,7 @@
 /// MoonBit Hex Editor — Wasm CLI (lightweight, no TUI)
 /// Provides core analysis functions without native terminal dependencies.
 fn main {
-  let all_args = @sys.get_cli_args()
+  let all_args = @env.args()
   // Skip program name (args[0])
   let args : Array[String] = []
   for i = 1; i < all_args.length(); i = i + 1 {

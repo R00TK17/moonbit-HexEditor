@@ -31,7 +31,7 @@ priv struct AcPattern {
 fn build_ac(patterns : Array[Bytes]) -> (Array[AcNode], Array[AcPattern]) {
   let nodes : Array[AcNode] = []
   // Root node
-  nodes.push({ next: FixedArray::make(256, -1), fail: 0, pat_idx: -1 })
+  nodes.push({ next: FixedArray::make(256, -1), fail: 0, pat_idx: -1, })
   let ac_pats : Array[AcPattern] = []
   // Build trie
   for pi = 0; pi < patterns.length(); pi = pi + 1 {
@@ -41,12 +41,12 @@ fn build_ac(patterns : Array[Bytes]) -> (Array[AcNode], Array[AcPattern]) {
       let b = pat[j].to_int()
       if nodes[n].next[b] == -1 {
         nodes[n].next[b] = nodes.length()
-        nodes.push({ next: FixedArray::make(256, -1), fail: 0, pat_idx: -1 })
+        nodes.push({ next: FixedArray::make(256, -1), fail: 0, pat_idx: -1, })
       }
       n = nodes[n].next[b]
     }
     nodes[n].pat_idx = ac_pats.length()
-    ac_pats.push({ bytes: pat })
+    ac_pats.push({ bytes: pat, })
   }
   // Build failure links (BFS)
   let queue : Array[Int] = []
@@ -296,7 +296,7 @@ fn validate_jpeg(bytes : Bytes, off : Int, len : Int) -> ScanMatch? {
     pos = pos + 2 + seg_len
   }
   guard markers >= 1 else { None }
-  Some({ offset: off, name: "JPEG image", size: 0, confidence: 3 })
+  Some({ offset: off, name: "JPEG image", size: 0, confidence: 3, })
 }
 
 ///|
@@ -344,7 +344,7 @@ fn validate_gif(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
     (read_str(bytes, off, 6) == "GIF87a" || read_str(bytes, off, 6) == "GIF89a") else {
     None
   }
-  Some({ offset: off, name: "GIF image", size: 0, confidence: 3 })
+  Some({ offset: off, name: "GIF image", size: 0, confidence: 3, })
 }
 
 ///|
@@ -362,7 +362,7 @@ fn validate_bmp(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
   let bpp = bytes[off + 28].to_int() + bytes[off + 29].to_int() * 256
   guard hdr_size >= 12 && hdr_size <= 256 else { None }
   guard planes == 1 && bpp > 0 && bpp <= 32 else { None }
-  Some({ offset: off, name: "BMP image", size: 0, confidence: 3 })
+  Some({ offset: off, name: "BMP image", size: 0, confidence: 3, })
 }
 
 ///|
@@ -370,10 +370,10 @@ fn validate_wav(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
   guard off + 12 <= _len && read_str(bytes, off, 4) == "RIFF" else { None }
   let fcc = read_str(bytes, off + 8, 4)
   if fcc == "WAVE" {
-    return Some({ offset: off, name: "WAV audio", size: 0, confidence: 2 })
+    return Some({ offset: off, name: "WAV audio", size: 0, confidence: 2, })
   }
   if fcc == "AVI " {
-    return Some({ offset: off, name: "AVI video", size: 0, confidence: 2 })
+    return Some({ offset: off, name: "AVI video", size: 0, confidence: 2, })
   }
   None
 }
@@ -399,7 +399,12 @@ fn validate_zip(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
     } else {
       "method=" + cm.to_string()
     }
-    Some({ offset: off, name: "ZIP archive, " + cm_str, size: 0, confidence: 3 })
+    Some({
+      offset: off,
+      name: "ZIP archive, " + cm_str,
+      size: 0,
+      confidence: 3,
+    })
   } else {
     Some({
       offset: off,
@@ -413,7 +418,7 @@ fn validate_zip(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
 ///|
 fn validate_rar(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
   guard off + 7 <= _len && read_str(bytes, off, 4) == "Rar!" else { None }
-  Some({ offset: off, name: "RAR archive", size: 0, confidence: 3 })
+  Some({ offset: off, name: "RAR archive", size: 0, confidence: 3, })
 }
 
 ///|
@@ -427,7 +432,7 @@ fn validate_7z(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
     bytes[off + 5].to_int() == 0x1C else {
     None
   }
-  Some({ offset: off, name: "7-Zip archive", size: 0, confidence: 3 })
+  Some({ offset: off, name: "7-Zip archive", size: 0, confidence: 3, })
 }
 
 ///|
@@ -447,7 +452,7 @@ fn validate_gzip(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
       confidence: 3,
     })
   } else {
-    Some({ offset: off, name: "GZip (unverified)", size: 0, confidence: 1 })
+    Some({ offset: off, name: "GZip (unverified)", size: 0, confidence: 1, })
   }
 }
 
@@ -500,7 +505,7 @@ fn validate_bzip2(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
       confidence: 3,
     })
   } else {
-    Some({ offset: off, name: "BZip2 (unverified)", size: 0, confidence: 1 })
+    Some({ offset: off, name: "BZip2 (unverified)", size: 0, confidence: 1, })
   }
 }
 
@@ -521,9 +526,9 @@ fn validate_pe(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
     bytes[off + elfanew + 1].to_int() == 0x45 &&
     bytes[off + elfanew + 2].to_int() == 0x00 &&
     bytes[off + elfanew + 3].to_int() == 0x00 {
-    Some({ offset: off, name: "PE executable", size: 0, confidence: 3 })
+    Some({ offset: off, name: "PE executable", size: 0, confidence: 3, })
   } else {
-    Some({ offset: off, name: "PE executable (MZ)", size: 0, confidence: 1 })
+    Some({ offset: off, name: "PE executable (MZ)", size: 0, confidence: 1, })
   }
 }
 
@@ -536,7 +541,7 @@ fn validate_elf(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
     bytes[off + 3].to_int() == 0x46 else {
     None
   }
-  Some({ offset: off, name: "ELF executable", size: 0, confidence: 3 })
+  Some({ offset: off, name: "ELF executable", size: 0, confidence: 3, })
 }
 
 ///|
@@ -547,13 +552,13 @@ fn validate_tar(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
     (bytes[off + 5].to_int() == 0x00 || bytes[off + 5].to_int() == 0x20) else {
     None
   }
-  Some({ offset: off - 257, name: "TAR archive", size: 0, confidence: 3 })
+  Some({ offset: off - 257, name: "TAR archive", size: 0, confidence: 3, })
 }
 
 ///|
 fn validate_ogg(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
   guard off + 4 <= _len && read_str(bytes, off, 4) == "OggS" else { None }
-  Some({ offset: off, name: "OGG audio", size: 0, confidence: 3 })
+  Some({ offset: off, name: "OGG audio", size: 0, confidence: 3, })
 }
 
 ///|
@@ -584,7 +589,7 @@ fn validate_mp3(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
 ///|
 fn validate_flac(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
   guard off + 4 <= _len && read_str(bytes, off, 4) == "fLaC" else { None }
-  Some({ offset: off, name: "FLAC audio", size: 0, confidence: 3 })
+  Some({ offset: off, name: "FLAC audio", size: 0, confidence: 3, })
 }
 
 ///|
@@ -596,7 +601,7 @@ fn validate_webm(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
     bytes[off + 3].to_int() == 0xA3 else {
     None
   }
-  Some({ offset: off, name: "WebM/Matroska", size: 0, confidence: 3 })
+  Some({ offset: off, name: "WebM/Matroska", size: 0, confidence: 3, })
 }
 
 ///|

@@ -92,7 +92,7 @@ pub fn entropy_scan(bytes : Bytes) -> Array[EntropyBlock] {
         }
       }
     }
-    results.push({ start: off, end, entropy: h })
+    results.push({ start: off, end, entropy: h, })
     off = end
   }
   results

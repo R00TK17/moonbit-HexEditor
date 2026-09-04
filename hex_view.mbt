@@ -31,7 +31,7 @@ pub fn HexViewConfig::with_bytes_per_row(
   self : HexViewConfig,
   bpr : Int,
 ) -> HexViewConfig {
-  { ..self, bytes_per_row: bpr }
+  { ..self, bytes_per_row: bpr, }
 }
 
 ///|
@@ -40,7 +40,7 @@ pub fn HexViewConfig::with_ascii(
   self : HexViewConfig,
   show : Bool,
 ) -> HexViewConfig {
-  { ..self, show_ascii: show }
+  { ..self, show_ascii: show, }
 }
 
 ///|
@@ -49,7 +49,7 @@ pub fn HexViewConfig::with_uppercase(
   self : HexViewConfig,
   upper : Bool,
 ) -> HexViewConfig {
-  { ..self, uppercase_hex: upper }
+  { ..self, uppercase_hex: upper, }
 }
 
 ///|

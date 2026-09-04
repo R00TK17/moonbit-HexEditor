@@ -293,7 +293,7 @@ pub fn handle_browser_key(
       let full_path = to_absolute_path(join_path(state.browser_path, name))
       match load_file_best(full_path) {
         Ok(b) => {
-          let new_slot : FileSlot = { buffer: b, path: full_path, offset: 0 }
+          let new_slot : FileSlot = { buffer: b, path: full_path, offset: 0, }
           state.file_slots.push(new_slot)
           state.pending_switch = state.file_slots.length() - 1
           state.browser_view = false
@@ -313,7 +313,7 @@ pub fn handle_browser_key(
       let abs = to_absolute_path(path)
       match load_file_best(abs) {
         Ok(b) => {
-          let new_slot : FileSlot = { buffer: b, path: abs, offset: 0 }
+          let new_slot : FileSlot = { buffer: b, path: abs, offset: 0, }
           state.file_slots.push(new_slot)
           state.pending_switch = state.file_slots.length() - 1
           state.browser_view = false

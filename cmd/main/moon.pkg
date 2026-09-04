@@ -1,14 +1,15 @@
 import {
   "R00TK17/hex_editor" @lib,
   "moonbitlang/core/debug",
+  "moonbitlang/core/env",
   "moonbitlang/x/fs",
-  "moonbitlang/x/sys",
 }
 
 supported_targets = "native"
 
+pkgtype(kind: "executable")
+
 options(
-  "is-main": true,
   "native-stub": [ "tui_stub.c" ],
   targets: {
     "main.mbt": [ "native" ],

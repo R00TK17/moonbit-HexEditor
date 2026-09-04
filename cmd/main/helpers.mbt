@@ -3,7 +3,7 @@
 ///|
 /// Get command-line args (skip program name).
 fn get_argv() -> Array[String] {
-  let raw = @sys.get_cli_args()
+  let raw = @env.args()
   if raw.length() <= 1 {
     return []
   }

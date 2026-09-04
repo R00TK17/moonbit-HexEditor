@@ -57,11 +57,11 @@ pub fn sm3_hex(data : Bytes) -> String {
 /// Compute all supported digests at once.
 pub fn hash_all(data : Bytes) -> Array[HashResult] {
   [
-    { name: "MD5", value: md5_hex(data) },
-    { name: "SHA1", value: sha1_hex(data) },
-    { name: "SHA256", value: sha256_hex(data) },
-    { name: "SHA224", value: sha224_hex(data) },
-    { name: "SM3", value: sm3_hex(data) },
+    { name: "MD5", value: md5_hex(data), },
+    { name: "SHA1", value: sha1_hex(data), },
+    { name: "SHA256", value: sha256_hex(data), },
+    { name: "SHA224", value: sha224_hex(data), },
+    { name: "SM3", value: sm3_hex(data), },
   ]
 }
 

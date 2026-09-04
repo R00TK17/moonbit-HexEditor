@@ -23,7 +23,7 @@ struct UndoOp {
 ///|
 /// Create a single-byte undo op.
 pub fn undo_op(kind : Int, offset : Int, old_byte : Byte) -> UndoOp {
-  { kind, offset, old_byte, old_bytes: [], count: 1 }
+  { kind, offset, old_byte, old_bytes: [], count: 1, }
 }
 
 ///|

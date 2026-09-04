@@ -19,7 +19,7 @@ fn field(
   val : String,
   desc : String,
 ) -> StructField {
-  { offset: off, size: sz, name, value: val, description: desc, children: [] }
+  { offset: off, size: sz, name, value: val, description: desc, children: [], }
 }
 
 ///|
@@ -30,7 +30,7 @@ fn group(
   desc : String,
   kids : Array[StructField],
 ) -> StructField {
-  { offset: off, size: sz, name, value: "", description: desc, children: kids }
+  { offset: off, size: sz, name, value: "", description: desc, children: kids, }
 }
 
 ///|
@@ -1865,7 +1865,6 @@ fn parse_mp3(bytes : Bytes) -> Array[StructField] {
       if sync >> 5 == 0x7FF {
         let mpeg_ver = (sync >> 3) & 3
         let layer = (sync >> 1) & 3
-        let _bitrate_idx = bytes[data_start + 2].to_int() >> 4
         let sample_rate_idx = (bytes[data_start + 2].to_int() >> 2) & 3
         let mpeg_ver_str = match mpeg_ver {
           3 => "MPEG1"
