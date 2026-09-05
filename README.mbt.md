@@ -76,7 +76,9 @@ let decoded = @R00TK17/hex_editor.base64_decode(b64)
 let md5 : String = @R00TK17/hex_editor.md5_hex(bytes)
 
 ///|
-let results : Array[@R00TK17/hex_editor.HashResult] = @R00TK17/hex_editor.hash_all(bytes)
+let results : Array[@R00TK17/hex_editor.HashResult] = @R00TK17/hex_editor.hash_all(
+  bytes,
+)
 ```
 
 ## Platform Support
