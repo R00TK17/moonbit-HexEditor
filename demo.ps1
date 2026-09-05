@@ -45,6 +45,11 @@ Write-Host "`$ moon run cmd/main -- strings testfile/test.txt" -ForegroundColor 
 moon run cmd/main -- strings testfile/test.txt 2>&1
 Write-Host ""
 
+Write-Host "--- 7. Hash / Checksum ---" -ForegroundColor Yellow
+Write-Host "`$ moon run cmd/main -- hash testfile/test.png" -ForegroundColor Gray
+moon run cmd/main -- hash testfile/test.png 2>&1
+Write-Host ""
+
 Write-Host "=========================================" -ForegroundColor Cyan
 Write-Host " Demo Complete!" -ForegroundColor Cyan
 Write-Host "=========================================" -ForegroundColor Cyan

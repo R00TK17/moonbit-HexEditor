@@ -20,7 +20,7 @@
 
 | 工具 | 版本 | 用途 |
 |------|------|------|
-| [MoonBit](https://www.moonbitlang.com/download/) | 0.1.20260703+ | 编译器与构建工具 |
+| [MoonBit](https://www.moonbitlang.com/download/) | 0.1.20260827+ | 编译器与构建工具 |
 | GCC | 任意近期版本 | C FFI 编译 |
 | Git | 任意 | 克隆仓库 |
 
@@ -345,7 +345,7 @@ hex_editor/
 ## 依赖
 
 - [moonbitlang/x](https://github.com/moonbitlang/x) — 文件I/O与系统API
-- MoonBit 0.1.20260703+
+- MoonBit 0.1.20260827+
 
 ## 许可证
 

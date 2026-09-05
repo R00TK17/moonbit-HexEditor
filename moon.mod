@@ -11,7 +11,7 @@
 
 name = "R00TK17/hex_editor"
 
-version = "0.1.2"
+version = "0.1.3"
 
 preferred_target = "native"
 

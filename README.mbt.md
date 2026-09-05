@@ -11,6 +11,7 @@ Terminal hex editor and binary file analysis toolkit written in MoonBit.
 - **Wildcard Search** — BMH exact, Shift-Or bit-parallel (??), greedy segment (*, *N)
 - **Signature Scanner** — Aho-Corasick multi-pattern matching with 18 per-format validators
 - **Entropy Analysis** — Shannon entropy on 256-byte blocks (precomputed lookup table)
+- **Hash / Checksum** — MD5, SHA1, SHA224, SHA256, SM3 (pure MoonBit, no FFI)
 - **Codecs** — Base64, URL percent-encoding, Unicode escape, Hex encode/decode
 - **Strings Extraction** — printable ASCII sequences ≥ 4 chars
 - **File Browser** — UTF-8 path support, multi-file switching, persistent bookmarks
@@ -29,6 +30,7 @@ chmod +x setup.sh && ./setup.sh   # Linux
 moon run cmd/main -- struct file.bin
 moon run cmd/main -- scan file.bin
 moon run cmd/main -- entropy file.bin
+moon run cmd/main -- hash file.bin
 
 # TUI mode
 moon run cmd/main -- file.bin
@@ -67,6 +69,14 @@ let b64 = @R00TK17/hex_editor.base64_encode(bytes)
 
 ///|
 let decoded = @R00TK17/hex_editor.base64_decode(b64)
+
+// Hash / checksum (MD5, SHA1, SHA224, SHA256, SM3)
+
+///|
+let md5 : String = @R00TK17/hex_editor.md5_hex(bytes)
+
+///|
+let results : Array[@R00TK17/hex_editor.HashResult] = @R00TK17/hex_editor.hash_all(bytes)
 ```
 
 ## Platform Support

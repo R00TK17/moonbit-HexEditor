@@ -20,7 +20,7 @@ A terminal-based hex editor and binary file analyzer written in MoonBit, featuri
 
 | Tool | Version | Purpose |
 |------|---------|---------|
-| [MoonBit](https://www.moonbitlang.com/download/) | 0.1.20260703+ | Compiler & build tool |
+| [MoonBit](https://www.moonbitlang.com/download/) | 0.1.20260827+ | Compiler & build tool |
 | GCC / Clang | Any recent | C FFI compilation |
 | Git | Any | Clone repository |
 
@@ -344,7 +344,7 @@ hex_editor/
 ## Dependencies
 
 - [moonbitlang/x](https://github.com/moonbitlang/x) — File I/O & system APIs
-- MoonBit 0.1.20260703+
+- MoonBit 0.1.20260827+
 
 ## License
 

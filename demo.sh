@@ -52,6 +52,12 @@ echo ""
 moon run cmd/main -- search -x testfile/test.png "89504E47" 2>&1
 echo ""
 
+echo "--- 7. Hash / Checksum ---"
+echo "$ moon run cmd/main -- hash testfile/test.png"
+echo ""
+moon run cmd/main -- hash testfile/test.png 2>&1
+echo ""
+
 echo "========================================="
 echo " Demo Complete!"
 echo "========================================="
