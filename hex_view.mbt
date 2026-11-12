@@ -4,12 +4,12 @@
 ///|
 /// Configuration for hex dump display formatting.
 struct HexViewConfig {
-  bytes_per_row : Int // bytes per row (default 16)
+  bytes_per_row : Int32 // bytes per row (default 16)
   show_ascii : Bool // show ASCII column
   uppercase_hex : Bool // use uppercase hex digits
   show_offset : Bool // show offset column
-  offset_width : Int // width of offset column in hex digits
-  group_bytes : Int // bytes per group for spacing (0 = no grouping)
+  offset_width : Int32 // width of offset column in hex digits
+  group_bytes : Int32 // bytes per group for spacing (0 = no grouping)
 }
 
 ///|
@@ -29,7 +29,7 @@ pub fn HexViewConfig::default() -> HexViewConfig {
 /// Creates a HexViewConfig with custom bytes per row.
 pub fn HexViewConfig::with_bytes_per_row(
   self : HexViewConfig,
-  bpr : Int,
+  bpr : Int32,
 ) -> HexViewConfig {
   { ..self, bytes_per_row: bpr, }
 }
@@ -54,7 +54,7 @@ pub fn HexViewConfig::with_uppercase(
 
 ///|
 /// Converts a nibble (4-bit value) to a hex character.
-fn nibble_to_char(n : Int, uppercase : Bool) -> Char {
+fn nibble_to_char(n : Int32, uppercase : Bool) -> Char {
   match n {
     0 => '0'
     1 => '1'
@@ -78,7 +78,7 @@ fn nibble_to_char(n : Int, uppercase : Bool) -> Char {
 
 ///|
 /// Converts a byte to a 2-character hex string.
-pub fn format_byte_hex(byte : Byte, uppercase? : Bool = true) -> String {
+pub fn format_byte_hex(byte : Byte, uppercase~ : Bool = true) -> String {
   let i = byte.to_int()
   let hi = nibble_to_char((i >> 4) & 0xF, uppercase)
   let lo = nibble_to_char(i & 0xF, uppercase)
@@ -88,9 +88,9 @@ pub fn format_byte_hex(byte : Byte, uppercase? : Bool = true) -> String {
 ///|
 /// Formats an integer offset as a hex address string.
 pub fn format_offset(
-  offset : Int,
-  width? : Int = 8,
-  uppercase? : Bool = true,
+  offset : Int32,
+  width~ : Int32 = 8,
+  uppercase~ : Bool = true,
 ) -> String {
   let w = width
   // Build hex digits from right to left in an array
@@ -129,9 +129,9 @@ pub fn format_ascii(byte : Byte) -> Char {
 /// Formats a single row of a hex dump.
 pub fn format_hex_row(
   data : FixedArray[Byte],
-  start : Int,
-  length : Int,
-  base_offset : Int,
+  start : Int32,
+  length : Int32,
+  base_offset : Int32,
   config : HexViewConfig,
 ) -> String {
   let sb = StringBuilder()
@@ -193,8 +193,8 @@ pub fn format_hex_row(
 /// Formats a complete hex dump from a HexBuffer.
 pub fn format_hex_dump(
   buffer : HexBuffer,
-  start_offset? : Int = 0,
-  length? : Int,
+  start_offset~ : Int32 = 0,
+  length? : Int32,
   config? : HexViewConfig,
 ) -> String {
   let cfg = match config {
@@ -245,7 +245,7 @@ pub fn format_buffer_info(buffer : HexBuffer) -> String {
 
 ///|
 /// Formats a byte count in human-readable form.
-pub fn format_size(len : Int) -> String {
+pub fn format_size(len : Int32) -> String {
   if len < 1024 {
     return "\{len} B"
   }
@@ -263,7 +263,7 @@ pub fn format_size(len : Int) -> String {
 
 ///|
 /// Formats a Double to a fixed number of decimal places.
-fn format_double(value : Double, places : Int) -> String {
+fn format_double(value : Double, places : Int32) -> String {
   let multiplier = ipow10(places).to_double()
   let scaled = value * multiplier
   let rounded = scaled.round().to_int()
@@ -292,7 +292,7 @@ fn format_double(value : Double, places : Int) -> String {
 
 ///|
 /// Computes 10^n for non-negative n.
-fn ipow10(n : Int) -> Int {
+fn ipow10(n : Int32) -> Int32 {
   let mut result = 1
   for _i = 0; _i < n; _i = _i + 1 {
     result = result * 10
@@ -302,6 +302,6 @@ fn ipow10(n : Int) -> Int {
 
 ///|
 /// Converts a number to a fixed-width hex string (useful for UI).
-pub fn to_hex_string(n : Int, width? : Int = 2) -> String {
+pub fn to_hex_string(n : Int32, width~ : Int32 = 2) -> String {
   format_offset(n, width~)
 }

@@ -30,7 +30,7 @@ fn string_starts_with(s : String, prefix : String) -> Bool {
 
 ///|
 /// Parse integer (decimal or 0x hex).
-fn parse_int(s : String) -> Int? {
+fn parse_int(s : String) -> Int32? {
   let len = s.length()
   guard len > 0 else { None }
   let mut i = 0
@@ -61,7 +61,7 @@ fn parse_int(s : String) -> Int? {
 
 ///|
 /// Parse hex digits from a string.
-fn parse_hex_digits(s : String, start : Int, sign : Int) -> Int? {
+fn parse_hex_digits(s : String, start : Int32, sign : Int32) -> Int32? {
   let mut result = 0
   for i = start; i < s.length(); i = i + 1 {
     let c = s.get_char(i).unwrap().to_int()
@@ -93,7 +93,7 @@ fn load_file(path : String) -> Result[@lib.HexBuffer, String] {
 
 ///|
 /// Detect file type from magic bytes.
-fn detect_type(magic : Int, size : Int) -> String? {
+fn detect_type(magic : Int32, size : Int32) -> String? {
   match magic {
     0xFFD8 => Some("JPEG image")
     0x8950 => Some("PNG image")
@@ -190,8 +190,8 @@ fn get_int_option(
   argv : Array[String],
   short : String,
   long : String,
-  default : Int,
-) -> Int {
+  default : Int32,
+) -> Int32 {
   for i = 0; i < argv.length(); i = i + 1 {
     if (argv[i] == short || argv[i] == long) && i + 1 < argv.length() {
       match parse_int(argv[i + 1]) {
@@ -206,7 +206,7 @@ fn get_int_option(
 ///|
 /// Build HexViewConfig from CLI options.
 fn build_view_config(
-  bpr : Int,
+  bpr : Int32,
   ascii : Bool,
   upper : Bool,
 ) -> @lib.HexViewConfig {

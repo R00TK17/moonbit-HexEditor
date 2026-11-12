@@ -5,8 +5,8 @@
 /// Returns true if the key was handled and the dispatch chain should stop.
 pub fn handle_bookmark_popup_key(
   state : TuiState,
-  key : Int,
-  screen_rows : Int,
+  key : Int32,
+  screen_rows : Int32,
 ) -> Bool {
   if key == -1 {
     if state.bookmark_sel > 0 {
@@ -63,7 +63,7 @@ pub fn handle_bookmark_popup_key(
 ///|
 /// Handle bookmark-related keys in normal mode (b toggle, Ctrl+B set).
 /// Returns true if the key was handled.
-pub fn handle_bookmark_normal_key(state : TuiState, key : Int) -> Bool {
+pub fn handle_bookmark_normal_key(state : TuiState, key : Int32) -> Bool {
   if key == 'b'.to_int() || key == 'B'.to_int() {
     state.bookmark_view = !state.bookmark_view
     state.msg = if state.bookmark_view { "Bookmark view" } else { "Hex view" }

@@ -345,7 +345,7 @@ hex_editor/
 ## 依赖
 
 - [moonbitlang/x](https://github.com/moonbitlang/x) — 文件I/O与系统API
-- MoonBit 0.1.20260827+
+- MoonBit 0.1.20261105+
 
 ## 许可证
 

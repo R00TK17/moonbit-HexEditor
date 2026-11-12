@@ -344,7 +344,7 @@ hex_editor/
 ## Dependencies
 
 - [moonbitlang/x](https://github.com/moonbitlang/x) — File I/O & system APIs
-- MoonBit 0.1.20260827+
+- MoonBit 0.1.20261105+
 
 ## License
 

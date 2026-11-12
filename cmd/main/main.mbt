@@ -340,7 +340,7 @@ fn cmd_scan(argv : Array[String]) -> Unit {
 
 ///|
 /// Pad a string on the right to a minimum width.
-fn pad_right(s : String, width : Int) -> String {
+fn pad_right(s : String, width : Int32) -> String {
   let sb = StringBuilder()
   sb.write_string(s)
   for _i = s.length(); _i < width; _i = _i + 1 {
@@ -392,10 +392,10 @@ fn cmd_hash(argv : Array[String]) -> Unit {
 ///|
 fn hl_print_hex(
   buf : @lib.HexBuffer,
-  ctx : Int,
-  clen : Int,
-  match_off : Int,
-  match_len : Int,
+  ctx : Int32,
+  clen : Int32,
+  match_off : Int32,
+  match_len : Int32,
 ) -> Unit {
   let stop = if ctx + clen > buf.length() { buf.length() } else { ctx + clen }
   let mut row_off = ctx / 16 * 16

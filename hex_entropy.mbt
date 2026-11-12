@@ -8,11 +8,15 @@
 // range reduction + 6-term Taylor series.
 
 ///|
+#derive(Debug)
 pub struct EntropyBlock {
-  start : Int
-  end : Int
+  start : Int32
+  end : Int32
   entropy : Double
-} derive(Debug)
+}
+
+///|
+pub extend EntropyBlock with @debug.Debug::{to_repr}
 
 ///|
 /// Accurate log2 using range reduction + 6-term Taylor series.

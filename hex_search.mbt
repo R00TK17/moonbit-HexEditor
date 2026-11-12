@@ -8,7 +8,7 @@
 
 ///|
 /// Build BMH bad-character skip table. pattern.length() bytes.
-fn bmh_skip(pattern : Bytes) -> FixedArray[Int] {
+fn bmh_skip(pattern : Bytes) -> FixedArray[Int32] {
   let m = pattern.length()
   let skip = FixedArray::make(256, m)
   for j = 0; j < m - 1; j = j + 1 {
@@ -19,7 +19,7 @@ fn bmh_skip(pattern : Bytes) -> FixedArray[Int] {
 
 ///|
 /// Boyer-Moore-Horspool search — all occurrences.
-pub fn find_all_bytes(data : Bytes, pattern : Bytes) -> Array[Int] {
+pub fn find_all_bytes(data : Bytes, pattern : Bytes) -> Array[Int32] {
   let n = data.length()
   let m = pattern.length()
   let results = []
@@ -75,7 +75,7 @@ fn is_hex_digit(ch : Char) -> Bool {
 
 ///|
 /// Converts a hex character to its integer value.
-fn hex_char_to_int(ch : Char) -> Int {
+fn hex_char_to_int(ch : Char) -> Int32 {
   let c = ch.to_int()
   if c >= '0'.to_int() && c <= '9'.to_int() {
     c - '0'.to_int()
@@ -90,7 +90,7 @@ fn hex_char_to_int(ch : Char) -> Int {
 
 ///|
 /// Parse a single pattern token: "FF" → byte, "??" → -1, "*" → -2.
-fn parse_token(tok : String) -> Int? {
+fn parse_token(tok : String) -> Int32? {
   if tok == "??" || tok == "?" {
     return Some(-1)
   }
@@ -109,7 +109,7 @@ fn parse_token(tok : String) -> Int? {
 
 ///|
 /// Process a token and push results. Handles *N expansion (e.g. *5 → 5 wildcards).
-fn push_tok(tokens : Array[Int], tok : String) -> Bool {
+fn push_tok(tokens : Array[Int32], tok : String) -> Bool {
   if tok.length() > 1 && tok.get_char(0).unwrap() == '*' {
     let mut all_digits = true
     let mut n = 0
@@ -140,8 +140,8 @@ fn push_tok(tokens : Array[Int], tok : String) -> Bool {
 
 ///|
 /// Parse "A0 ?? B2 * FF" → [0xA0, -1, 0xB2, -2, 0xFF]. *N expands to N wildcards.
-fn parse_pattern_tokens(pattern : String) -> Array[Int]? {
-  let tokens : Array[Int] = []
+fn parse_pattern_tokens(pattern : String) -> Array[Int32]? {
+  let tokens : Array[Int32] = []
   let len = pattern.length()
   let mut sb = StringBuilder()
   for i = 0; i < len; i = i + 1 {
@@ -168,7 +168,7 @@ fn parse_pattern_tokens(pattern : String) -> Array[Int]? {
     return None
   }
   // Merge consecutive * tokens
-  let merged : Array[Int] = []
+  let merged : Array[Int32] = []
   for i = 0; i < tokens.length(); i = i + 1 {
     if tokens[i] == -2 &&
       merged.length() > 0 &&
@@ -185,7 +185,7 @@ fn parse_pattern_tokens(pattern : String) -> Array[Int]? {
 
 ///|
 /// Match a segment (no * tokens, may have ?? = -1) against data at offset.
-fn match_seg(data : Bytes, offset : Int, seg : Array[Int]) -> Bool {
+fn match_seg(data : Bytes, offset : Int32, seg : Array[Int32]) -> Bool {
   let seg_len = seg.length()
   if offset + seg_len > data.length() {
     return false
@@ -200,9 +200,9 @@ fn match_seg(data : Bytes, offset : Int, seg : Array[Int]) -> Bool {
 
 ///|
 /// Split tokens by * (-2) into segments. Empty segments removed.
-fn split_by_star(tokens : Array[Int]) -> Array[Array[Int]] {
-  let segments : Array[Array[Int]] = []
-  let cur : Array[Int] = []
+fn split_by_star(tokens : Array[Int32]) -> Array[Array[Int32]] {
+  let segments : Array[Array[Int32]] = []
+  let cur : Array[Int32] = []
   for i = 0; i < tokens.length(); i = i + 1 {
     if tokens[i] == -2 {
       if cur.length() > 0 {
@@ -224,15 +224,15 @@ fn split_by_star(tokens : Array[Int]) -> Array[Array[Int]] {
 /// Tokens: 0-255 = byte, -1 = single wildcard, -2 = multi wildcard (*).
 fn search_with_tokens(
   data : Bytes,
-  tokens : Array[Int],
-) -> (Array[Int], Array[Int]) {
+  tokens : Array[Int32],
+) -> (Array[Int32], Array[Int32]) {
   let has_star = tokens.contains(-2)
   let has_wild = tokens.contains(-1)
 
   if !has_star && !has_wild {
     let bytes = Bytes::makei(tokens.length(), fn(i) { tokens[i].to_byte() })
     let offsets = find_all_bytes(data, bytes)
-    let lens : Array[Int] = []
+    let lens : Array[Int32] = []
     for _i = 0; _i < offsets.length(); _i = _i + 1 {
       lens.push(bytes.length())
     }
@@ -253,7 +253,7 @@ fn search_with_tokens(
   // Complexity: O(n) for patterns ≤ 32 bytes, fallback to O(n×m) sliding window
   if !has_star {
     let pat_len = tokens.length()
-    let offsets : Array[Int] = []
+    let offsets : Array[Int32] = []
     let dlen = data.length()
     // `Int` is 32-bit, so the Shift-Or state/mask registers can only represent
     // at most 32 pattern positions (accept bit at pat_len-1 ≤ 31). Longer
@@ -295,7 +295,7 @@ fn search_with_tokens(
         }
       }
     }
-    let lens : Array[Int] = []
+    let lens : Array[Int32] = []
     for _i = 0; _i < offsets.length(); _i = _i + 1 {
       lens.push(pat_len)
     }
@@ -306,8 +306,8 @@ fn search_with_tokens(
   if segments.length() == 0 {
     return ([], [])
   }
-  let offsets : Array[Int] = []
-  let lens : Array[Int] = []
+  let offsets : Array[Int32] = []
+  let lens : Array[Int32] = []
   let seg0 = segments[0]
   let seg0_len = seg0.length()
   let max_gap = 4096
@@ -353,14 +353,14 @@ fn search_with_tokens(
 pub fn find_hex_pattern(
   data : Bytes,
   pattern : String,
-) -> (Array[Int], Array[Int])? {
+) -> (Array[Int32], Array[Int32])? {
   let tokens = match parse_pattern_tokens(pattern) {
     Some(t) => t
     None =>
       match parse_hex_string(pattern) {
         Some(bytes) => {
           let offsets = find_all_bytes(data, bytes)
-          let lens : Array[Int] = []
+          let lens : Array[Int32] = []
           for _i = 0; _i < offsets.length(); _i = _i + 1 {
             lens.push(bytes.length())
           }
@@ -374,8 +374,8 @@ pub fn find_hex_pattern(
 
 ///|
 /// Parse text pattern with wildcards: ? = any char, * = any length, *N = N chars, \ = escape.
-fn parse_text_tokens(pattern : String) -> Array[Int]? {
-  let tokens : Array[Int] = []
+fn parse_text_tokens(pattern : String) -> Array[Int32]? {
+  let tokens : Array[Int32] = []
   let len = pattern.length()
   let mut i = 0
   while i < len {
@@ -425,7 +425,7 @@ fn parse_text_tokens(pattern : String) -> Array[Int]? {
   if tokens.length() == 0 {
     return None
   }
-  let merged : Array[Int] = []
+  let merged : Array[Int32] = []
   for k = 0; k < tokens.length(); k = k + 1 {
     if tokens[k] == -2 &&
       merged.length() > 0 &&
@@ -446,7 +446,7 @@ fn parse_text_tokens(pattern : String) -> Array[Int]? {
 pub fn find_text_pattern(
   data : Bytes,
   pattern : String,
-) -> (Array[Int], Array[Int])? {
+) -> (Array[Int32], Array[Int32])? {
   match parse_text_tokens(pattern) {
     Some(tokens) => Some(search_with_tokens(data, tokens))
     None => None

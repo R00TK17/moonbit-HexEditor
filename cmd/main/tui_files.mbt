@@ -4,8 +4,8 @@
 /// Handle keys in the file list popup. Returns true to swallow all keys.
 pub fn handle_file_list_key(
   state : TuiState,
-  key : Int,
-  screen_rows : Int,
+  key : Int32,
+  screen_rows : Int32,
 ) -> Bool {
   let total = state.file_slots.length()
   if key == -1 { // up
@@ -55,7 +55,7 @@ pub fn handle_file_list_key(
 
 ///|
 /// Handle Tab key in normal mode to open file list.
-pub fn handle_file_list_normal_key(state : TuiState, key : Int) -> Bool {
+pub fn handle_file_list_normal_key(state : TuiState, key : Int32) -> Bool {
   if key == 9 { // Tab
     if state.file_slots.length() > 1 {
       state.file_list_view = true
@@ -198,7 +198,7 @@ pub fn refresh_browser(state : TuiState) -> Unit {
 
 ///|
 /// Decode UTF-8 bytes to String.
-fn utf8_to_string(buf : Bytes, start : Int, end : Int) -> String {
+fn utf8_to_string(buf : Bytes, start : Int32, end : Int32) -> String {
   let sb = StringBuilder()
   let mut i = start
   while i < end {
@@ -257,8 +257,8 @@ fn get_cwd_string() -> String {
 /// Handle keys in the file browser popup. Returns true to swallow all keys.
 pub fn handle_browser_key(
   state : TuiState,
-  key : Int,
-  screen_rows : Int,
+  key : Int32,
+  screen_rows : Int32,
 ) -> Bool {
   let total = state.browser_names.length()
   if key == -1 { // up
@@ -371,7 +371,7 @@ fn get_marks_path(file_path : String) -> String {
 
 ///|
 /// Parse an integer from ASCII bytes. Returns 0 on failure.
-fn parse_int_from_bytes(data : Bytes, start : Int, end : Int) -> Int {
+fn parse_int_from_bytes(data : Bytes, start : Int32, end : Int32) -> Int32 {
   let mut val = 0
   let mut neg = false
   let mut i = start
@@ -398,8 +398,8 @@ fn parse_int_from_bytes(data : Bytes, start : Int, end : Int) -> Int {
 /// Save bookmarks and scroll offset to marks file.
 pub fn save_file_state(
   file_path : String,
-  offset : Int,
-  bookmarks : FixedArray[Int?],
+  offset : Int32,
+  bookmarks : FixedArray[Int32?],
 ) -> Unit {
   if file_path == "(new)" || file_path == "" {
     return
@@ -424,7 +424,10 @@ pub fn save_file_state(
 
 ///|
 /// Load bookmarks and scroll offset from marks file. Returns saved offset (0 if none).
-pub fn load_file_state(file_path : String, bookmarks : FixedArray[Int?]) -> Int {
+pub fn load_file_state(
+  file_path : String,
+  bookmarks : FixedArray[Int32?],
+) -> Int32 {
   if file_path == "(new)" || file_path == "" {
     return 0
   }

@@ -5,75 +5,75 @@
 pub struct FileSlot {
   mut buffer : @lib.HexBuffer
   path : String
-  mut offset : Int
+  mut offset : Int32
 }
 
 ///|
 /// Mutable TUI state passed to key handlers.
 struct TuiState {
-  mut offset : Int
+  mut offset : Int32
   mut msg : String
-  mut results : Array[Int]
-  mut result_idx : Int
-  mut match_len : Int
-  mut match_lens : Array[Int]
+  mut results : Array[Int32]
+  mut result_idx : Int32
+  mut match_len : Int32
+  mut match_lens : Array[Int32]
   mut running : Bool
   mut edit_mode : Bool
-  mut edit_off : Int
-  mut edit_nibble : Int?
+  mut edit_off : Int32
+  mut edit_nibble : Int32?
   mut edit_ascii : Bool
   mut edit_modified : Bool
   mut insert_mode : Bool
   mut select_mode : Bool
-  mut select_start : Int
+  mut select_start : Int32
   clipboard : Array[Byte]
   mut esc_pending : Bool
   mut struct_view : Bool
-  mut struct_offset : Int
+  mut struct_offset : Int32
   mut struct_lines : Array[String]
   mut struct_done : Bool
   mut bookmark_view : Bool
-  mut bookmark_sel : Int
-  mut bookmark_scroll : Int
-  bookmarks : FixedArray[Int?]
+  mut bookmark_sel : Int32
+  mut bookmark_scroll : Int32
+  bookmarks : FixedArray[Int32?]
   mut scan_view : Bool
-  mut scan_sel : Int
-  mut scan_scroll : Int
-  mut scan_offsets : Array[Int]
+  mut scan_sel : Int32
+  mut scan_scroll : Int32
+  mut scan_offsets : Array[Int32]
   mut scan_names : Array[String]
-  mut scan_sizes : Array[Int]
+  mut scan_sizes : Array[Int32]
   mut scan_done : Bool
   mut entropy_view : Bool
-  mut entropy_sel : Int
+  mut entropy_sel : Int32
   mut entropy_blocks : Array[@lib.EntropyBlock]
   mut entropy_done : Bool
   mut hash_view : Bool
-  mut hash_sel : Int
+  mut hash_sel : Int32
   mut hash_results : Array[@lib.HashResult]
   mut hash_done : Bool
   mut strings_view : Bool
-  mut strings_sel : Int
-  mut strings_scroll : Int
+  mut strings_sel : Int32
+  mut strings_scroll : Int32
   mut strings_matches : Array[@lib.StringMatch]
   mut strings_done : Bool
   mut undo_stack : Array[UndoOp]
   mut redo_stack : Array[UndoOp]
   mut codec_view : Bool
-  mut codec_type : Int
+  mut codec_type : Int32
   mut codec_encode : Bool
   mut codec_input : String
   mut codec_result : String
   file_slots : Array[FileSlot]
-  mut active_file : Int
+  mut active_file : Int32
   mut file_list_view : Bool
-  mut file_list_sel : Int
-  mut pending_switch : Int
+  mut file_list_sel : Int32
+  mut pending_switch : Int32
   mut browser_view : Bool
   mut browser_path : String
   mut browser_names : Array[String]
   mut browser_is_dir : Array[Bool]
-  mut browser_sel : Int
-  mut browser_scroll : Int
+  mut browser_sel : Int32
+  mut browser_scroll : Int32
 }
 
 ///|
@@ -222,7 +222,7 @@ fn codec_recompute(state : TuiState) -> Unit {
 
 ///|
 /// Handle keys in codec popup. All printable chars are input.
-fn handle_codec_key(state : TuiState, key : Int) -> Unit {
+fn handle_codec_key(state : TuiState, key : Int32) -> Unit {
   if key == -3 { // left: prev type
     state.codec_type = (state.codec_type + 3) % 4
     codec_recompute(state)
@@ -258,8 +258,8 @@ fn handle_codec_key(state : TuiState, key : Int) -> Unit {
 pub fn handle_key(
   state : TuiState,
   buffer : @lib.HexBuffer,
-  key : Int,
-  screen_rows : Int,
+  key : Int32,
+  screen_rows : Int32,
 ) -> Unit {
   // Only clear status message on real keypress, not on timeout (-10)
   if key != -10 {

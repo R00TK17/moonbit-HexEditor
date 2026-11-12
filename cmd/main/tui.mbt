@@ -4,7 +4,7 @@
 
 ///|
 /// FFI declarations
-extern "C" fn tui_get_key() -> Int = "tui_get_key"
+extern "C" fn tui_get_key() -> Int32 = "tui_get_key"
 
 ///|
 extern "C" fn tui_init_console() -> Unit = "tui_init_console"
@@ -31,18 +31,18 @@ extern "C" fn tui_enter_alt_screen() -> Unit = "tui_enter_alt_screen"
 extern "C" fn tui_exit_alt_screen() -> Unit = "tui_exit_alt_screen"
 
 ///|
-extern "C" fn tui_get_terminal_rows() -> Int = "tui_get_terminal_rows"
+extern "C" fn tui_get_terminal_rows() -> Int32 = "tui_get_terminal_rows"
 
 ///|
-extern "C" fn tui_get_terminal_cols() -> Int = "tui_get_terminal_cols"
+extern "C" fn tui_get_terminal_cols() -> Int32 = "tui_get_terminal_cols"
 
 ///|
 #borrow(_path)
-extern "C" fn mmap_file_size(_path : Bytes) -> Int = "mmap_file_size"
+extern "C" fn mmap_file_size(_path : Bytes) -> Int32 = "mmap_file_size"
 
 ///|
 #borrow(_path, _buf)
-extern "C" fn mmap_load(_path : Bytes, _buf : Bytes) -> Int = "mmap_load"
+extern "C" fn mmap_load(_path : Bytes, _buf : Bytes) -> Int32 = "mmap_load"
 
 ///|
 #borrow(_s)
@@ -50,15 +50,15 @@ extern "C" fn raw_print(_s : Bytes) -> Unit = "raw_print"
 
 ///|
 #borrow(_path, _buf)
-extern "C" fn tui_list_dir(_path : Bytes, _buf : Bytes, _size : Int) -> Int = "tui_list_dir"
+extern "C" fn tui_list_dir(_path : Bytes, _buf : Bytes, _size : Int32) -> Int32 = "tui_list_dir"
 
 ///|
 #borrow(_buf)
-extern "C" fn tui_get_cwd(_buf : Bytes, _size : Int) -> Int = "tui_get_cwd"
+extern "C" fn tui_get_cwd(_buf : Bytes, _size : Int32) -> Int32 = "tui_get_cwd"
 
 ///|
 #borrow(_buf)
-extern "C" fn tui_get_home(_buf : Bytes, _size : Int) -> Int = "tui_get_home"
+extern "C" fn tui_get_home(_buf : Bytes, _size : Int32) -> Int32 = "tui_get_home"
 
 ///|
 #borrow(_path)
@@ -66,7 +66,7 @@ extern "C" fn tui_mkdir_p(_path : Bytes) -> Unit = "tui_mkdir_p"
 
 ///|
 #borrow(_path, _buf)
-extern "C" fn tui_realpath(_path : Bytes, _buf : Bytes, _size : Int) -> Int = "tui_realpath"
+extern "C" fn tui_realpath(_path : Bytes, _buf : Bytes, _size : Int32) -> Int32 = "tui_realpath"
 
 ///|
 /// Convert string to UTF-8 bytes for FFI printing.
@@ -305,11 +305,11 @@ pub fn run_tui(file_path : String?) -> Unit {
 ///|
 /// Calculate offset to show target. Only scrolls if target is off-screen.
 fn scroll_to_show(
-  target : Int,
-  current_offset : Int,
-  total_len : Int,
-  screen_rows : Int,
-) -> Int {
+  target : Int32,
+  current_offset : Int32,
+  total_len : Int32,
+  screen_rows : Int32,
+) -> Int32 {
   let visible_bytes = screen_rows * 16
   let view_end = current_offset + visible_bytes
   if target >= current_offset && target < view_end {
@@ -333,7 +333,7 @@ fn scroll_to_show(
 
 ///|
 /// Get total lines and max scroll offset for struct view.
-fn get_struct_info(buffer : @lib.HexBuffer) -> (Int, Int) {
+fn get_struct_info(buffer : @lib.HexBuffer) -> (Int32, Int32) {
   let bytes = buffer.to_bytes()
   let fields = @lib.parse_structure(bytes)
   guard fields.length() > 0 else { (0, 0) }

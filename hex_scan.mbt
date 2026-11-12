@@ -7,19 +7,23 @@
 // Results filtered for false positives inside container formats.
 
 ///|
+#derive(Debug)
 pub struct ScanMatch {
-  offset : Int
+  offset : Int32
   name : String
-  mut size : Int
-  mut confidence : Int
-} derive(Debug)
+  mut size : Int32
+  mut confidence : Int32
+}
+
+///|
+pub extend ScanMatch with @debug.Debug::{to_repr}
 
 ///|
 /// Aho-Corasick automaton for multi-pattern matching
 priv struct AcNode {
-  next : FixedArray[Int] // transition to child node
-  mut fail : Int // failure link
-  mut pat_idx : Int // pattern index, -1 = no output
+  next : FixedArray[Int32] // transition to child node
+  mut fail : Int32 // failure link
+  mut pat_idx : Int32 // pattern index, -1 = no output
 }
 
 ///|
@@ -49,7 +53,7 @@ fn build_ac(patterns : Array[Bytes]) -> (Array[AcNode], Array[AcPattern]) {
     ac_pats.push({ bytes: pat, })
   }
   // Build failure links (BFS)
-  let queue : Array[Int] = []
+  let queue : Array[Int32] = []
   // Level 1
   for b = 0; b < 256; b = b + 1 {
     let child = nodes[0].next[b]
@@ -226,7 +230,7 @@ pub fn scan_signatures(bytes : Bytes) -> Array[ScanMatch] {
 
 ///|
 /// Each format has a dedicated validator (binwalk-style per-signature parser)
-fn validate_jpeg(bytes : Bytes, off : Int, len : Int) -> ScanMatch? {
+fn validate_jpeg(bytes : Bytes, off : Int32, len : Int32) -> ScanMatch? {
   guard off + 4 <= len &&
     bytes[off].to_int() == 0xFF &&
     bytes[off + 1].to_int() == 0xD8 &&
@@ -300,7 +304,7 @@ fn validate_jpeg(bytes : Bytes, off : Int, len : Int) -> ScanMatch? {
 }
 
 ///|
-fn validate_png(bytes : Bytes, off : Int, len : Int) -> ScanMatch? {
+fn validate_png(bytes : Bytes, off : Int32, len : Int32) -> ScanMatch? {
   guard off + 25 <= len &&
     bytes[off].to_int() == 0x89 &&
     bytes[off + 1].to_int() == 0x50 &&
@@ -339,7 +343,7 @@ fn validate_png(bytes : Bytes, off : Int, len : Int) -> ScanMatch? {
 }
 
 ///|
-fn validate_gif(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
+fn validate_gif(bytes : Bytes, off : Int32, _len : Int32) -> ScanMatch? {
   guard off + 6 <= _len &&
     (read_str(bytes, off, 6) == "GIF87a" || read_str(bytes, off, 6) == "GIF89a") else {
     None
@@ -348,7 +352,7 @@ fn validate_gif(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
 }
 
 ///|
-fn validate_bmp(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
+fn validate_bmp(bytes : Bytes, off : Int32, _len : Int32) -> ScanMatch? {
   guard off + 30 <= _len &&
     bytes[off].to_int() == 0x42 &&
     bytes[off + 1].to_int() == 0x4D else {
@@ -366,7 +370,7 @@ fn validate_bmp(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
 }
 
 ///|
-fn validate_wav(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
+fn validate_wav(bytes : Bytes, off : Int32, _len : Int32) -> ScanMatch? {
   guard off + 12 <= _len && read_str(bytes, off, 4) == "RIFF" else { None }
   let fcc = read_str(bytes, off + 8, 4)
   if fcc == "WAVE" {
@@ -379,7 +383,7 @@ fn validate_wav(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
 }
 
 ///|
-fn validate_zip(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
+fn validate_zip(bytes : Bytes, off : Int32, _len : Int32) -> ScanMatch? {
   guard off + 30 <= _len &&
     bytes[off].to_int() == 0x50 &&
     bytes[off + 1].to_int() == 0x4B &&
@@ -416,13 +420,13 @@ fn validate_zip(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
 }
 
 ///|
-fn validate_rar(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
+fn validate_rar(bytes : Bytes, off : Int32, _len : Int32) -> ScanMatch? {
   guard off + 7 <= _len && read_str(bytes, off, 4) == "Rar!" else { None }
   Some({ offset: off, name: "RAR archive", size: 0, confidence: 3, })
 }
 
 ///|
-fn validate_7z(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
+fn validate_7z(bytes : Bytes, off : Int32, _len : Int32) -> ScanMatch? {
   guard off + 6 <= _len &&
     bytes[off].to_int() == 0x37 &&
     bytes[off + 1].to_int() == 0x7A &&
@@ -436,7 +440,7 @@ fn validate_7z(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
 }
 
 ///|
-fn validate_gzip(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
+fn validate_gzip(bytes : Bytes, off : Int32, _len : Int32) -> ScanMatch? {
   guard off + 10 <= _len &&
     bytes[off].to_int() == 0x1F &&
     bytes[off + 1].to_int() == 0x8B else {
@@ -457,7 +461,7 @@ fn validate_gzip(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
 }
 
 ///|
-fn validate_zlib(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
+fn validate_zlib(bytes : Bytes, off : Int32, _len : Int32) -> ScanMatch? {
   guard off + 2 <= _len else { None }
   let header = bytes[off].to_int() * 256 + bytes[off + 1].to_int()
   guard header == 0x789C ||
@@ -489,7 +493,7 @@ fn validate_zlib(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
 }
 
 ///|
-fn validate_bzip2(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
+fn validate_bzip2(bytes : Bytes, off : Int32, _len : Int32) -> ScanMatch? {
   guard off + 4 <= _len &&
     bytes[off].to_int() == 0x42 &&
     bytes[off + 1].to_int() == 0x5A &&
@@ -510,7 +514,7 @@ fn validate_bzip2(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
 }
 
 ///|
-fn validate_pe(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
+fn validate_pe(bytes : Bytes, off : Int32, _len : Int32) -> ScanMatch? {
   guard off + 64 <= _len &&
     bytes[off].to_int() == 0x4D &&
     bytes[off + 1].to_int() == 0x5A else {
@@ -533,7 +537,7 @@ fn validate_pe(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
 }
 
 ///|
-fn validate_elf(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
+fn validate_elf(bytes : Bytes, off : Int32, _len : Int32) -> ScanMatch? {
   guard off + 4 <= _len &&
     bytes[off].to_int() == 0x7F &&
     bytes[off + 1].to_int() == 0x45 &&
@@ -545,7 +549,7 @@ fn validate_elf(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
 }
 
 ///|
-fn validate_tar(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
+fn validate_tar(bytes : Bytes, off : Int32, _len : Int32) -> ScanMatch? {
   // ustar magic at offset 257 from block start; check alignment + full magic
   guard off >= 257 && (off - 257) % 512 == 0 && off + 6 <= _len else { None }
   guard read_str(bytes, off, 5) == "ustar" &&
@@ -556,13 +560,13 @@ fn validate_tar(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
 }
 
 ///|
-fn validate_ogg(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
+fn validate_ogg(bytes : Bytes, off : Int32, _len : Int32) -> ScanMatch? {
   guard off + 4 <= _len && read_str(bytes, off, 4) == "OggS" else { None }
   Some({ offset: off, name: "OGG audio", size: 0, confidence: 3, })
 }
 
 ///|
-fn validate_mp3(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
+fn validate_mp3(bytes : Bytes, off : Int32, _len : Int32) -> ScanMatch? {
   guard off + 10 <= _len && read_str(bytes, off, 3) == "ID3" else { None }
   // Validate ID3v2 header: version (2.2, 2.3, 2.4), flags, syncsafe size
   let ver_major = bytes[off + 3].to_int()
@@ -587,13 +591,13 @@ fn validate_mp3(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
 }
 
 ///|
-fn validate_flac(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
+fn validate_flac(bytes : Bytes, off : Int32, _len : Int32) -> ScanMatch? {
   guard off + 4 <= _len && read_str(bytes, off, 4) == "fLaC" else { None }
   Some({ offset: off, name: "FLAC audio", size: 0, confidence: 3, })
 }
 
 ///|
-fn validate_webm(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
+fn validate_webm(bytes : Bytes, off : Int32, _len : Int32) -> ScanMatch? {
   guard off + 4 <= _len &&
     bytes[off].to_int() == 0x1A &&
     bytes[off + 1].to_int() == 0x45 &&
@@ -607,8 +611,8 @@ fn validate_webm(bytes : Bytes, off : Int, _len : Int) -> ScanMatch? {
 ///|
 fn check_sigs(
   bytes : Bytes,
-  off : Int,
-  len : Int,
+  off : Int32,
+  len : Int32,
   results : Array[ScanMatch],
 ) -> Unit {
   let parsers = [
@@ -688,7 +692,7 @@ fn estimate_sizes(bytes : Bytes, matches : Array[ScanMatch]) -> Unit {
 ///|
 pub fn extract_region(
   bytes : Bytes,
-  start : Int,
+  start : Int32,
   name : String,
   base_path : String,
 ) -> String {

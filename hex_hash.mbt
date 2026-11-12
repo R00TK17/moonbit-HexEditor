@@ -18,10 +18,14 @@ fn to_lower_hex(data : FixedArray[Byte]) -> String {
 }
 
 ///|
+#derive(Debug)
 pub struct HashResult {
   name : String
   value : String
-} derive(Debug)
+}
+
+///|
+pub extend HashResult with @debug.Debug::{to_repr}
 
 ///|
 /// MD5 digest (hex, lowercase). MD5 is cryptographically broken — prefer SHA-256.

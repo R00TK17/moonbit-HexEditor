@@ -12,17 +12,18 @@
 
 ///|
 /// Undo operation record.
+#derive(@debug.Debug)
 struct UndoOp {
-  kind : Int // 0=modify, 1=insert, 2=delete, 3=paste_overwrite, 4=paste_insert
-  offset : Int
+  kind : Int32 // 0=modify, 1=insert, 2=delete, 3=paste_overwrite, 4=paste_insert
+  offset : Int32
   old_byte : Byte // for kind 0/1/2
   old_bytes : Array[Byte] // for kind 3 (original bytes before paste)
-  count : Int // for kind 3/4 (number of bytes pasted)
-} derive(Debug)
+  count : Int32 // for kind 3/4 (number of bytes pasted)
+}
 
 ///|
 /// Create a single-byte undo op.
-pub fn undo_op(kind : Int, offset : Int, old_byte : Byte) -> UndoOp {
+pub fn undo_op(kind : Int32, offset : Int32, old_byte : Byte) -> UndoOp {
   { kind, offset, old_byte, old_bytes: [], count: 1, }
 }
 
@@ -30,10 +31,10 @@ pub fn undo_op(kind : Int, offset : Int, old_byte : Byte) -> UndoOp {
 /// Handle hex digit input in edit mode. Returns (new_off, new_nibble, msg, undo).
 fn handle_hex_input(
   buffer : @lib.HexBuffer,
-  edit_off : Int,
-  edit_nibble : Int?,
-  key : Int,
-) -> (Int, Int?, String, UndoOp?) {
+  edit_off : Int32,
+  edit_nibble : Int32?,
+  key : Int32,
+) -> (Int32, Int32?, String, UndoOp?) {
   let digit = if key >= '0'.to_int() && key <= '9'.to_int() {
     key - '0'.to_int()
   } else {
@@ -68,11 +69,11 @@ fn handle_hex_input(
 /// First nibble only records the high nibble; second nibble inserts the combined byte.
 fn handle_hex_input_insert(
   buffer : @lib.HexBuffer,
-  edit_off : Int,
-  edit_nibble : Int?,
-  key : Int,
+  edit_off : Int32,
+  edit_nibble : Int32?,
+  key : Int32,
   state : TuiState,
-) -> (Int, Int?, String) {
+) -> (Int32, Int32?, String) {
   let digit = if key >= '0'.to_int() && key <= '9'.to_int() {
     key - '0'.to_int()
   } else {
@@ -100,7 +101,7 @@ fn handle_hex_input_insert(
 }
 
 ///|
-fn hex_digit_char(n : Int) -> Char {
+fn hex_digit_char(n : Int32) -> Char {
   if n < 10 {
     ('0'.to_int() + n).to_char().unwrap()
   } else {
@@ -261,7 +262,7 @@ pub fn pop_last(stack : Array[UndoOp]) -> (Array[UndoOp], UndoOp?) {
 }
 
 ///|
-pub fn depth_suffix(undo_len : Int, redo_len : Int) -> String {
+pub fn depth_suffix(undo_len : Int32, redo_len : Int32) -> String {
   if undo_len == 0 && redo_len == 0 {
     ""
   } else {

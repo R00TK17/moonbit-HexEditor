@@ -12,15 +12,15 @@ pub fn base64_encode(Bytes) -> String
 
 pub fn entropy_scan(Bytes) -> Array[EntropyBlock]
 
-pub fn extract_region(Bytes, Int, String, String) -> String
+pub fn extract_region(Bytes, Int32, String, String) -> String
 
-pub fn find_all_bytes(Bytes, Bytes) -> Array[Int]
+pub fn find_all_bytes(Bytes, Bytes) -> Array[Int32]
 
-pub fn find_hex_pattern(Bytes, String) -> (Array[Int], Array[Int])?
+pub fn find_hex_pattern(Bytes, String) -> (Array[Int32], Array[Int32])?
 
 pub fn find_strings(Bytes) -> Array[StringMatch]
 
-pub fn find_text_pattern(Bytes, String) -> (Array[Int], Array[Int])?
+pub fn find_text_pattern(Bytes, String) -> (Array[Int32], Array[Int32])?
 
 pub fn format_ascii(Byte) -> Char
 
@@ -28,13 +28,13 @@ pub fn format_buffer_info(HexBuffer) -> String
 
 pub fn format_byte_hex(Byte, uppercase? : Bool) -> String
 
-pub fn format_hex_dump(HexBuffer, start_offset? : Int, length? : Int, config? : HexViewConfig) -> String
+pub fn format_hex_dump(HexBuffer, start_offset? : Int32, length? : Int32, config? : HexViewConfig) -> String
 
-pub fn format_hex_row(FixedArray[Byte], Int, Int, Int, HexViewConfig) -> String
+pub fn format_hex_row(FixedArray[Byte], Int32, Int32, Int32, HexViewConfig) -> String
 
-pub fn format_offset(Int, width? : Int, uppercase? : Bool) -> String
+pub fn format_offset(Int32, width? : Int32, uppercase? : Bool) -> String
 
-pub fn format_size(Int) -> String
+pub fn format_size(Int32) -> String
 
 pub fn format_strings_export(Array[StringMatch]) -> String
 
@@ -64,7 +64,7 @@ pub fn sha256_hex(Bytes) -> String
 
 pub fn sm3_hex(Bytes) -> String
 
-pub fn to_hex_string(Int, width? : Int) -> String
+pub fn to_hex_string(Int32, width? : Int32) -> String
 
 pub fn unicode_decode(String) -> Bytes?
 
@@ -77,32 +77,36 @@ pub fn url_encode(Bytes) -> String
 // Errors
 
 // Types and methods
+#derive(@debug.Debug)
 pub struct EntropyBlock {
-  start : Int
-  end : Int
+  start : Int32
+  end : Int32
   entropy : Double
-} derive(@debug.Debug)
+}
+pub fn EntropyBlock::to_repr(Self) -> @debug.Repr
 
+#derive(@debug.Debug)
 pub struct HashResult {
   name : String
   value : String
-} derive(@debug.Debug)
+}
+pub fn HashResult::to_repr(Self) -> @debug.Repr
 
 type HexBuffer
-pub fn HexBuffer::byte_at(Self, Int) -> Byte
+pub fn HexBuffer::byte_at(Self, Int32) -> Byte
 pub fn HexBuffer::data_ref(Self) -> FixedArray[Byte]
-pub fn HexBuffer::delete_byte(Self, Int) -> Bool
+pub fn HexBuffer::delete_byte(Self, Int32) -> Bool
 pub fn HexBuffer::from_bytes(Bytes) -> Self
 pub fn HexBuffer::from_file(String) -> Self raise
-pub fn HexBuffer::get_byte(Self, Int) -> Byte?
+pub fn HexBuffer::get_byte(Self, Int32) -> Byte?
 pub fn HexBuffer::get_file_path(Self) -> String?
-pub fn HexBuffer::insert_byte(Self, Int, Byte) -> Bool
+pub fn HexBuffer::insert_byte(Self, Int32, Byte) -> Bool
 pub fn HexBuffer::is_empty(Self) -> Bool
 pub fn HexBuffer::is_modified(Self) -> Bool
-pub fn HexBuffer::length(Self) -> Int
+pub fn HexBuffer::length(Self) -> Int32
 pub fn HexBuffer::new() -> Self
 pub fn HexBuffer::save(Self, path? : String) -> Unit raise
-pub fn HexBuffer::set_byte(Self, Int, Byte) -> Bool
+pub fn HexBuffer::set_byte(Self, Int32, Byte) -> Bool
 pub fn HexBuffer::set_file_path(Self, String) -> Unit
 pub fn HexBuffer::to_bytes(Self) -> Bytes
 pub fn HexBuffer::to_fixedarray(Self) -> FixedArray[Byte]
@@ -110,22 +114,28 @@ pub fn HexBuffer::to_fixedarray(Self) -> FixedArray[Byte]
 type HexViewConfig
 pub fn HexViewConfig::default() -> Self
 pub fn HexViewConfig::with_ascii(Self, Bool) -> Self
-pub fn HexViewConfig::with_bytes_per_row(Self, Int) -> Self
+pub fn HexViewConfig::with_bytes_per_row(Self, Int32) -> Self
 pub fn HexViewConfig::with_uppercase(Self, Bool) -> Self
 
+#derive(@debug.Debug)
 pub struct ScanMatch {
-  offset : Int
+  offset : Int32
   name : String
-  mut size : Int
-  mut confidence : Int
-} derive(@debug.Debug)
+  mut size : Int32
+  mut confidence : Int32
+}
+pub fn ScanMatch::to_repr(Self) -> @debug.Repr
 
+#derive(@debug.Debug)
 pub struct StringMatch {
-  offset : Int
+  offset : Int32
   text : String
-} derive(@debug.Debug)
+}
+pub fn StringMatch::to_repr(Self) -> @debug.Repr
 
-type StructField derive(@debug.Debug)
+#derive(@debug.Debug)
+type StructField
+pub fn StructField::to_repr(Self) -> @debug.Repr
 
 // Type aliases
 

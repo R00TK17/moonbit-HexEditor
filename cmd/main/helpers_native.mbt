@@ -2,7 +2,7 @@
 
 ///|
 /// Parse pure hex string to int (e.g., "100" -> 256).
-fn parse_hex_int(s : String) -> Int? {
+fn parse_hex_int(s : String) -> Int32? {
   let len = s.length()
   guard len > 0 else { None }
   let mut result = 0

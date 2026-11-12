@@ -7,7 +7,7 @@ const HEX_UPPER = "0123456789ABCDEF"
 const B64_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
 
 ///|
-fn b64_index(c : Char) -> Int {
+fn b64_index(c : Char) -> Int32 {
   let i = c.to_int()
   if i >= 'A'.to_int() && i <= 'Z'.to_int() {
     i - 'A'.to_int()
@@ -26,7 +26,7 @@ fn b64_index(c : Char) -> Int {
 
 ///|
 /// Check if byte value is URL-unreserved (RFC 3986).
-fn is_url_unreserved(b : Int) -> Bool {
+fn is_url_unreserved(b : Int32) -> Bool {
   (b >= 0x41 && b <= 0x5A) || // A-Z
   (b >= 0x61 && b <= 0x7A) || // a-z
   (b >= 0x30 && b <= 0x39) || // 0-9

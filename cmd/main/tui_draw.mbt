@@ -24,12 +24,12 @@ fn split_text_lines(text : String) -> Array[String] {
 ///|
 /// Build highlight bitmap for visible range. O(1) lookup per byte.
 fn build_highlight_bitmap(
-  results : Array[Int],
-  match_len : Int,
-  match_lens : Array[Int],
-  vis_start : Int,
-  vis_size : Int,
-  buf_len : Int,
+  results : Array[Int32],
+  match_len : Int32,
+  match_lens : Array[Int32],
+  vis_start : Int32,
+  vis_size : Int32,
+  buf_len : Int32,
 ) -> FixedArray[Bool] {
   let bm = FixedArray::make(vis_size, false)
   for i = 0; i < results.length(); i = i + 1 {
@@ -48,13 +48,13 @@ fn build_highlight_bitmap(
 ///|
 /// Build bitmap for current match highlight. O(1) lookup per byte.
 fn build_match_bitmap(
-  match_offset : Int,
-  match_len : Int,
-  match_lens : Array[Int],
-  search_idx : Int,
-  vis_start : Int,
-  vis_size : Int,
-  buf_len : Int,
+  match_offset : Int32,
+  match_len : Int32,
+  match_lens : Array[Int32],
+  search_idx : Int32,
+  vis_start : Int32,
+  vis_size : Int32,
+  buf_len : Int32,
 ) -> FixedArray[Bool] {
   let mlen = if search_idx >= 0 && search_idx < match_lens.length() {
     match_lens[search_idx]
@@ -76,7 +76,7 @@ fn build_match_bitmap(
 
 ///|
 /// Truncate text to fit within max columns.
-fn clip(text : String, max : Int) -> String {
+fn clip(text : String, max : Int32) -> String {
   if text.length() <= max {
     text
   } else {
@@ -89,58 +89,58 @@ fn clip(text : String, max : Int) -> String {
 /// Content area spans rows 1..screen_rows. Status bar is at screen_rows+1, help bar at screen_rows+2.
 fn draw_screen(
   buffer : @lib.HexBuffer,
-  offset : Int,
+  offset : Int32,
   status_msg : String,
-  search_results : Array[Int],
-  search_idx : Int,
-  match_len : Int,
-  match_lens : Array[Int],
+  search_results : Array[Int32],
+  search_idx : Int32,
+  match_len : Int32,
+  match_lens : Array[Int32],
   edit_mode : Bool,
-  edit_off : Int,
+  edit_off : Int32,
   edit_ascii : Bool,
   insert_mode : Bool,
   select_mode : Bool,
-  select_start : Int,
+  select_start : Int32,
   struct_view : Bool,
-  struct_offset : Int,
+  struct_offset : Int32,
   struct_lines : Array[String],
   bookmark_view : Bool,
-  bookmark_sel : Int,
-  bookmark_scroll : Int,
-  bookmarks : FixedArray[Int?],
+  bookmark_sel : Int32,
+  bookmark_scroll : Int32,
+  bookmarks : FixedArray[Int32?],
   scan_view : Bool,
-  scan_sel : Int,
-  scan_scroll : Int,
-  scan_offsets : Array[Int],
+  scan_sel : Int32,
+  scan_scroll : Int32,
+  scan_offsets : Array[Int32],
   scan_names : Array[String],
-  scan_sizes : Array[Int],
+  scan_sizes : Array[Int32],
   entropy_view : Bool,
-  entropy_sel : Int,
+  entropy_sel : Int32,
   entropy_blocks : Array[@lib.EntropyBlock],
   strings_view : Bool,
-  strings_sel : Int,
-  strings_scroll : Int,
+  strings_sel : Int32,
+  strings_scroll : Int32,
   strings_matches : Array[@lib.StringMatch],
   hash_view : Bool,
-  hash_sel : Int,
+  hash_sel : Int32,
   hash_results : Array[@lib.HashResult],
   codec_view : Bool,
-  codec_type : Int,
+  codec_type : Int32,
   codec_encode : Bool,
   codec_input : String,
   codec_result : String,
   file_list_view : Bool,
-  file_list_sel : Int,
+  file_list_sel : Int32,
   file_slots : Array[FileSlot],
-  active_file : Int,
+  active_file : Int32,
   browser_view : Bool,
   browser_path : String,
   browser_names : Array[String],
   browser_is_dir : Array[Bool],
-  browser_sel : Int,
-  browser_scroll : Int,
-  screen_rows : Int,
-  term_cols : Int,
+  browser_sel : Int32,
+  browser_scroll : Int32,
+  screen_rows : Int32,
+  term_cols : Int32,
 ) -> Unit {
   let sb = StringBuilder()
 
@@ -477,10 +477,10 @@ fn draw_screen(
 /// Draw the bookmark list popup over the hex content area.
 fn draw_bookmark_popup(
   sb : StringBuilder,
-  sel : Int,
-  scroll : Int,
-  bookmarks : FixedArray[Int?],
-  screen_rows : Int,
+  sel : Int32,
+  scroll : Int32,
+  bookmarks : FixedArray[Int32?],
+  screen_rows : Int32,
 ) -> Unit {
   sb.write_string("  -- Bookmarks --\u001b[K\r\n")
   let max_visible = if screen_rows > 1 { screen_rows - 1 } else { 0 }
@@ -521,9 +521,9 @@ fn draw_bookmark_popup(
 /// Draw the entropy analysis popup.
 fn draw_entropy_popup(
   sb : StringBuilder,
-  sel : Int,
+  sel : Int32,
   blocks : Array[@lib.EntropyBlock],
-  screen_rows : Int,
+  screen_rows : Int32,
 ) -> Unit {
   sb.write_string("  -- Entropy Scan --\u001b[K\r\n")
   let total = blocks.length()
@@ -562,7 +562,7 @@ fn draw_entropy_popup(
 }
 
 ///|
-fn make_bar(len : Int) -> String {
+fn make_bar(len : Int32) -> String {
   let s = StringBuilder()
   let clamped = if len > 40 { 40 } else { len }
   let color = if clamped > 30 {
@@ -593,11 +593,11 @@ fn format_e(e : Double) -> String {
 /// Draw the signature scan popup.
 fn draw_strings_popup(
   sb : StringBuilder,
-  sel : Int,
-  scroll : Int,
+  sel : Int32,
+  scroll : Int32,
   matches : Array[@lib.StringMatch],
-  screen_rows : Int,
-  term_cols : Int,
+  screen_rows : Int32,
+  term_cols : Int32,
 ) -> Unit {
   sb.write_string("  -- Strings --\u001b[K\r\n")
   let total = matches.length()
@@ -646,9 +646,9 @@ fn pad8(text : String) -> String {
 /// Draw the hash / checksum popup.
 fn draw_hash_popup(
   sb : StringBuilder,
-  sel : Int,
+  sel : Int32,
   results : Array[@lib.HashResult],
-  screen_rows : Int,
+  screen_rows : Int32,
 ) -> Unit {
   sb.write_string("  -- Hash / Checksum --\u001b[K\r\n")
   for i = 0; i < results.length(); i = i + 1 {
@@ -674,12 +674,12 @@ fn draw_hash_popup(
 ///|
 fn draw_scan_popup(
   sb : StringBuilder,
-  sel : Int,
-  scroll : Int,
-  offsets : Array[Int],
+  sel : Int32,
+  scroll : Int32,
+  offsets : Array[Int32],
   names : Array[String],
-  sizes : Array[Int],
-  screen_rows : Int,
+  sizes : Array[Int32],
+  screen_rows : Int32,
 ) -> Unit {
   sb.write_string("  -- Binary Scan --\u001b[K\r\n")
   let total = offsets.length()
@@ -722,12 +722,12 @@ fn draw_scan_popup(
 /// Draw the codec encode/decode popup.
 fn draw_codec_popup(
   sb : StringBuilder,
-  codec_type : Int,
+  codec_type : Int32,
   codec_encode : Bool,
   codec_input : String,
   codec_result : String,
-  screen_rows : Int,
-  term_cols : Int,
+  screen_rows : Int32,
+  term_cols : Int32,
 ) -> Unit {
   let types = ["Base64", "URL", "Unicode", "Hex"]
   // Header
@@ -808,10 +808,10 @@ fn draw_codec_popup(
 /// Draw file list popup.
 fn draw_file_list_popup(
   sb : StringBuilder,
-  sel : Int,
+  sel : Int32,
   slots : Array[FileSlot],
-  active : Int,
-  screen_rows : Int,
+  active : Int32,
+  screen_rows : Int32,
 ) -> Unit {
   sb.write_string("  -- Files --\u001b[K\r\n")
   let total = slots.length()
@@ -867,10 +867,10 @@ fn draw_browser_popup(
   path : String,
   names : Array[String],
   is_dir : Array[Bool],
-  sel : Int,
-  scroll : Int,
-  screen_rows : Int,
-  term_cols : Int,
+  sel : Int32,
+  scroll : Int32,
+  screen_rows : Int32,
+  term_cols : Int32,
 ) -> Unit {
   let w = if term_cols > 10 { term_cols - 10 } else { 60 }
   sb.write_string("  -- Open: " + clip(path, w) + " --\u001b[K\r\n")

@@ -2,19 +2,23 @@
 
 ///|
 /// A parsed field from a file structure.
+#derive(Debug)
 struct StructField {
-  offset : Int
-  size : Int
+  offset : Int32
+  size : Int32
   name : String
   value : String
   description : String
   children : Array[StructField]
-} derive(Debug)
+}
+
+///|
+pub extend StructField with @debug.Debug::{to_repr}
 
 ///|
 fn field(
-  off : Int,
-  sz : Int,
+  off : Int32,
+  sz : Int32,
   name : String,
   val : String,
   desc : String,
@@ -24,8 +28,8 @@ fn field(
 
 ///|
 fn group(
-  off : Int,
-  sz : Int,
+  off : Int32,
+  sz : Int32,
   name : String,
   desc : String,
   kids : Array[StructField],
@@ -134,13 +138,13 @@ fn is_zlib(bytes : Bytes) -> Bool {
 }
 
 ///|
-fn read_u16_be(bytes : Bytes, off : Int) -> Int {
+fn read_u16_be(bytes : Bytes, off : Int32) -> Int32 {
   guard off + 2 <= bytes.length() else { 0 }
   bytes[off].to_int() * 256 + bytes[off + 1].to_int()
 }
 
 ///|
-fn read_u32_be(bytes : Bytes, off : Int) -> Int {
+fn read_u32_be(bytes : Bytes, off : Int32) -> Int32 {
   guard off + 4 <= bytes.length() else { 0 }
   let mut r = 0
   for i = 0; i < 4; i = i + 1 {
@@ -150,13 +154,13 @@ fn read_u32_be(bytes : Bytes, off : Int) -> Int {
 }
 
 ///|
-fn read_u16_le(bytes : Bytes, off : Int) -> Int {
+fn read_u16_le(bytes : Bytes, off : Int32) -> Int32 {
   guard off + 2 <= bytes.length() else { 0 }
   bytes[off].to_int() + bytes[off + 1].to_int() * 256
 }
 
 ///|
-fn read_u32_le(bytes : Bytes, off : Int) -> Int {
+fn read_u32_le(bytes : Bytes, off : Int32) -> Int32 {
   guard off + 4 <= bytes.length() else { 0 }
   let mut r = 0
   for i = 3; i >= 0; i = i - 1 {
@@ -166,7 +170,7 @@ fn read_u32_le(bytes : Bytes, off : Int) -> Int {
 }
 
 ///|
-fn read_u64_le(bytes : Bytes, off : Int) -> Int {
+fn read_u64_le(bytes : Bytes, off : Int32) -> Int32 {
   guard off + 8 <= bytes.length() else { 0 }
   let mut r = 0
   for i = 7; i >= 0; i = i - 1 {
@@ -176,7 +180,7 @@ fn read_u64_le(bytes : Bytes, off : Int) -> Int {
 }
 
 ///|
-fn read_u64_be(bytes : Bytes, off : Int) -> Int {
+fn read_u64_be(bytes : Bytes, off : Int32) -> Int32 {
   guard off + 8 <= bytes.length() else { 0 }
   let mut r = 0
   for i = 0; i < 8; i = i + 1 {
@@ -186,12 +190,12 @@ fn read_u64_be(bytes : Bytes, off : Int) -> Int {
 }
 
 ///|
-fn hex(n : Int, width : Int) -> String {
+fn hex(n : Int32, width : Int32) -> String {
   format_offset(n, width~)
 }
 
 ///|
-fn read_str(bytes : Bytes, off : Int, max : Int) -> String {
+fn read_str(bytes : Bytes, off : Int32, max : Int32) -> String {
   let result = StringBuilder()
   let len = bytes.length()
   for i = 0; i < max; i = i + 1 {
@@ -220,10 +224,10 @@ fn read_str(bytes : Bytes, off : Int, max : Int) -> String {
 ///|
 fn find_fourcc(
   data : Bytes,
-  start : Int,
+  start : Int32,
   fourcc : String,
-  max_off : Int,
-) -> Int {
+  max_off : Int32,
+) -> Int32 {
   for p = start; p + 8 <= max_off && p + 8 <= data.length(); p = p + 2 {
     if read_str(data, p, 4) == fourcc {
       return p
@@ -235,7 +239,7 @@ fn find_fourcc(
 // Helper: read FOURCC as string from offset
 
 ///|
-fn fourcc_at(data : Bytes, off : Int) -> String {
+fn fourcc_at(data : Bytes, off : Int32) -> String {
   read_str(data, off, 4)
 }
 
@@ -354,7 +358,7 @@ fn parse_jpeg(bytes : Bytes) -> Array[StructField] {
 }
 
 ///|
-fn jpeg_marker_name(m : Int) -> String {
+fn jpeg_marker_name(m : Int32) -> String {
   match m {
     0xE0 => "APP0"
     0xE1 => "APP1"
@@ -1075,7 +1079,7 @@ fn parse_tar(bytes : Bytes) -> Array[StructField] {
 
 ///|
 /// Parse octal string to integer (used by TAR).
-fn parse_octal(s : String) -> Int {
+fn parse_octal(s : String) -> Int32 {
   let mut result = 0
   for i = 0; i < s.length(); i = i + 1 {
     let c = s.get_char(i).unwrap().to_int()
@@ -1327,7 +1331,7 @@ fn parse_flac(bytes : Bytes) -> Array[StructField] {
 
 ///|
 /// Read big-endian uint24 from bytes.
-fn read_u24_be(bytes : Bytes, off : Int) -> Int {
+fn read_u24_be(bytes : Bytes, off : Int32) -> Int32 {
   guard off + 3 <= bytes.length() else { 0 }
   bytes[off].to_int() * 65536 +
   bytes[off + 1].to_int() * 256 +
@@ -1482,7 +1486,7 @@ fn parse_webm(bytes : Bytes) -> Array[StructField] {
 }
 
 ///|
-fn read_ebml_id(bytes : Bytes, off : Int, len : Int) -> (Int, Int) {
+fn read_ebml_id(bytes : Bytes, off : Int32, len : Int32) -> (Int32, Int32) {
   guard off < len else { (0, 0) }
   let first = bytes[off].to_int()
   let mut id_len = 1
@@ -1506,7 +1510,7 @@ fn read_ebml_id(bytes : Bytes, off : Int, len : Int) -> (Int, Int) {
 }
 
 ///|
-fn read_ebml_size(bytes : Bytes, off : Int, len : Int) -> (Int, Int) {
+fn read_ebml_size(bytes : Bytes, off : Int32, len : Int32) -> (Int32, Int32) {
   guard off < len else { (0, 0) }
   let first = bytes[off].to_int()
   let mut size_len = 1
@@ -1530,7 +1534,7 @@ fn read_ebml_size(bytes : Bytes, off : Int, len : Int) -> (Int, Int) {
 }
 
 ///|
-fn ebml_name(id : Int) -> String {
+fn ebml_name(id : Int32) -> String {
   if id == 0x1A45DFA3 {
     "EBML"
   } else if id == 0x4286 {
@@ -1922,7 +1926,7 @@ fn parse_mp3(bytes : Bytes) -> Array[StructField] {
 
 ///|
 /// Read syncsafe integer (ID3v2 uses this — each byte has MSB=0).
-fn read_u32_syncsafe(bytes : Bytes, off : Int) -> Int {
+fn read_u32_syncsafe(bytes : Bytes, off : Int32) -> Int32 {
   guard off + 4 <= bytes.length() else { 0 }
   ((bytes[off].to_int() & 0x7F) << 21) |
   ((bytes[off + 1].to_int() & 0x7F) << 14) |
@@ -2262,7 +2266,12 @@ fn parse_elf(bytes : Bytes) -> Array[StructField] {
     (-1, 0)
   }
 
-  fn read_shstr(off : Int, sz : Int, sh_name : Int, bytes : Bytes) -> String {
+  fn read_shstr(
+    off : Int32,
+    sz : Int32,
+    sh_name : Int32,
+    bytes : Bytes,
+  ) -> String {
     if off < 0 || sh_name < 0 || sh_name >= sz {
       return "?"
     }
@@ -2387,7 +2396,7 @@ pub fn format_structure(fields : Array[StructField]) -> String {
 }
 
 ///|
-fn format_fields(fields : Array[StructField], indent : Int) -> String {
+fn format_fields(fields : Array[StructField], indent : Int32) -> String {
   let sb = StringBuilder()
   let pfx = StringBuilder()
   for _i = 0; _i < indent; _i = _i + 1 {
@@ -2450,7 +2459,7 @@ pub fn format_structure_json(fields : Array[StructField]) -> String {
 fn format_fields_json(
   fields : Array[StructField],
   sb : StringBuilder,
-  depth : Int,
+  depth : Int32,
 ) -> Unit {
   let pad = "  "
   for i = 0; i < fields.length(); i = i + 1 {

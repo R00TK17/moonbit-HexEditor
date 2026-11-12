@@ -24,9 +24,9 @@
 /// Consecutive edits at the same position are O(1).
 struct HexBuffer {
   mut data : FixedArray[Byte]
-  mut gap_start : Int // first gap index (inclusive)
-  mut gap_end : Int // first post-gap index (exclusive)
-  mut len : Int // logical length = data.length() - gap_size
+  mut gap_start : Int32 // first gap index (inclusive)
+  mut gap_end : Int32 // first post-gap index (exclusive)
+  mut len : Int32 // logical length = data.length() - gap_size
   mut modified : Bool
   mut file_path : String?
 }
@@ -34,7 +34,7 @@ struct HexBuffer {
 ///|
 /// Gap size = disk allocation / 16, minimum 256 bytes.
 /// Disk allocation = file_size rounded up to 4KB cluster boundary.
-fn calc_gap_size(file_size : Int) -> Int {
+fn calc_gap_size(file_size : Int32) -> Int32 {
   let alloc = (file_size + 4095) / 4096 * 4096
   let g = alloc / 16
   if g < 256 {
@@ -90,7 +90,7 @@ pub fn HexBuffer::from_file(path : String) -> HexBuffer raise {
 }
 
 ///|
-pub fn HexBuffer::length(self : HexBuffer) -> Int {
+pub fn HexBuffer::length(self : HexBuffer) -> Int32 {
   self.len
 }
 
@@ -113,7 +113,7 @@ pub fn HexBuffer::get_file_path(self : HexBuffer) -> String? {
 /// Convert logical index to physical index, skipping over the gap.
 ///   logical 0..gap_start  → physical same
 ///   logical gap_start..   → physical + gap_size
-fn HexBuffer::to_physical(self : HexBuffer, idx : Int) -> Int {
+fn HexBuffer::to_physical(self : HexBuffer, idx : Int32) -> Int32 {
   if idx < self.gap_start {
     idx
   } else {
@@ -123,7 +123,7 @@ fn HexBuffer::to_physical(self : HexBuffer, idx : Int) -> Int {
 
 ///|
 /// Safe byte read with bounds check.
-pub fn HexBuffer::get_byte(self : HexBuffer, offset : Int) -> Byte? {
+pub fn HexBuffer::get_byte(self : HexBuffer, offset : Int32) -> Byte? {
   guard offset >= 0 && offset < self.len else { None }
   Some(self.data[self.to_physical(offset)])
 }
@@ -131,7 +131,7 @@ pub fn HexBuffer::get_byte(self : HexBuffer, offset : Int) -> Byte? {
 ///|
 /// Fast byte read for rendering (no bounds check, no Option).
 /// Caller must ensure idx < self.len.
-pub fn HexBuffer::byte_at(self : HexBuffer, idx : Int) -> Byte {
+pub fn HexBuffer::byte_at(self : HexBuffer, idx : Int32) -> Byte {
   self.data[self.to_physical(idx)]
 }
 
@@ -139,7 +139,7 @@ pub fn HexBuffer::byte_at(self : HexBuffer, idx : Int) -> Byte {
 /// Set byte at logical offset. Returns false if out of bounds.
 pub fn HexBuffer::set_byte(
   self : HexBuffer,
-  offset : Int,
+  offset : Int32,
   value : Byte,
 ) -> Bool {
   guard offset >= 0 && offset < self.len else { false }
@@ -157,7 +157,7 @@ pub fn HexBuffer::set_byte(
 ///
 ///   pos > gap_start: move bytes [gap_end, gap_end+delta) to start of gap
 ///     [AAA|_____|BBB]  →  [AAAB|_____|BB]
-fn HexBuffer::move_gap(self : HexBuffer, pos : Int) -> Unit {
+fn HexBuffer::move_gap(self : HexBuffer, pos : Int32) -> Unit {
   if pos == self.gap_start {
     return
   }
@@ -207,7 +207,7 @@ fn HexBuffer::grow_gap(self : HexBuffer) -> Unit {
 /// 3. Write byte into gap_start, advance gap_start
 pub fn HexBuffer::insert_byte(
   self : HexBuffer,
-  offset : Int,
+  offset : Int32,
   value : Byte,
 ) -> Bool {
   guard offset >= 0 && offset <= self.len else { false }
@@ -226,7 +226,7 @@ pub fn HexBuffer::insert_byte(
 /// Delete byte at logical offset. O(1) if gap is already at offset.
 /// 1. Move gap to offset
 /// 2. Expand gap_end by 1 (the byte at gap_end is "deleted")
-pub fn HexBuffer::delete_byte(self : HexBuffer, offset : Int) -> Bool {
+pub fn HexBuffer::delete_byte(self : HexBuffer, offset : Int32) -> Bool {
   guard offset >= 0 && offset < self.len else { false }
   self.move_gap(offset)
   self.gap_end = self.gap_end + 1

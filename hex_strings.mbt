@@ -2,10 +2,14 @@
 // Find printable ASCII strings (>= 4 chars) in binary data.
 
 ///|
+#derive(Debug)
 pub struct StringMatch {
-  offset : Int
+  offset : Int32
   text : String
-} derive(Debug)
+}
+
+///|
+pub extend StringMatch with @debug.Debug::{to_repr}
 
 ///|
 /// Scan bytes for printable ASCII strings of length >= 4.
