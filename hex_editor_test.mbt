@@ -451,6 +451,45 @@ test "find_hex_pattern *N fixed wildcard" {
   @debug.assert_eq(off2.length(), 0)
 }
 
+///|
+test "find_hex_pattern 33-byte wildcard (Shift-Or overflow regression)" {
+  // 33 bytes exceeds the 32-bit Shift-Or state width; must fall back and
+  // return a single match at offset 0 rather than negative offsets.
+  let data = Bytes::make(33, b'\x00')
+  let pattern = Array::make(33, "??").join(" ")
+  let r = @hex_editor.find_hex_pattern(data, pattern)
+  assert_true(r is Some(_))
+  let (off, len) = r.unwrap()
+  @debug.assert_eq(off.length(), 1)
+  @debug.assert_eq(off[0], 0)
+  @debug.assert_eq(len[0], 33)
+}
+
+///|
+test "find_hex_pattern 32-byte wildcard (Shift-Or boundary)" {
+  // 32 bytes is the largest pattern the 32-bit Shift-Or register can hold.
+  let data = Bytes::make(32, b'\xAA')
+  let pattern = Array::make(32, "??").join(" ")
+  let r = @hex_editor.find_hex_pattern(data, pattern)
+  assert_true(r is Some(_))
+  let (off, len) = r.unwrap()
+  @debug.assert_eq(off.length(), 1)
+  @debug.assert_eq(off[0], 0)
+  @debug.assert_eq(len[0], 32)
+}
+
+///|
+test "find_hex_pattern 62-byte wildcard (sliding-window fallback)" {
+  let data = Bytes::make(62, b'\x00')
+  let pattern = Array::make(62, "??").join(" ")
+  let r = @hex_editor.find_hex_pattern(data, pattern)
+  assert_true(r is Some(_))
+  let (off, len) = r.unwrap()
+  @debug.assert_eq(off.length(), 1)
+  @debug.assert_eq(off[0], 0)
+  @debug.assert_eq(len[0], 62)
+}
+
 // ========== Text Pattern Tests ==========
 
 ///|

@@ -1,7 +1,7 @@
 // Hex Editor — Search Functionality
 // Three-tier search strategy:
 //   1. Exact match: Boyer-Moore-Horspool O(n/m) average
-//   2. Wildcard (??) patterns ≤62 bytes: Shift-Or bit-parallel O(n)
+//   2. Wildcard (??) patterns ≤32 bytes: Shift-Or bit-parallel O(n)
 //   3. Multi-segment (*) patterns: greedy segment matching with 4KB gap limit
 //
 // Supports hex patterns (FF ?? 00 * AB) and text patterns (He?lo, He*ld, \?).
@@ -250,12 +250,16 @@ fn search_with_tokens(
   // For ?? wildcards: mask[c] has bit i cleared for ALL 256 byte values
   // For concrete bytes: mask[c] has bit i cleared only for that byte
   //
-  // Complexity: O(n) for patterns ≤ 62 bytes, fallback to O(n×m) sliding window
+  // Complexity: O(n) for patterns ≤ 32 bytes, fallback to O(n×m) sliding window
   if !has_star {
     let pat_len = tokens.length()
     let offsets : Array[Int] = []
     let dlen = data.length()
-    if pat_len <= 62 {
+    // `Int` is 32-bit, so the Shift-Or state/mask registers can only represent
+    // at most 32 pattern positions (accept bit at pat_len-1 ≤ 31). Longer
+    // patterns overflow the shifts and produce negative/garbage offsets, so
+    // they must take the O(n×m) fallback below.
+    if pat_len <= 32 {
       // Shift-Or bit-parallel: O(n) for wildcard patterns
       let mask = FixedArray::make(256, -1) // all bits 1 = no match
       for i = 0; i < pat_len; i = i + 1 {
@@ -281,7 +285,7 @@ fn search_with_tokens(
         }
       }
     } else {
-      // Fallback: sliding window for patterns > 62 bytes
+      // Fallback: sliding window for patterns > 32 bytes
       for i = 0; i <= dlen - pat_len; i = i + 1 {
         if match_seg(data, i, tokens) {
           offsets.push(i)
